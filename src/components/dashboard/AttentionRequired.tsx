@@ -3,13 +3,15 @@ import { Badge } from '@/components/ui/badge';
 import { AlertTriangle } from 'lucide-react';
 import { cn, timeAgo, sessionStatusLabel } from '@/lib/utils';
 import type { Session, Team } from '@/stores/types';
+import QuickActions from '@/components/shared/QuickActions';
 
 interface AttentionRequiredProps {
   sessions: Session[];
   teams: Team[];
+  sessionPaneMap: Map<string, string>;
 }
 
-export default function AttentionRequired({ sessions, teams }: AttentionRequiredProps) {
+export default function AttentionRequired({ sessions, teams, sessionPaneMap }: AttentionRequiredProps) {
   // Find team/member for each session
   function findTeamInfo(session: Session): string | null {
     for (const team of teams) {
@@ -33,6 +35,7 @@ export default function AttentionRequired({ sessions, teams }: AttentionRequired
         <div className="space-y-2">
           {sessions.map((session) => {
             const teamInfo = findTeamInfo(session);
+            const paneId = sessionPaneMap.get(session.id);
             return (
               <div
                 key={session.id}
@@ -45,7 +48,7 @@ export default function AttentionRequired({ sessions, teams }: AttentionRequired
                       session.status === 'error' ? 'bg-status-red' : 'bg-status-yellow'
                     )}
                   />
-                  <span className="text-xs font-mono truncate">{session.id.slice(0, 8)}...</span>
+                  <span className="text-xs truncate">{session.initialPrompt ?? session.slug ?? session.id.slice(0, 12)}</span>
                   {teamInfo && (
                     <span className="text-xs text-muted-foreground truncate">{teamInfo}</span>
                   )}
@@ -62,6 +65,11 @@ export default function AttentionRequired({ sessions, teams }: AttentionRequired
                   </Badge>
                   <span className="text-xs text-muted-foreground">{timeAgo(session.lastActivity)}</span>
                 </div>
+                {paneId && (
+                  <div onClick={(e) => e.stopPropagation()}>
+                    <QuickActions paneId={paneId} sessionStatus={session.status} />
+                  </div>
+                )}
               </div>
             );
           })}

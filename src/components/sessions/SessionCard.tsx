@@ -18,6 +18,7 @@ interface SessionCardProps {
 function statusDotColor(status: Session['status']): string {
   switch (status) {
     case 'working': return 'bg-status-green';
+    case 'thinking': return 'bg-status-blue';
     case 'waiting-input':
     case 'waiting-approval': return 'bg-status-yellow';
     case 'error': return 'bg-status-red';
@@ -59,13 +60,13 @@ async function handleFocus(paneId: string) {
 
 export default function SessionCard({ session, teamInfo, paneId, sessionActivity, compact }: SessionCardProps) {
   const [expanded, setExpanded] = useState(false);
-  const isActive = session.status === 'working';
+  const isActive = session.status === 'working' || session.status === 'thinking';
   const model = shortModel(session.model ?? sessionActivity?.model);
   const cwd = shortCwd(session.cwd);
 
   if (compact) {
     return (
-      <div className="flex items-center gap-2 py-1 px-2 text-xs text-muted-foreground">
+      <div className="flex items-center gap-2 py-1 px-2 text-xs text-muted-foreground min-w-0">
         <div
           className={cn(
             'h-1.5 w-1.5 rounded-full shrink-0',
@@ -73,8 +74,8 @@ export default function SessionCard({ session, teamInfo, paneId, sessionActivity
             isActive && 'animate-pulse'
           )}
         />
-        <span className="font-mono truncate">
-          {session.agentId ? session.agentId.slice(0, 8) : session.id.slice(0, 8)}
+        <span className="truncate min-w-0 flex-1">
+          {session.initialPrompt ? session.initialPrompt.slice(0, 40) : (session.agentId ? session.agentId.slice(0, 8) : session.id.slice(0, 8))}
         </span>
         {model && (
           <Badge variant="secondary" className="text-[9px] px-1 py-0 shrink-0">
@@ -82,10 +83,10 @@ export default function SessionCard({ session, teamInfo, paneId, sessionActivity
           </Badge>
         )}
         {sessionActivity?.active && sessionActivity.tool && (
-          <span className="truncate">{sessionActivity.detail ?? sessionActivity.tool}</span>
+          <span className="truncate max-w-[100px] shrink-0">{sessionActivity.detail ?? sessionActivity.tool}</span>
         )}
         {!sessionActivity?.active && (
-          <span>{timeAgo(session.lastActivity)}</span>
+          <span className="shrink-0">{timeAgo(session.lastActivity)}</span>
         )}
       </div>
     );
@@ -93,14 +94,16 @@ export default function SessionCard({ session, teamInfo, paneId, sessionActivity
 
   const latestPrompt = session.latestPrompt;
   const initialPrompt = session.initialPrompt;
-  const title = latestPrompt ?? initialPrompt ?? session.slug;
-  const hasSecondaryPrompt = latestPrompt && initialPrompt && latestPrompt !== initialPrompt;
+  const title = teamInfo
+    ? `${teamInfo.teamName} / ${teamInfo.memberName}`
+    : initialPrompt ?? latestPrompt ?? `${session.project} / ${session.id.slice(0, 8)}`;
+  const hasSecondaryPrompt = latestPrompt && latestPrompt !== title;
 
   const cardContent = (
     <CardContent className="p-4">
       {/* Header row: status dot + title + badges */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3 min-w-0">
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-3 min-w-0 flex-1">
           <div
             className={cn(
               'h-2.5 w-2.5 rounded-full shrink-0',
@@ -109,11 +112,11 @@ export default function SessionCard({ session, teamInfo, paneId, sessionActivity
             )}
           />
           <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 min-w-0">
               {title ? (
-                <span className="text-sm font-medium truncate">{title}</span>
+                <span className="text-sm font-medium truncate min-w-0">{title}</span>
               ) : (
-                <span className="text-sm font-mono truncate">{session.id.slice(0, 12)}&hellip;</span>
+                <span className="text-sm font-mono truncate min-w-0">{session.id.slice(0, 12)}&hellip;</span>
               )}
               <Badge
                 variant="outline"
@@ -121,7 +124,8 @@ export default function SessionCard({ session, teamInfo, paneId, sessionActivity
                   'text-[10px] shrink-0',
                   session.status === 'error' && 'text-status-red border-status-red/30',
                   (session.status === 'waiting-input' || session.status === 'waiting-approval') && 'text-status-yellow border-status-yellow/30',
-                  session.status === 'working' && 'text-status-green border-status-green/30'
+                  (session.status === 'working' || session.status === 'done') && 'text-status-green border-status-green/30',
+                  session.status === 'thinking' && 'text-status-blue border-status-blue/30'
                 )}
               >
                 {sessionStatusLabel(session.status)}
@@ -151,32 +155,32 @@ export default function SessionCard({ session, teamInfo, paneId, sessionActivity
       </div>
 
       {/* Metadata row: slug, team, branch, cwd, time, size */}
-      <div className="flex items-center gap-2 mt-1 ml-[22px] text-xs text-muted-foreground flex-wrap">
+      <div className="flex items-center gap-2 mt-1 ml-[22px] text-xs text-muted-foreground flex-wrap overflow-hidden">
         {session.slug && (
-          <span className="font-mono text-[10px]">{session.slug}</span>
+          <span className="font-mono text-[10px] truncate max-w-[160px]">{session.slug}</span>
         )}
         {teamInfo && (
-          <span>{teamInfo.teamName} / {teamInfo.memberName}</span>
+          <span className="truncate max-w-[140px]">{teamInfo.teamName} / {teamInfo.memberName}</span>
         )}
         {session.gitBranch && session.gitBranch !== 'main' && (
-          <span className="flex items-center gap-0.5">
-            <GitBranch className="h-3 w-3" />
-            {session.gitBranch}
+          <span className="flex items-center gap-0.5 truncate max-w-[120px]">
+            <GitBranch className="h-3 w-3 shrink-0" />
+            <span className="truncate">{session.gitBranch}</span>
           </span>
         )}
-        {cwd && <span>{cwd}</span>}
-        <span className="flex items-center gap-0.5">
+        {cwd && <span className="truncate max-w-[120px]">{cwd}</span>}
+        <span className="flex items-center gap-0.5 shrink-0">
           <Clock className="h-3 w-3" />
           {timeAgo(session.lastActivity)}
         </span>
         {session.fileSize > 0 && (
-          <span className="flex items-center gap-0.5">
+          <span className="flex items-center gap-0.5 shrink-0">
             <HardDrive className="h-3 w-3" />
             {formatFileSize(session.fileSize)}
           </span>
         )}
         {session.subagentIds.length > 0 && (
-          <span className="flex items-center gap-0.5">
+          <span className="flex items-center gap-0.5 shrink-0">
             <Users className="h-3 w-3" />
             {session.subagentIds.length}
           </span>
@@ -187,7 +191,7 @@ export default function SessionCard({ session, teamInfo, paneId, sessionActivity
       {hasSecondaryPrompt && (
         <div className="mt-1.5 ml-[22px] flex items-start gap-1.5 text-xs text-muted-foreground">
           <MessageSquare className="h-3 w-3 mt-0.5 shrink-0" />
-          <span className="italic">{initialPrompt}</span>
+          <span className="italic line-clamp-2 min-w-0">{initialPrompt}</span>
         </div>
       )}
 
@@ -198,13 +202,13 @@ export default function SessionCard({ session, teamInfo, paneId, sessionActivity
 
       {/* Expanded details */}
       {expanded && (
-        <div className="mt-3 ml-[22px] border-t border-border/50 pt-3 space-y-2 text-xs">
+        <div className="mt-3 ml-[22px] border-t border-border/50 pt-3 space-y-2 text-xs overflow-hidden">
           <div className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-muted-foreground">
             <span className="flex items-center gap-1">
               <Hash className="h-3 w-3" />
               Session
             </span>
-            <span className="font-mono text-foreground">{session.id}</span>
+            <span className="font-mono text-foreground break-all">{session.id}</span>
 
             {session.model && (
               <>
@@ -216,7 +220,7 @@ export default function SessionCard({ session, teamInfo, paneId, sessionActivity
             {session.cwd && (
               <>
                 <span>Working dir</span>
-                <span className="font-mono text-foreground">{session.cwd}</span>
+                <span className="font-mono text-foreground break-all">{session.cwd}</span>
               </>
             )}
 
@@ -226,7 +230,7 @@ export default function SessionCard({ session, teamInfo, paneId, sessionActivity
                   <GitBranch className="h-3 w-3" />
                   Branch
                 </span>
-                <span className="text-foreground">{session.gitBranch}</span>
+                <span className="text-foreground break-all">{session.gitBranch}</span>
               </>
             )}
 
@@ -250,21 +254,21 @@ export default function SessionCard({ session, teamInfo, paneId, sessionActivity
             {session.subagentIds.length > 0 && (
               <>
                 <span>Subagents</span>
-                <span className="text-foreground">{session.subagentIds.length} ({session.subagentIds.map(id => id.slice(0, 8)).join(', ')})</span>
+                <span className="text-foreground break-all">{session.subagentIds.length} ({session.subagentIds.map(id => id.slice(0, 8)).join(', ')})</span>
               </>
             )}
 
             {session.initialPrompt && (
               <>
                 <span>Initial prompt</span>
-                <span className="text-foreground">{session.initialPrompt}</span>
+                <span className="text-foreground line-clamp-3">{session.initialPrompt}</span>
               </>
             )}
 
             {session.latestPrompt && session.latestPrompt !== session.initialPrompt && (
               <>
                 <span>Latest prompt</span>
-                <span className="text-foreground">{session.latestPrompt}</span>
+                <span className="text-foreground line-clamp-3">{session.latestPrompt}</span>
               </>
             )}
 
@@ -278,7 +282,7 @@ export default function SessionCard({ session, teamInfo, paneId, sessionActivity
             {session.tasksId && (
               <>
                 <span>Tasks ID</span>
-                <span className="font-mono text-foreground">{session.tasksId}</span>
+                <span className="font-mono text-foreground break-all">{session.tasksId}</span>
               </>
             )}
           </div>

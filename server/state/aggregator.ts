@@ -6,7 +6,7 @@ import { promisify } from 'node:util';
 import { parseAllTeams } from '../parsers/team-parser.js';
 import { parseAllTeamTasks, parseAllTasks } from '../parsers/task-parser.js';
 import { parseAllSessionLogs } from '../parsers/session-log.js';
-import { scanAllSessions } from '../parsers/session-scanner.js';
+import { scanAllSessions, type LastEntryType } from '../parsers/session-scanner.js';
 import { discoverClaudePanes } from '../parsers/process-discovery.js';
 import type { ClaudePaneMapping } from '../parsers/process-discovery.js';
 import { getRecentEvents } from '../db.js';
@@ -22,12 +22,47 @@ import type {
 
 const execFileAsync = promisify(execFile);
 
+const FIVE_MINUTES_MS = 5 * 60 * 1000;
+const ONE_HOUR_MS = 60 * 60 * 1000;
+
+function deriveSessionStatus(
+  ageMs: number,
+  lastEntryType: LastEntryType,
+  eventInfo?: { status: Session['status']; timestamp: string }
+): Session['status'] {
+  // Hook events override if recent (<5min)
+  if (eventInfo) {
+    const eventAge = Date.now() - new Date(eventInfo.timestamp).getTime();
+    if (eventAge < FIVE_MINUTES_MS) {
+      return eventInfo.status;
+    }
+  }
+
+  // Time tiers
+  if (ageMs < FIVE_MINUTES_MS) {
+    // Active — derive from last JSONL entry type
+    switch (lastEntryType) {
+      case 'user': return 'thinking';
+      case 'assistant-tool': return 'working';
+      case 'assistant-question': return 'waiting-input';
+      case 'assistant-text': return 'done';
+      default: return 'idle';
+    }
+  }
+
+  if (ageMs < ONE_HOUR_MS) {
+    return 'paused';
+  }
+
+  return 'idle';
+}
+
 export class Aggregator extends EventEmitter {
   private state: DashboardState;
   private config: ConductorConfig;
   private staleTimer: ReturnType<typeof setInterval> | null = null;
   private discoveryTimer: ReturnType<typeof setInterval> | null = null;
-  private paneMapping: ClaudePaneMapping = { byTasksDir: new Map(), byPid: new Map(), bySessionId: new Map(), byPaneTitle: new Map() };
+  private paneMapping: ClaudePaneMapping = { byTasksDir: new Map(), byPid: new Map(), bySessionId: new Map(), byPaneTitle: new Map(), panePrompts: new Map() };
 
   constructor(config: ConductorConfig) {
     super();
@@ -240,19 +275,43 @@ export class Aggregator extends EventEmitter {
       sessionToTasksDir.set(dirName, dirName);
     }
 
+    // Sort sessions by priority: active > paused > idle
+    // This ensures actively running sessions get first pick of panes
+    const statusPriority: Record<string, number> = {
+      'working': 0, 'thinking': 0, 'waiting-approval': 0, 'waiting-input': 0, 'error': 0,
+      'done': 1, 'paused': 1,
+      'idle': 2,
+    };
+    const sortedSessions = [...this.state.sessions].sort((a, b) => {
+      const pa = statusPriority[a.status] ?? 3;
+      const pb = statusPriority[b.status] ?? 3;
+      if (pa !== pb) return pa - pb;
+      // Within same priority, prefer more recently active
+      return new Date(b.lastActivity).getTime() - new Date(a.lastActivity).getTime();
+    });
+
     // Track assigned paneIds to prevent double-assignment
     const assignedPaneIds = new Set<string>();
 
-    // Only assign panes to non-idle sessions (idle sessions aren't running anywhere)
-    const isRunning = (s: Session) =>
-      s.status === 'working' || s.status === 'waiting-approval' || s.status === 'waiting-input' || s.status === 'error';
+    // Assign panes to sessions that likely still have a tmux pane open.
+    // A session's "idle" status just means no JSONL writes in 1hr+ — the claude
+    // process and pane can still be alive (user just hasn't interacted).
+    // Use 30-day window: tmux panes often stay open for weeks.
+    // Priority sorting ensures recent/active sessions claim panes first.
+    const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
+    const hasLikelyPane = (s: Session) => {
+      if (s.status !== 'idle') return true;
+      const age = Date.now() - new Date(s.lastActivity).getTime();
+      return age < THIRTY_DAYS_MS;
+    };
 
-    // First pass: exact matching (tasks dir, session ID, lsof) for running sessions
+    // First pass: exact matching (tasks dir, session ID, lsof) for non-subagent sessions
     let changed = false;
-    for (const session of this.state.sessions) {
+    for (const session of sortedSessions) {
       if (teamPaneSessionIds.has(session.id)) continue;
-      if (!isRunning(session)) {
-        // Clear stale paneId on idle sessions
+      if (session.isSubagent) continue; // Subagents inherit parent pane in pass 4
+      if (!hasLikelyPane(session)) {
+        // Clear stale paneId on truly old sessions
         if (session.paneId) {
           session.paneId = undefined;
           changed = true;
@@ -276,7 +335,7 @@ export class Aggregator extends EventEmitter {
         paneId = this.paneMapping.bySessionId.get(baseId);
       }
 
-      if (paneId) {
+      if (paneId && !assignedPaneIds.has(paneId)) {
         assignedPaneIds.add(paneId);
         if (session.paneId !== paneId) {
           session.paneId = paneId;
@@ -290,13 +349,17 @@ export class Aggregator extends EventEmitter {
 
     // Second pass: fuzzy title matching for remaining unmatched active sessions
     if (this.paneMapping.byPaneTitle.size > 0) {
-      for (const session of this.state.sessions) {
-        if (session.paneId || teamPaneSessionIds.has(session.id)) continue;
-        if (session.status !== 'working' && session.status !== 'waiting-approval' && session.status !== 'waiting-input') continue;
-        const promptText = session.initialPrompt || session.latestPrompt;
-        if (!promptText) continue;
+      for (const session of sortedSessions) {
+        if (session.paneId || teamPaneSessionIds.has(session.id) || session.isSubagent) continue;
+        if (!hasLikelyPane(session)) continue;
+        // Combine all session text signals for matching
+        const textParts: string[] = [];
+        if (session.initialPrompt) textParts.push(session.initialPrompt);
+        if (session.latestPrompt) textParts.push(session.latestPrompt);
+        if (session.slug) textParts.push(session.slug.replace(/-/g, ' '));
+        if (textParts.length === 0) continue;
 
-        const promptLower = promptText.toLowerCase();
+        const promptLower = textParts.join(' ').toLowerCase();
         const promptWords = promptLower.split(/\s+/).filter((w) => w.length > 2);
         if (promptWords.length === 0) continue;
 
@@ -332,6 +395,83 @@ export class Aggregator extends EventEmitter {
           assignedPaneIds.add(bestPaneId);
           changed = true;
         }
+      }
+    }
+
+    // Third pass: content-based matching using captured pane prompts
+    // Uses greedy score-based assignment: collect ALL (session, pane, score) candidates,
+    // sort by score descending, then assign greedily so the best matches always win.
+    if (this.paneMapping.panePrompts.size > 0) {
+      // Build candidate list: all eligible session × unmatched pane pairs with scores
+      const candidates: Array<{ sessionId: string; paneId: string; score: number }> = [];
+
+      for (const session of sortedSessions) {
+        if (session.paneId || teamPaneSessionIds.has(session.id) || session.isSubagent) continue;
+        if (!hasLikelyPane(session)) continue;
+
+        // Strip trailing "..." from truncated prompts so substring matching works
+        const sessionTexts: string[] = [];
+        if (session.latestPrompt) sessionTexts.push(session.latestPrompt.replace(/\.{3}$/, '').toLowerCase());
+        if (session.initialPrompt) sessionTexts.push(session.initialPrompt.replace(/\.{3}$/, '').toLowerCase());
+        if (sessionTexts.length === 0) continue;
+
+        for (const [paneId, panePromptList] of this.paneMapping.panePrompts) {
+          if (assignedPaneIds.has(paneId)) continue;
+
+          let score = 0;
+          for (const panePrompt of panePromptList) {
+            const paneLower = panePrompt.toLowerCase();
+            for (const sessionText of sessionTexts) {
+              // Exact substring match — session prompt appears in pane prompt (or vice versa)
+              if (paneLower.includes(sessionText) || sessionText.includes(paneLower)) {
+                const matchLen = Math.min(paneLower.length, sessionText.length);
+                score = Math.max(score, matchLen + 100);
+              } else {
+                // Word overlap fallback
+                const paneWords = paneLower.split(/\s+/).filter((w) => w.length > 2);
+                const sessWords = sessionText.split(/\s+/).filter((w) => w.length > 2);
+                if (paneWords.length === 0 || sessWords.length === 0) continue;
+                const overlap = paneWords.filter((pw) =>
+                  sessWords.some((sw) => pw.includes(sw) || sw.includes(pw))
+                ).length;
+                const ratio = overlap / Math.max(paneWords.length, sessWords.length);
+                if (overlap >= 2 && ratio > 0.4) {
+                  score = Math.max(score, overlap);
+                }
+              }
+            }
+          }
+
+          if (score > 0) {
+            candidates.push({ sessionId: session.id, paneId, score });
+          }
+        }
+      }
+
+      // Sort by score descending — highest-confidence matches assigned first
+      candidates.sort((a, b) => b.score - a.score);
+
+      // Greedy assignment: each session and pane can only be assigned once
+      const assignedSessionIds = new Set<string>();
+      for (const { sessionId, paneId, score } of candidates) {
+        if (assignedSessionIds.has(sessionId) || assignedPaneIds.has(paneId)) continue;
+        const session = this.state.sessions.find((s) => s.id === sessionId);
+        if (!session) continue;
+
+        session.paneId = paneId;
+        assignedPaneIds.add(paneId);
+        assignedSessionIds.add(sessionId);
+        changed = true;
+      }
+    }
+
+    // Fourth pass: propagate paneId from parent sessions to their subagents
+    for (const session of this.state.sessions) {
+      if (!session.isSubagent || !session.parentSessionId) continue;
+      const parent = this.state.sessions.find((s) => s.id === session.parentSessionId);
+      if (parent?.paneId && session.paneId !== parent.paneId) {
+        session.paneId = parent.paneId;
+        changed = true;
       }
     }
 
@@ -438,17 +578,16 @@ export class Aggregator extends EventEmitter {
       }
     }
 
-    // 3. Merge: filesystem provides base, events enrich status
+    // 3. Merge: filesystem provides base, events enrich status, activities override
     const sessions: Session[] = scanned.map((s) => {
       const eventInfo = eventStatusMap.get(s.id);
-      let status: Session['status'] = s.active ? 'working' : 'idle';
+      const ageMs = Date.now() - new Date(s.lastActivity).getTime();
+      let status = deriveSessionStatus(ageMs, s.lastEntryType, eventInfo);
 
-      // Hook event overrides if recent (within 5 minutes)
-      if (eventInfo) {
-        const eventAge = Date.now() - new Date(eventInfo.timestamp).getTime();
-        if (eventAge < 5 * 60 * 1000) {
-          status = eventInfo.status;
-        }
+      // If session has active real-time activity, override idle/paused (not done — done means finished)
+      const activity = this.state.sessionActivities[s.id];
+      if (activity?.active && (status === 'idle' || status === 'paused')) {
+        status = activity.thinking ? 'thinking' : 'working';
       }
 
       return {
@@ -521,6 +660,7 @@ export class Aggregator extends EventEmitter {
     switch (type) {
       case 'stop':
       case 'teammate_idle':
+      case 'subagent_stop':
         return 'idle';
       case 'permission_prompt':
         return 'waiting-approval';

@@ -18,13 +18,14 @@ export async function sendInput(
     return { ok: false, error: 'Invalid pane ID format' };
   }
 
-  // (b) Validate pane belongs to a known team member
+  // (b) Validate pane belongs to a known session or team member
   const state = aggregator.getState();
+  const ownedBySession = state.sessions.some((s) => s.paneId === paneId);
   const ownedByMember = state.teams.some((team) =>
     team.members.some((member) => member.tmuxPaneId === paneId)
   );
-  if (!ownedByMember) {
-    return { ok: false, error: 'Pane not owned by team member' };
+  if (!ownedBySession && !ownedByMember) {
+    return { ok: false, error: 'Pane not owned by any known session' };
   }
 
   // (c) Validate text input length

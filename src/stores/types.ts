@@ -36,7 +36,7 @@ export interface Session {
   id: string;
   project: string;
   projectDir: string;
-  status: 'working' | 'waiting-approval' | 'waiting-input' | 'idle' | 'error';
+  status: 'working' | 'waiting-approval' | 'waiting-input' | 'thinking' | 'done' | 'paused' | 'idle' | 'error';
   lastActivity: string;
   feature?: string;
   model?: string;
@@ -101,6 +101,54 @@ export interface DashboardState {
   events: HookEvent[];
   sessionActivities: Record<string, SessionActivity>;
   lastUpdated: string;
+}
+
+// --- Insights types ---
+
+export interface StatsCache {
+  version: number;
+  lastComputedDate: string;
+  dailyActivity: DailyActivity[];
+  dailyModelTokens: { date: string; tokensByModel: Record<string, number> }[];
+  modelUsage: Record<string, ModelUsageEntry>;
+  totalSessions: number;
+  totalMessages: number;
+  longestSession: { sessionId: string; duration: number; messageCount: number; timestamp: string };
+  firstSessionDate: string;
+  hourCounts: Record<string, number>;
+  totalSpeculationTimeSavedMs: number;
+}
+
+export interface DailyActivity {
+  date: string;
+  messageCount: number;
+  sessionCount: number;
+  toolCallCount: number;
+}
+
+export interface ModelUsageEntry {
+  inputTokens: number;
+  outputTokens: number;
+  cacheReadInputTokens: number;
+  cacheCreationInputTokens: number;
+  webSearchRequests: number;
+  costUSD: number;
+  contextWindow: number;
+  maxOutputTokens: number;
+}
+
+export interface PromptEntry {
+  display: string;
+  timestamp: number;
+  project: string;
+  sessionId: string;
+}
+
+export interface PlanEntry {
+  slug: string;
+  title: string;
+  content: string;
+  modifiedAt: string;
 }
 
 export type WsMessageType =

@@ -7,7 +7,9 @@ import { lazy, Suspense } from 'react';
 const DashboardPage = lazy(() => import('@/components/dashboard/DashboardPage'));
 const TeamDetail = lazy(() => import('@/components/teams/TeamDetail'));
 const SessionsPage = lazy(() => import('@/components/sessions/SessionsPage'));
-const ActivityPage = lazy(() => import('@/components/activity/ActivityPage'));
+const InsightsPage = lazy(() => import('@/components/insights/InsightsPage'));
+const HistoryPage = lazy(() => import('@/components/insights/HistoryPage'));
+const PlansPage = lazy(() => import('@/components/insights/PlansPage'));
 const SettingsPage = lazy(() => import('@/components/settings/SettingsPage'));
 
 // eslint-disable-next-line react-refresh/only-export-components
@@ -32,7 +34,9 @@ export const router = createBrowserRouter([
       { index: true, element: <SuspenseWrapper><DashboardPage /></SuspenseWrapper> },
       { path: 'teams/:name', element: <SuspenseWrapper><TeamDetail /></SuspenseWrapper> },
       { path: 'sessions', element: <SuspenseWrapper><SessionsPage /></SuspenseWrapper> },
-      { path: 'activity', element: <SuspenseWrapper><ActivityPage /></SuspenseWrapper> },
+      { path: 'insights', element: <SuspenseWrapper><InsightsPage /></SuspenseWrapper> },
+      { path: 'history', element: <SuspenseWrapper><HistoryPage /></SuspenseWrapper> },
+      { path: 'plans', element: <SuspenseWrapper><PlansPage /></SuspenseWrapper> },
       { path: 'settings', element: <SuspenseWrapper><SettingsPage /></SuspenseWrapper> },
     ],
   },

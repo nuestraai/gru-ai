@@ -20,8 +20,10 @@ function statusPriority(status: Session['status']): number {
     case 'waiting-input': return 1;
     case 'waiting-approval': return 2;
     case 'working': return 3;
-    case 'idle': return 4;
-    default: return 5;
+    case 'thinking': return 4;
+    case 'paused': return 5;
+    case 'idle': return 6;
+    default: return 7;
   }
 }
 
@@ -37,7 +39,7 @@ export default function SessionTree({
     // Auto-expand projects with active sessions
     const initial = new Set<string>();
     for (const project of projects) {
-      const hasActive = project.sessions.some((s) => s.status === 'working' || s.status === 'waiting-approval' || s.status === 'waiting-input' || s.status === 'error');
+      const hasActive = project.sessions.some((s) => s.status === 'working' || s.status === 'thinking' || s.status === 'waiting-approval' || s.status === 'waiting-input' || s.status === 'done' || s.status === 'error');
       if (hasActive) initial.add(project.dirName);
     }
     return initial;
@@ -57,8 +59,8 @@ export default function SessionTree({
 
   // Sort projects: those with active sessions first, then by name
   const sortedProjects = [...projects].sort((a, b) => {
-    const aActive = a.sessions.some((s) => s.status === 'working');
-    const bActive = b.sessions.some((s) => s.status === 'working');
+    const aActive = a.sessions.some((s) => s.status === 'working' || s.status === 'thinking');
+    const bActive = b.sessions.some((s) => s.status === 'working' || s.status === 'thinking');
     if (aActive !== bActive) return aActive ? -1 : 1;
     return a.name.localeCompare(b.name);
   });
@@ -77,7 +79,7 @@ export default function SessionTree({
     <div className="space-y-2">
       {sortedProjects.map((project) => {
         const isOpen = expanded.has(project.dirName);
-        const activeCount = project.sessions.filter((s) => s.status === 'working').length;
+        const activeCount = project.sessions.filter((s) => s.status === 'working' || s.status === 'thinking').length;
         const totalCount = project.sessions.length;
 
         // Sort sessions: active first, then by status priority

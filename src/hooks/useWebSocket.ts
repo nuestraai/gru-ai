@@ -34,6 +34,14 @@ export function useWebSocket() {
       ws.onopen = () => {
         setConnected(true);
         reconnectDelayRef.current = 1000;
+
+        // Fetch notification config (not included in full_state)
+        fetch('http://localhost:4444/api/config')
+          .then((res) => res.json())
+          .then((data: { notifications?: NotificationConfig }) => {
+            if (data.notifications) updateNotificationConfig(data.notifications);
+          })
+          .catch(() => {});
       };
 
       ws.onmessage = (event) => {

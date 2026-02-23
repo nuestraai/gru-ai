@@ -1,4 +1,5 @@
 import { useEffect, useCallback } from 'react';
+import { toast } from 'sonner';
 import { useDashboardStore } from '@/stores/dashboard-store';
 
 const DEDUP_WINDOW_MS = 30_000;
@@ -6,6 +7,25 @@ const MACOS_SUPPRESS_WINDOW_MS = 5_000;
 const NOTIFICATION_FIRED_CLEANUP_MS = 10_000;
 
 const notifiedMap = new Map<string, number>();
+
+function statusIcon(status: string): string {
+  switch (status) {
+    case 'done': return '\u2705';
+    case 'waiting-input': return '\u2753';
+    case 'waiting-approval': return '\u26a0\ufe0f';
+    case 'error': return '\u274c';
+    default: return '\u2022';
+  }
+}
+
+function statusToastType(status: string): 'success' | 'warning' | 'error' | 'info' {
+  switch (status) {
+    case 'done': return 'success';
+    case 'error': return 'error';
+    case 'waiting-approval': return 'warning';
+    default: return 'info';
+  }
+}
 
 export function useNotifications() {
   const requestPermission = useCallback(async () => {
@@ -37,15 +57,10 @@ export function useNotifications() {
   // Subscribe to store: fire notifications when sessions need attention
   useEffect(() => {
     const unsubscribe = useDashboardStore.subscribe((state, prevState) => {
-      if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
-
-      // Respect browser notification config — if disabled, skip entirely
-      if (state.notificationConfig.browser === false) return;
-
       const now = Date.now();
 
       for (const session of state.sessions) {
-        if (session.status !== 'waiting-input' && session.status !== 'waiting-approval' && session.status !== 'error') continue;
+        if (session.status !== 'done' && session.status !== 'waiting-input' && session.status !== 'waiting-approval' && session.status !== 'error') continue;
 
         // Check if this session was already in this status
         const prev = prevState.sessions.find((s) => s.id === session.id);
@@ -82,12 +97,25 @@ export function useNotifications() {
         }
 
         const statusLabel = session.status === 'error' ? 'Error' :
+          session.status === 'done' ? 'Done' :
           session.status === 'waiting-input' ? 'Needs input' : 'Needs approval';
 
-        notify(
-          `Conductor: ${statusLabel}`,
-          `Session ${session.id.slice(0, 8)}… in ${session.project}`,
+        const sessionLabel = session.initialPrompt ?? session.slug ?? session.id.slice(0, 12);
+        const icon = statusIcon(session.status);
+
+        // In-app toast (always shown)
+        toast[statusToastType(session.status)](
+          `${icon} ${statusLabel}: ${sessionLabel}`,
+          { description: session.project, duration: 8000 },
         );
+
+        // Browser notification (if enabled and permitted)
+        if (state.notificationConfig.browser !== false) {
+          notify(
+            `Conductor: ${statusLabel}`,
+            `${sessionLabel} — ${session.project}`,
+          );
+        }
       }
     });
 

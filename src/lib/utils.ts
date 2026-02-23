@@ -35,6 +35,8 @@ export function statusColor(status: string): string {
     case 'done':
     case 'completed':
       return 'text-status-green';
+    case 'thinking':
+      return 'text-status-blue';
     case 'waiting-approval':
     case 'waiting-input':
     case 'in-progress':
@@ -44,6 +46,7 @@ export function statusColor(status: string): string {
     case 'error':
     case 'stopped':
       return 'text-status-red';
+    case 'paused':
     case 'idle':
     case 'not-started':
     case 'pending':
@@ -59,6 +62,8 @@ export function statusBgColor(status: string): string {
     case 'done':
     case 'completed':
       return 'bg-status-green';
+    case 'thinking':
+      return 'bg-status-blue';
     case 'waiting-approval':
     case 'waiting-input':
     case 'in-progress':
@@ -68,6 +73,7 @@ export function statusBgColor(status: string): string {
     case 'error':
     case 'stopped':
       return 'bg-status-red';
+    case 'paused':
     case 'idle':
     case 'not-started':
     case 'pending':
@@ -134,10 +140,16 @@ export function sessionStatusLabel(status: string): string {
   switch (status) {
     case 'working':
       return 'Working';
+    case 'thinking':
+      return 'Thinking';
     case 'waiting-approval':
       return 'Waiting Approval';
     case 'waiting-input':
       return 'Waiting Input';
+    case 'done':
+      return 'Done';
+    case 'paused':
+      return 'Paused';
     case 'idle':
       return 'Idle';
     case 'error':

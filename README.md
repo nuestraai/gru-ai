@@ -106,6 +106,30 @@ For richer status detection (waiting for approval, errors), add hooks to `~/.cla
 
 Hooks are optional — session discovery works without them via filesystem scanning.
 
+## Supported Environments
+
+### Session Discovery (works everywhere)
+Session scanning reads `~/.claude/projects/` JSONL files — this works on any OS where Claude Code runs.
+
+### Focus Session (click to navigate)
+Clicking a session card to jump to its terminal pane requires **tmux** for process discovery, plus a supported terminal for window/tab activation:
+
+| Environment | Status | Notes |
+|-------------|--------|-------|
+| **macOS + iTerm2 + tmux** | Supported | Full support — switches to correct iTerm2 tab and tmux pane |
+| **macOS + Terminal.app + tmux** | Partial | Brings Terminal.app to front, switches tmux pane, but no tab switching |
+| **macOS + Warp + tmux** | Partial | Brings Warp to front, switches tmux pane, but no tab switching |
+| **Linux + any terminal + tmux** | Not yet | Needs `xdotool`/`wmctrl` for window focus |
+| **Any OS without tmux** | Not supported | Process discovery relies on tmux pane→PID mapping |
+
+### TODO: Environment Support
+- [ ] **Linux window focus**: Replace `osascript`/`NSRunningApplication` with `xdotool` or `wmctrl`
+- [ ] **Terminal.app tab switching**: Add Terminal.app-specific AppleScript for tab selection
+- [ ] **Warp tab switching**: Warp doesn't expose AppleScript tab control yet — monitor for API updates
+- [ ] **Kitty/Alacritty support**: Add `kitty @ focus-window` and Alacritty msg IPC for focus
+- [ ] **Non-tmux discovery**: Alternative process→terminal mapping without tmux (e.g., via `/proc` on Linux, `lsof` on macOS)
+- [ ] **Windows support**: PowerShell-based window activation + Windows Terminal tab switching
+
 ## Tech Stack
 
 - **Server**: Node.js with raw `http.createServer` + `ws` WebSocket + SQLite (better-sqlite3) + chokidar file watching

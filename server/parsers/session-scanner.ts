@@ -1,11 +1,12 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-const ACTIVE_WINDOW_MS = 30_000;
-const TAIL_SIZE = 8192;
+const TAIL_SIZE = 65536;
 const PROMPT_TAIL_SIZE = 65536;
 const HEAD_SIZE = 16384;
 const TASKS_UUID_RE = /\.claude\/tasks\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i;
+
+export type LastEntryType = 'user' | 'assistant-tool' | 'assistant-text' | 'assistant-question' | 'unknown';
 
 export interface ScannedSession {
   id: string;
@@ -19,8 +20,8 @@ export interface ScannedSession {
   initialPrompt?: string;
   latestPrompt?: string;
   tasksId?: string;
+  lastEntryType: LastEntryType;
   lastActivity: string;
-  active: boolean;
   isSubagent: boolean;
   parentSessionId?: string;
   agentId?: string;
@@ -28,6 +29,23 @@ export interface ScannedSession {
   filePath: string;
   fileSize: number;
 }
+
+// Metadata cache — avoids re-parsing unchanged files across scans
+interface CachedSessionMeta {
+  mtimeMs: number;
+  fileSize: number;
+  model?: string;
+  cwd?: string;
+  gitBranch?: string;
+  version?: string;
+  slug?: string;
+  initialPrompt?: string;
+  latestPrompt?: string;
+  tasksId?: string;
+  lastEntryType: LastEntryType;
+}
+
+const metadataCache = new Map<string, CachedSessionMeta>();
 
 interface RawEntry {
   sessionId?: string;
@@ -38,7 +56,7 @@ interface RawEntry {
   slug?: string;
   type?: string;
   timestamp?: string;
-  message?: { model?: string };
+  message?: { model?: string; content?: Array<{ type?: string; text?: string }> };
 }
 
 export function projectLabel(dirName: string): string {
@@ -166,6 +184,7 @@ function isSystemContent(text: string): boolean {
   if (trimmed.startsWith('Called the ') && trimmed.includes(' tool with')) return true;
   if (trimmed.startsWith('Result of calling the ')) return true;
   if (trimmed.startsWith('This session is being continued from a previous conversation')) return true;
+  if (trimmed.startsWith('[Request interrupted by user')) return true;
   return false;
 }
 
@@ -240,18 +259,87 @@ function extractTasksId(tailContent: string): string | undefined {
   return match?.[1];
 }
 
-function extractMetadata(filepath: string): Partial<Pick<ScannedSession, 'model' | 'cwd' | 'gitBranch' | 'version' | 'slug' | 'initialPrompt' | 'latestPrompt' | 'tasksId'>> {
+interface ExtractedMetadata {
+  model?: string;
+  cwd?: string;
+  gitBranch?: string;
+  version?: string;
+  slug?: string;
+  initialPrompt?: string;
+  latestPrompt?: string;
+  tasksId?: string;
+  lastEntryType: LastEntryType;
+}
+
+function classifyLastEntry(candidates: string[]): LastEntryType {
+  // Two-pass approach:
+  // 1. Check if any tool_use has no matching tool_result (tool still running)
+  // 2. If not, classify based on the last meaningful entry
+
+  // Pass 1: count tool_use and tool_result to detect running tools
+  let toolUseCount = 0;
+  let toolResultCount = 0;
+  for (let i = 0; i < candidates.length; i++) {
+    const line = candidates[i].trim();
+    if (!line) continue;
+    try {
+      const entry = JSON.parse(line) as RawEntry;
+      if (entry.type === 'assistant' && Array.isArray(entry.message?.content)) {
+        toolUseCount += entry.message!.content!.filter((c) => c.type === 'tool_use').length;
+      } else if (entry.type === 'user' && Array.isArray(entry.message?.content)) {
+        toolResultCount += (entry.message!.content as Array<{ type?: string }>).filter((c) => c.type === 'tool_result').length;
+      }
+    } catch { /* skip */ }
+  }
+
+  // More tool_use than tool_result means a tool is still running
+  if (toolUseCount > toolResultCount) return 'assistant-tool';
+
+  // Pass 2: classify by last meaningful entry
+  for (let i = candidates.length - 1; i >= 0; i--) {
+    const line = candidates[i].trim();
+    if (!line) continue;
+    try {
+      const entry = JSON.parse(line) as RawEntry;
+      if (!entry.type) continue;
+
+      if (entry.type === 'progress' || entry.type === 'system' ||
+          entry.type === 'queue-operation' || entry.type === 'file-history-snapshot') continue;
+
+      if (entry.type === 'user') return 'user';
+      if (entry.type === 'assistant') {
+        const content = entry.message?.content;
+        if (Array.isArray(content) && content.some((c) => c.type === 'tool_use')) {
+          return 'assistant-tool';
+        }
+        if (Array.isArray(content)) {
+          const lastText = [...content].reverse().find((c) => c.type === 'text' && c.text);
+          if (lastText?.text?.trimEnd().endsWith('?')) {
+            return 'assistant-question';
+          }
+        }
+        return 'assistant-text';
+      }
+    } catch { /* skip */ }
+  }
+  return 'unknown';
+}
+
+function extractMetadata(filepath: string): ExtractedMetadata {
   const content = tailRead(filepath);
-  if (!content) return {};
+  if (!content) return { lastEntryType: 'unknown' };
 
   const lines = content.split('\n');
   // Discard first line (likely partial)
   const candidates = lines.slice(1);
 
-  const result: Partial<Pick<ScannedSession, 'model' | 'cwd' | 'gitBranch' | 'version' | 'slug' | 'initialPrompt' | 'latestPrompt' | 'tasksId'>> = {};
+  const result: ExtractedMetadata = { lastEntryType: 'unknown' };
 
   // Extract tasksId from the raw tail content
   result.tasksId = extractTasksId(content);
+
+  // Classify the last entry type (reuses same tail content, no extra I/O)
+  result.lastEntryType = classifyLastEntry(candidates);
 
   // Parse from newest to oldest, stop once we have all fields
   for (let i = candidates.length - 1; i >= 0; i--) {
@@ -307,8 +395,15 @@ function scanProjectDir(projectsDir: string, projectDir: string): ScannedSession
       continue;
     }
 
-    const active = Date.now() - stat.mtimeMs < ACTIVE_WINDOW_MS;
-    const metadata = active ? extractMetadata(filePath) : {};
+    // Use cached metadata if file unchanged (same mtime + size)
+    const cached = metadataCache.get(filePath);
+    let metadata: ExtractedMetadata;
+    if (cached && cached.mtimeMs === stat.mtimeMs && cached.fileSize === stat.size) {
+      metadata = cached;
+    } else {
+      metadata = extractMetadata(filePath);
+      metadataCache.set(filePath, { mtimeMs: stat.mtimeMs, fileSize: stat.size, ...metadata });
+    }
 
     sessions.push({
       id: sessionId,
@@ -316,7 +411,6 @@ function scanProjectDir(projectsDir: string, projectDir: string): ScannedSession
       projectDir,
       ...metadata,
       lastActivity: stat.mtime.toISOString(),
-      active,
       isSubagent: false,
       subagentIds: [],
       filePath,
@@ -357,16 +451,22 @@ function scanProjectDir(projectsDir: string, projectDir: string): ScannedSession
         continue;
       }
 
-      const active = Date.now() - stat.mtimeMs < ACTIVE_WINDOW_MS;
-      const metadata = active ? extractMetadata(filePath) : {};
+      // Use cached metadata if file unchanged
+      const subCached = metadataCache.get(filePath);
+      let subMetadata: ExtractedMetadata;
+      if (subCached && subCached.mtimeMs === stat.mtimeMs && subCached.fileSize === stat.size) {
+        subMetadata = subCached;
+      } else {
+        subMetadata = extractMetadata(filePath);
+        metadataCache.set(filePath, { mtimeMs: stat.mtimeMs, fileSize: stat.size, ...subMetadata });
+      }
 
       sessions.push({
         id: `${parentSessionId}:${agentId}`,
         project: label,
         projectDir,
-        ...metadata,
+        ...subMetadata,
         lastActivity: stat.mtime.toISOString(),
-        active,
         isSubagent: true,
         parentSessionId,
         agentId,
@@ -412,6 +512,14 @@ export function scanAllSessions(claudeHome: string): ScannedSession[] {
   const allSessions: ScannedSession[] = [];
   for (const dir of projectDirs) {
     allSessions.push(...scanProjectDir(projectsDir, dir));
+  }
+
+  // Prune cache entries for files no longer seen
+  const seenPaths = new Set(allSessions.map((s) => s.filePath));
+  for (const key of metadataCache.keys()) {
+    if (!seenPaths.has(key)) {
+      metadataCache.delete(key);
+    }
   }
 
   return allSessions;

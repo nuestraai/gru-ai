@@ -29,7 +29,7 @@ export const useDashboardStore = create<DashboardStore>((set) => ({
   sessionActivities: {},
   lastUpdated: '',
   connected: false,
-  notificationConfig: { macOS: false, browser: true },
+  notificationConfig: { macOS: true, browser: true },
   notificationFired: {},
 
   setFullState: (state) =>

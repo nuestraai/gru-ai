@@ -2,8 +2,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import type { SessionActivity } from '../types.js';
 
-const READ_SIZE = 8192;
-const ACTIVE_WINDOW_MS = 30_000;
+const READ_SIZE = 65536;
+const ACTIVE_WINDOW_MS = 300_000;
 
 // Raw shapes — all fields optional since entries may be malformed
 interface RawContentBlock {
@@ -111,6 +111,18 @@ export function parseSessionLog(filepath: string): SessionActivity | null {
 
   if (entries.length === 0) return null;
 
+  // Count tool_use vs tool_result to detect running tools
+  let toolUseCount = 0;
+  let toolResultCount = 0;
+  for (const entry of entries) {
+    if (entry?.type === 'assistant' && Array.isArray(entry.message?.content)) {
+      toolUseCount += entry.message!.content!.filter((c) => c?.type === 'tool_use').length;
+    } else if (entry?.type === 'user' && Array.isArray(entry.message?.content)) {
+      toolResultCount += entry.message!.content!.filter((c) => c?.type === 'tool_result').length;
+    }
+  }
+  const toolStillRunning = toolUseCount > toolResultCount;
+
   // Find the last assistant entry that has tool_use content
   let toolEntry: RawEntry | null = null;
   for (let i = entries.length - 1; i >= 0; i--) {
@@ -118,23 +130,24 @@ export function parseSessionLog(filepath: string): SessionActivity | null {
     if (entry?.type !== 'assistant') continue;
     const msgContent = entry.message?.content;
     if (!Array.isArray(msgContent)) continue;
-    const hasToolUse = msgContent.some((c) => c?.type === 'tool_use');
-    if (hasToolUse) {
+    if (msgContent.some((c) => c?.type === 'tool_use')) {
       toolEntry = entry;
       break;
     }
   }
 
-  // Detect "thinking": last assistant entry has ONLY text blocks (no tool_use)
+  // Detect "thinking": last meaningful entry is assistant text-only (no running tool)
   let thinking = false;
   const lastEntry = entries[entries.length - 1];
-  if (lastEntry?.type === 'assistant') {
-    const lastContent = lastEntry.message?.content;
-    if (Array.isArray(lastContent) && lastContent.length > 0) {
-      const hasToolUse = lastContent.some((c) => c?.type === 'tool_use');
-      const hasText = lastContent.some((c) => c?.type === 'text');
-      if (hasText && !hasToolUse) {
-        thinking = true;
+  if (!toolStillRunning) {
+    if (lastEntry?.type === 'assistant') {
+      const lastContent = lastEntry.message?.content;
+      if (Array.isArray(lastContent) && lastContent.length > 0) {
+        const hasToolUse = lastContent.some((c) => c?.type === 'tool_use');
+        const hasText = lastContent.some((c) => c?.type === 'text');
+        if (hasText && !hasToolUse) {
+          thinking = true;
+        }
       }
     }
   }
@@ -215,26 +228,35 @@ export function parseAllSessionLogs(claudeHome: string): Record<string, SessionA
       }
     }
 
-    // Also process subagents/ subdirectory if it exists
-    const subagentsPath = path.join(projectPath, 'subagents');
-    let subagentEntries: fs.Dirent[];
-    try {
-      subagentEntries = fs.readdirSync(subagentsPath, { withFileTypes: true });
-    } catch {
-      continue;
-    }
+    // Process subagent .jsonl files under {uuid}/subagents/
+    for (const dirent of projectEntries) {
+      if (!dirent.isDirectory()) continue;
 
-    for (const entry of subagentEntries) {
-      if (!entry.isFile() || !entry.name.endsWith('.jsonl')) continue;
-
-      const filepath = path.join(subagentsPath, entry.name);
+      const subagentsPath = path.join(projectPath, dirent.name, 'subagents');
+      let subEntries: fs.Dirent[];
       try {
-        const activity = parseSessionLog(filepath);
-        if (activity && activity.active) {
-          result[activity.sessionId] = activity;
-        }
+        subEntries = fs.readdirSync(subagentsPath, { withFileTypes: true });
       } catch {
-        // Skip files that fail to parse
+        continue;
+      }
+
+      const parentSessionId = dirent.name;
+
+      for (const sub of subEntries) {
+        if (!sub.isFile() || !sub.name.endsWith('.jsonl')) continue;
+        if (sub.name.startsWith('agent-acompact-')) continue;
+
+        const agentId = sub.name.replace(/^agent-/, '').replace(/\.jsonl$/, '');
+        const filepath = path.join(subagentsPath, sub.name);
+        try {
+          const activity = parseSessionLog(filepath);
+          if (activity && activity.active) {
+            const compositeId = `${parentSessionId}:${agentId}`;
+            result[compositeId] = activity;
+          }
+        } catch {
+          // Skip files that fail to parse
+        }
       }
     }
   }

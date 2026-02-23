@@ -111,6 +111,22 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  // --- Insights API routes ---
+  if (url.pathname === '/api/insights/stats' && req.method === 'GET') {
+    handleInsightsStats(res);
+    return;
+  }
+
+  if (url.pathname === '/api/insights/history' && req.method === 'GET') {
+    handleInsightsHistory(res);
+    return;
+  }
+
+  if (url.pathname === '/api/insights/plans' && req.method === 'GET') {
+    handleInsightsPlans(res);
+    return;
+  }
+
   // DELETE /api/teams/:name
   if (url.pathname.startsWith('/api/teams/') && req.method === 'DELETE') {
     const teamName = decodeURIComponent(url.pathname.slice('/api/teams/'.length));
@@ -439,6 +455,69 @@ function handlePatchConfig(req: http.IncomingMessage, res: http.ServerResponse):
     res.writeHead(500, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ error: 'Internal error' }));
   });
+}
+
+// --- Insights Handlers ---
+
+function handleInsightsStats(res: http.ServerResponse): void {
+  const statsPath = path.join(config.claudeHome, 'stats-cache.json');
+  try {
+    const data = fs.readFileSync(statsPath, 'utf-8');
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(data);
+  } catch {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(null));
+  }
+}
+
+function handleInsightsHistory(res: http.ServerResponse): void {
+  const historyPath = path.join(config.claudeHome, 'history.jsonl');
+  try {
+    const raw = fs.readFileSync(historyPath, 'utf-8');
+    const entries = raw
+      .split('\n')
+      .filter((line) => line.trim())
+      .map((line) => {
+        const parsed = JSON.parse(line);
+        return {
+          display: parsed.display,
+          timestamp: parsed.timestamp,
+          project: parsed.project,
+          sessionId: parsed.sessionId,
+        };
+      })
+      .reverse(); // newest first
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(entries));
+  } catch {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify([]));
+  }
+}
+
+function handleInsightsPlans(res: http.ServerResponse): void {
+  const plansDir = path.join(config.claudeHome, 'plans');
+  try {
+    const files = fs.readdirSync(plansDir).filter((f) => f.endsWith('.md'));
+    const plans = files.map((filename) => {
+      const filePath = path.join(plansDir, filename);
+      const content = fs.readFileSync(filePath, 'utf-8');
+      const stat = fs.statSync(filePath);
+      const slug = filename.replace(/\.md$/, '');
+      // Extract title from first heading or use slug
+      const titleMatch = content.match(/^#\s+(.+)/m);
+      const title = titleMatch ? titleMatch[1].trim() : slug;
+      return { slug, title, content, modifiedAt: stat.mtime.toISOString() };
+    });
+    // Sort by most recently modified
+    plans.sort((a, b) => new Date(b.modifiedAt).getTime() - new Date(a.modifiedAt).getTime());
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(plans));
+  } catch {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify([]));
+  }
 }
 
 // --- Static file serving ---

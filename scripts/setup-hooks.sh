@@ -39,10 +39,16 @@ NOTIFICATION_CMD="curl -s -X POST ${CONDUCTOR_URL} -H 'Content-Type: application
 
 STOP_CMD="curl -s -X POST ${CONDUCTOR_URL} -H 'Content-Type: application/json' -d '{\"type\":\"stop\",\"sessionId\":\"'\"\\$CLAUDE_SESSION_ID\"'\",\"timestamp\":\"'\"\\$(date -u +%Y-%m-%dT%H:%M:%SZ)\"'\",\"message\":\"Session stopped\",\"project\":\"'\"\\$CLAUDE_PROJECT_DIR\"'\"}' > /dev/null 2>&1 &"
 
+SUBAGENT_STOP_CMD="curl -s -X POST ${CONDUCTOR_URL} -H 'Content-Type: application/json' -d '{\"type\":\"subagent_stop\",\"sessionId\":\"'\"\\$CLAUDE_SESSION_ID\"'\",\"timestamp\":\"'\"\\$(date -u +%Y-%m-%dT%H:%M:%SZ)\"'\",\"message\":\"Subagent stopped\",\"project\":\"'\"\\$CLAUDE_PROJECT_DIR\"'\"}' > /dev/null 2>&1 &"
+
+TASK_COMPLETED_CMD="curl -s -X POST ${CONDUCTOR_URL} -H 'Content-Type: application/json' -d '{\"type\":\"task_completed\",\"sessionId\":\"'\"\\$CLAUDE_SESSION_ID\"'\",\"timestamp\":\"'\"\\$(date -u +%Y-%m-%dT%H:%M:%SZ)\"'\",\"message\":\"Task completed\",\"project\":\"'\"\\$CLAUDE_PROJECT_DIR\"'\"}' > /dev/null 2>&1 &"
+
 # Build the new hooks object
 CONDUCTOR_HOOKS=$(jq -n \
     --arg notif_cmd "$NOTIFICATION_CMD" \
     --arg stop_cmd "$STOP_CMD" \
+    --arg subagent_stop_cmd "$SUBAGENT_STOP_CMD" \
+    --arg task_completed_cmd "$TASK_COMPLETED_CMD" \
     '{
         "Notification": [
             {
@@ -62,6 +68,28 @@ CONDUCTOR_HOOKS=$(jq -n \
                     {
                         "type": "command",
                         "command": $stop_cmd
+                    }
+                ]
+            }
+        ],
+        "SubagentStop": [
+            {
+                "matcher": "",
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": $subagent_stop_cmd
+                    }
+                ]
+            }
+        ],
+        "TaskCompleted": [
+            {
+                "matcher": "",
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": $task_completed_cmd
                     }
                 ]
             }
@@ -95,7 +123,9 @@ if echo "$EXISTING" | jq -e '.hooks' > /dev/null 2>&1; then
         ) |
         # Now append the Conductor hooks
         .hooks.Notification = ((.hooks.Notification // []) + $conductor.Notification) |
-        .hooks.Stop = ((.hooks.Stop // []) + $conductor.Stop)
+        .hooks.Stop = ((.hooks.Stop // []) + $conductor.Stop) |
+        .hooks.SubagentStop = ((.hooks.SubagentStop // []) + $conductor.SubagentStop) |
+        .hooks.TaskCompleted = ((.hooks.TaskCompleted // []) + $conductor.TaskCompleted)
         ')
 else
     # No existing hooks — just add them
@@ -111,5 +141,7 @@ echo ""
 echo "Added to $SETTINGS_FILE:"
 echo "  - Notification hook: POSTs to $CONDUCTOR_URL on Claude notifications"
 echo "  - Stop hook: POSTs to $CONDUCTOR_URL when Claude session stops"
+echo "  - SubagentStop hook: POSTs to $CONDUCTOR_URL when a subagent stops"
+echo "  - TaskCompleted hook: POSTs to $CONDUCTOR_URL when a task is completed"
 echo ""
 echo "Run 'scripts/uninstall-hooks.sh' to remove Conductor hooks."

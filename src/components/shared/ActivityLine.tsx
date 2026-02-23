@@ -65,10 +65,10 @@ export default function ActivityLine({ activity }: ActivityLineProps) {
   if (!display) return null;
 
   return (
-    <div className="flex items-center gap-1.5 mt-1.5 text-xs text-muted-foreground">
+    <div className="flex items-center gap-1.5 mt-1.5 text-xs text-muted-foreground min-w-0 overflow-hidden">
       <div className="h-1.5 w-1.5 rounded-full bg-green-500 animate-pulse shrink-0" />
       {display.icon}
-      <span className="truncate">{display.label}</span>
+      <span className="truncate min-w-0">{display.label}</span>
       {activity.model && (
         <Badge variant="secondary" className="text-[10px] px-1 py-0 shrink-0">
           {activity.model.replace('claude-', '').replace('-4-6', '')}

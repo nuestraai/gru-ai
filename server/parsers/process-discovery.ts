@@ -12,6 +12,8 @@ export interface ClaudePaneMapping {
   bySessionId: Map<string, string>;
   /** Map of normalized pane title → pane ID (for fuzzy matching with initialPrompt) */
   byPaneTitle: Map<string, string>;
+  /** Map of pane ID → array of user prompt strings captured from scrollback */
+  panePrompts: Map<string, string[]>;
 }
 
 /**
@@ -29,6 +31,7 @@ export async function discoverClaudePanes(): Promise<ClaudePaneMapping> {
     byPid: new Map(),
     bySessionId: new Map(),
     byPaneTitle: new Map(),
+    panePrompts: new Map(),
   };
 
   try {
@@ -86,6 +89,12 @@ export async function discoverClaudePanes(): Promise<ClaudePaneMapping> {
         result.byPaneTitle.set(title, paneId);
       }
     }
+
+    // Step 6: Capture user prompts from pane scrollback for content-based matching
+    await capturePanePrompts([...claudePaneIds], result.panePrompts);
+
+    console.log(`[discovery] Found ${claudePids.length} claude PIDs → ${pidToPaneId.size} panes, ${result.panePrompts.size} with prompts`);
+
   } catch {
     // Discovery is best-effort — failures shouldn't crash the server
   }
@@ -247,4 +256,42 @@ async function extractFromLsof(pids: number[]): Promise<LsofData> {
   }
 
   return result;
+}
+
+/**
+ * Capture user prompts from tmux pane scrollback for content-based matching.
+ * Extracts lines starting with ❯ (the Claude Code input prompt marker).
+ */
+async function capturePanePrompts(paneIds: string[], out: Map<string, string[]>): Promise<void> {
+  for (const paneId of paneIds) {
+    try {
+      const { stdout } = await execFileAsync('tmux', [
+        'capture-pane', '-t', paneId, '-p', '-S', '-200',
+      ], { maxBuffer: 512 * 1024 });
+
+      const prompts: string[] = [];
+      for (const line of stdout.split('\n')) {
+        // Match lines starting with ❯ (the input prompt marker)
+        const match = /^❯\s*(.+)/.exec(line);
+        if (match) {
+          const text = match[1].trim();
+          // Skip very short/generic prompts that won't uniquely identify a session
+          if (text.length > 3) {
+            prompts.push(text);
+          }
+        }
+      }
+
+      if (prompts.length > 0) {
+        out.set(paneId, prompts);
+      } else {
+        // Count total lines and ❯ occurrences for debugging
+        const totalLines = stdout.split('\n').length;
+        const rawMarkers = stdout.split('\n').filter((l) => l.includes('❯')).length;
+        console.log(`[discovery] Pane ${paneId}: 0 prompts extracted (${totalLines} lines, ${rawMarkers} ❯ markers)`);
+      }
+    } catch (err) {
+      console.log(`[discovery] Pane ${paneId}: capture error: ${err instanceof Error ? err.message : 'unknown'}`);
+    }
+  }
 }

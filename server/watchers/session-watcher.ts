@@ -37,8 +37,9 @@ export class SessionWatcher {
       // Only care about JSONL files
       if (!filePath.endsWith('.jsonl')) return;
 
-      if (event === 'add' || event === 'unlink') {
-        // New or deleted session file — refresh session list (1s debounce)
+      if (event === 'add' || event === 'unlink' || event === 'change') {
+        // Session file added, deleted, or changed — refresh session list (1s debounce)
+        // With metadata cache, change refreshes are cheap (only re-extracts if mtime/size differ)
         this.scheduleSessionRefresh();
       }
 

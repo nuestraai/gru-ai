@@ -7,7 +7,9 @@ import { timeAgo } from '@/lib/utils';
 const PAGE_TITLES: Record<string, string> = {
   '/': 'Dashboard',
   '/sessions': 'Sessions',
-  '/activity': 'Activity',
+  '/insights': 'Insights',
+  '/history': 'History',
+  '/plans': 'Plans',
 };
 
 export default function Header() {

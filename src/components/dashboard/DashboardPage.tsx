@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import StatsBar from './StatsBar';
 import AttentionRequired from './AttentionRequired';
 import TeamCard from './TeamCard';
@@ -12,12 +13,25 @@ export default function DashboardPage() {
 
   // Count parent sessions only (not subagents)
   const parentSessions = sessions.filter((s) => !s.isSubagent);
-  const activeSessions = parentSessions.filter((s) => s.status === 'working').length;
+  const activeSessions = parentSessions.filter((s) => s.status === 'working' || s.status === 'thinking').length;
   const totalSessions = parentSessions.length;
 
   const attentionSessions = sessions.filter(
     (s) => s.status === 'waiting-input' || s.status === 'waiting-approval' || s.status === 'error'
   );
+
+  const sessionPaneMap = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const session of sessions) {
+      if (session.paneId) map.set(session.id, session.paneId);
+    }
+    for (const team of teams) {
+      for (const member of team.members) {
+        if (member.agentId && member.tmuxPaneId) map.set(member.agentId, member.tmuxPaneId);
+      }
+    }
+    return map;
+  }, [sessions, teams]);
   const today = new Date().toISOString().slice(0, 10);
   const eventsToday = events.filter((e) => e.timestamp.startsWith(today)).length;
 
@@ -32,7 +46,7 @@ export default function DashboardPage() {
       />
 
       {attentionSessions.length > 0 && (
-        <AttentionRequired sessions={attentionSessions} teams={teams} />
+        <AttentionRequired sessions={attentionSessions} teams={teams} sessionPaneMap={sessionPaneMap} />
       )}
 
       {/* Teams Grid */}

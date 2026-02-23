@@ -7,6 +7,7 @@ const DEDUP_WINDOW_MS = 30_000;
 const CLEANUP_INTERVAL_MS = 60_000;
 
 const NOTIFIABLE_STATUSES = new Set<Session['status']>([
+  'done',
   'waiting-input',
   'waiting-approval',
   'error',
@@ -34,6 +35,8 @@ export class Notifier extends EventEmitter {
   }
 
   start(): void {
+    // Snapshot current sessions so we only notify on NEW transitions, not existing state
+    this.prevSessions = [...this.aggregator.getState().sessions];
     this.aggregator.on('change', this.handleChange);
 
     this.cleanupInterval = setInterval(() => {
@@ -62,6 +65,7 @@ export class Notifier extends EventEmitter {
       const prev = this.prevSessions.find((s) => s.id === session.id);
       if (prev?.status === session.status) continue;
 
+      console.log(`[notifier] Transition: ${session.id.slice(0, 8)}… ${prev?.status ?? 'new'} → ${session.status}`);
       this.notify(session);
     }
 
@@ -89,16 +93,23 @@ export class Notifier extends EventEmitter {
 
     // Dedup: skip if notified within the window
     const lastNotified = this.dedup.get(session.id);
-    if (lastNotified !== undefined && now - lastNotified < DEDUP_WINDOW_MS) return;
+    if (lastNotified !== undefined && now - lastNotified < DEDUP_WINDOW_MS) {
+      console.log(`[notifier] Dedup skip: ${session.id.slice(0, 8)}… (${session.status})`);
+      return;
+    }
 
     this.dedup.set(session.id, now);
 
     const statusLabel =
-      session.status === 'waiting-input'
-        ? 'Needs input'
-        : session.status === 'waiting-approval'
-          ? 'Needs approval'
-          : 'Error';
+      session.status === 'done'
+        ? 'Done'
+        : session.status === 'waiting-input'
+          ? 'Needs input'
+          : session.status === 'waiting-approval'
+            ? 'Needs approval'
+            : 'Error';
+
+    console.log(`[notifier] Sending: ${statusLabel} for ${session.id.slice(0, 8)}… (macOS: ${this.config.macOS}, browser: ${this.config.browser})`);
 
     if (this.config.macOS) {
       sendMacNotification(
