@@ -23,7 +23,11 @@ Agent Conductor reads directly from `~/.claude/` and gives you a single dashboar
 - **Live activity** — see what each session is doing in real-time (editing files, running commands, thinking)
 - **Project tree view** — sessions grouped by project, subagents nested under their parent, with time and status filters
 - **Team monitoring** — track team members, task progress, and agent status
-- **Send input** — approve/reject prompts and send text to agents directly from the dashboard
+- **Focus session** — click any session card to jump straight to its terminal tab/pane (iTerm2, Warp, Terminal.app, tmux)
+- **Send input** — approve/reject prompts and send text to agents directly from the dashboard (tmux and native iTerm2)
+- **Terminal type detection** — automatically identifies which terminal hosts each session and shows it on the card
+- **Insights** — usage analytics with daily message charts, model usage breakdown, and activity heatmaps
+- **Prompt history** — searchable history of all prompts across sessions, filterable by project
 - **Stale team cleanup** — delete old teams and task lists with one click
 - **macOS notifications** — native alerts when agents need attention (even when the browser is minimized)
 
@@ -112,23 +116,24 @@ Hooks are optional — session discovery works without them via filesystem scann
 Session scanning reads `~/.claude/projects/` JSONL files — this works on any OS where Claude Code runs.
 
 ### Focus Session (click to navigate)
-Clicking a session card to jump to its terminal pane requires **tmux** for process discovery, plus a supported terminal for window/tab activation:
+Click a session card to jump to its terminal. Works with tmux and native terminal sessions:
 
-| Environment | Status | Notes |
-|-------------|--------|-------|
-| **macOS + iTerm2 + tmux** | Supported | Full support — switches to correct iTerm2 tab and tmux pane |
-| **macOS + Terminal.app + tmux** | Partial | Brings Terminal.app to front, switches tmux pane, but no tab switching |
-| **macOS + Warp + tmux** | Partial | Brings Warp to front, switches tmux pane, but no tab switching |
-| **Linux + any terminal + tmux** | Not yet | Needs `xdotool`/`wmctrl` for window focus |
-| **Any OS without tmux** | Not supported | Process discovery relies on tmux pane→PID mapping |
+| Environment | Focus | Send Input | Notes |
+|-------------|-------|------------|-------|
+| **macOS + iTerm2 + tmux** | Full | Yes | Switches to correct iTerm2 tab and tmux pane |
+| **macOS + iTerm2 (native)** | Full | Yes | Switches to correct iTerm2 tab via AppleScript |
+| **macOS + Warp + tmux** | Partial | Yes (via tmux) | Brings Warp to front, switches tmux pane |
+| **macOS + Warp (native)** | Partial | No | Brings Warp to front (no tab API available) |
+| **macOS + Terminal.app + tmux** | Partial | Yes (via tmux) | Brings Terminal.app to front, switches tmux pane |
+| **Linux + any terminal + tmux** | Not yet | Not yet | Needs `xdotool`/`wmctrl` for window focus |
+
+Each session card shows a terminal type badge (tmux, iTerm, Warp) so you know what level of interaction is available at a glance.
 
 ### TODO: Environment Support
-- [ ] **Linux window focus**: Replace `osascript`/`NSRunningApplication` with `xdotool` or `wmctrl`
-- [ ] **Terminal.app tab switching**: Add Terminal.app-specific AppleScript for tab selection
-- [ ] **Warp tab switching**: Warp doesn't expose AppleScript tab control yet — monitor for API updates
-- [ ] **Kitty/Alacritty support**: Add `kitty @ focus-window` and Alacritty msg IPC for focus
-- [ ] **Non-tmux discovery**: Alternative process→terminal mapping without tmux (e.g., via `/proc` on Linux, `lsof` on macOS)
-- [ ] **Windows support**: PowerShell-based window activation + Windows Terminal tab switching
+- [ ] **Linux window focus**: `xdotool`/`wmctrl` for window focus
+- [ ] **Terminal.app tab switching**: AppleScript for tab selection
+- [ ] **Kitty/Alacritty support**: `kitty @ focus-window` and Alacritty IPC
+- [ ] **Windows support**: PowerShell-based window activation
 
 ## Tech Stack
 
@@ -154,8 +159,8 @@ npm run lint         # ESLint
 | GET | `/api/state` | Full dashboard state |
 | GET | `/api/events` | Recent events |
 | POST | `/api/events` | Add hook event |
-| POST | `/api/actions/focus-session` | Focus tmux pane |
-| POST | `/api/actions/send-input` | Send input to agent |
+| POST | `/api/actions/focus-session` | Focus terminal pane (tmux, iTerm2, Warp) |
+| POST | `/api/actions/send-input` | Send input to agent (tmux + native iTerm2) |
 | DELETE | `/api/teams/:name` | Delete stale team |
 | GET | `/api/config` | Get config |
 | PATCH | `/api/config` | Update config |

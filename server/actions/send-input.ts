@@ -5,35 +5,30 @@ import type { Aggregator } from '../state/aggregator.js';
 
 const execFileAsync = promisify(execFile);
 
-const PANE_ID_REGEX = /^%\d+$/;
+const TMUX_PANE_ID_REGEX = /^%\d+$/;
 
-export async function sendInput(
-  request: SendInputRequest,
+function escapeAppleScript(str: string): string {
+  return str.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+}
+
+function validateOwnership(
+  paneId: string,
   aggregator: Aggregator,
-): Promise<{ ok: boolean; error?: string }> {
-  const { paneId, input, type } = request;
-
-  // (a) Validate pane ID format
-  if (!PANE_ID_REGEX.test(paneId)) {
-    return { ok: false, error: 'Invalid pane ID format' };
-  }
-
-  // (b) Validate pane belongs to a known session or team member
+): boolean {
   const state = aggregator.getState();
   const ownedBySession = state.sessions.some((s) => s.paneId === paneId);
   const ownedByMember = state.teams.some((team) =>
     team.members.some((member) => member.tmuxPaneId === paneId)
   );
-  if (!ownedBySession && !ownedByMember) {
-    return { ok: false, error: 'Pane not owned by any known session' };
-  }
+  return ownedBySession || ownedByMember;
+}
 
-  // (c) Validate text input length
-  if (type === 'text' && input.length > 500) {
-    return { ok: false, error: 'Input too long' };
-  }
-
-  // (d) Verify pane exists in tmux
+async function sendInputTmux(
+  paneId: string,
+  input: string,
+  type: SendInputRequest['type'],
+): Promise<{ ok: boolean; error?: string }> {
+  // Verify pane exists in tmux
   try {
     const { stdout: allPanes } = await execFileAsync('tmux', [
       'list-panes', '-a', '-F', '#{pane_id}',
@@ -46,7 +41,6 @@ export async function sendInput(
     return { ok: false, error: 'Pane not found' };
   }
 
-  // Execute the appropriate tmux command
   try {
     switch (type) {
       case 'approve':
@@ -65,10 +59,122 @@ export async function sendInput(
         await execFileAsync('tmux', ['send-keys', '-t', paneId, 'Enter']);
         break;
     }
-
     return { ok: true };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     return { ok: false, error: message };
   }
+}
+
+async function sendInputIterm(
+  paneId: string,
+  input: string,
+  type: SendInputRequest['type'],
+): Promise<{ ok: boolean; error?: string }> {
+  const itermId = paneId.slice('iterm:'.length);
+
+  // Sanitize: iTerm2 unique IDs are alphanumeric with hyphens/dots
+  const safeId = itermId.replace(/[^a-zA-Z0-9\-_.]/g, '');
+  if (!safeId || safeId !== itermId) {
+    return { ok: false, error: `Invalid iTerm session ID: ${itermId}` };
+  }
+
+  try {
+    if (type === 'abort') {
+      // Send Ctrl-C (ASCII character 3) without newline
+      const script = `
+        tell application "iTerm2"
+          repeat with w in windows
+            repeat with t in tabs of w
+              repeat with s in sessions of t
+                if unique ID of s is "${safeId}" then
+                  tell s to write text (ASCII character 3) without newline
+                  return "ok"
+                end if
+              end repeat
+            end repeat
+          end repeat
+          return "not_found"
+        end tell
+      `;
+      const { stdout } = await execFileAsync('osascript', ['-e', script], { timeout: 5000 });
+      if (stdout.trim() === 'not_found') {
+        return { ok: false, error: 'iTerm2 session not found' };
+      }
+      return { ok: true };
+    }
+
+    // For approve/reject/text: write text sends with newline by default
+    let textToSend: string;
+    switch (type) {
+      case 'approve':
+        textToSend = 'y';
+        break;
+      case 'reject':
+        textToSend = 'n';
+        break;
+      case 'text':
+        textToSend = input;
+        break;
+      default:
+        return { ok: false, error: `Unknown input type: ${type}` };
+    }
+
+    const escaped = escapeAppleScript(textToSend);
+    const script = `
+      tell application "iTerm2"
+        repeat with w in windows
+          repeat with t in tabs of w
+            repeat with s in sessions of t
+              if unique ID of s is "${safeId}" then
+                tell s to write text "${escaped}"
+                return "ok"
+              end if
+            end repeat
+          end repeat
+        end repeat
+        return "not_found"
+      end tell
+    `;
+    const { stdout } = await execFileAsync('osascript', ['-e', script], { timeout: 5000 });
+    if (stdout.trim() === 'not_found') {
+      return { ok: false, error: 'iTerm2 session not found' };
+    }
+    return { ok: true };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    return { ok: false, error: message };
+  }
+}
+
+export async function sendInput(
+  request: SendInputRequest,
+  aggregator: Aggregator,
+): Promise<{ ok: boolean; error?: string }> {
+  const { paneId, input, type } = request;
+
+  // Validate ownership
+  if (!validateOwnership(paneId, aggregator)) {
+    return { ok: false, error: 'Pane not owned by any known session' };
+  }
+
+  // Validate text input length
+  if (type === 'text' && input.length > 500) {
+    return { ok: false, error: 'Input too long' };
+  }
+
+  // Route to the appropriate handler
+  if (paneId.startsWith('iterm:')) {
+    return sendInputIterm(paneId, input, type);
+  }
+
+  if (TMUX_PANE_ID_REGEX.test(paneId)) {
+    return sendInputTmux(paneId, input, type);
+  }
+
+  if (paneId.startsWith('warp:') || paneId.startsWith('terminal:')) {
+    return { ok: false, error: 'Send-input not supported for this terminal (use tmux for full support)' };
+  }
+
+  return { ok: false, error: 'Invalid pane ID format' };
 }

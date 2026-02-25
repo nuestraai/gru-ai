@@ -3,7 +3,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { GitBranch, Clock, Users, ChevronRight, HardDrive, Terminal, MessageSquare } from 'lucide-react';
-import { cn, timeAgo, sessionStatusLabel } from '@/lib/utils';
+import { cn, timeAgo, sessionStatusLabel, terminalLabel } from '@/lib/utils';
 import ActivityLine from '@/components/shared/ActivityLine';
 import QuickActions from '@/components/shared/QuickActions';
 import type { Session, SessionActivity, TeamTask } from '@/stores/types';
@@ -140,11 +140,11 @@ export default function KanbanCard({
           <div className="flex items-start gap-2">
             <span className="text-sm font-medium line-clamp-2 flex-1">{title}</span>
             <div className="flex items-center gap-1 shrink-0 mt-0.5">
-              {paneId && (
+              {session.terminalApp && (
                 <div className="flex items-center gap-0.5">
                   <Terminal className="h-3 w-3 text-muted-foreground" />
                   <span className="text-[10px] text-muted-foreground">
-                    {paneId.startsWith('iterm:') ? 'iTerm' : 'tmux'}
+                    {terminalLabel(session.terminalApp)}
                   </span>
                 </div>
               )}
@@ -302,7 +302,7 @@ export default function KanbanCard({
       {/* Row 8: Quick actions */}
       {paneId && needsAction && (
         <div className="mt-2" onClick={(e) => e.stopPropagation()}>
-          <QuickActions paneId={paneId} sessionStatus={session.status} />
+          <QuickActions paneId={paneId} sessionStatus={session.status} terminalApp={session.terminalApp} />
         </div>
       )}
     </CardContent>

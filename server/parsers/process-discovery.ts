@@ -29,7 +29,7 @@ export interface ClaudePaneMapping {
   /** Map of claude PID → iTerm2 session info (non-tmux sessions) */
   byItermSession: Map<number, ItermSessionInfo>;
   /** iTerm sessions with no matching claude process (for CWD-based matching) */
-  orphanItermSessions: Array<{ itermId: string; tty: string; name: string; cwd?: string }>;
+  orphanItermSessions: Array<{ itermId: string; tty: string; name: string; cwd?: string; candidateSessionIds: string[] }>;
 }
 
 /**
@@ -51,6 +51,8 @@ export async function discoverClaudePanes(): Promise<ClaudePaneMapping> {
     byItermSession: new Map(),
     orphanItermSessions: [],
   };
+
+  const claudeHome = path.join(os.homedir(), '.claude');
 
   try {
     // Step 1: Get all tmux pane PIDs and titles
@@ -97,6 +99,72 @@ export async function discoverClaudePanes(): Promise<ClaudePaneMapping> {
       }
     }
 
+    // Step 3b2: For remaining unmapped PIDs, detect Warp/Terminal.app ancestry
+    const stillUnmapped = claudePids.filter(pid => !pidToPaneId.has(pid) && !result.byItermSession.has(pid));
+    if (stillUnmapped.length > 0) {
+      const terminalTypes = await detectTerminalForPids(stillUnmapped);
+      for (const [pid, terminal] of terminalTypes) {
+        if (terminal === 'warp' || terminal === 'terminal') {
+          // Get CWD for this PID
+          let cwd: string | undefined;
+          try {
+            const { stdout } = await execFileAsync('lsof', ['-a', '-p', String(pid), '-d', 'cwd', '-Fn'], { timeout: 3000 });
+            const cwdLine = stdout.split('\n').find(l => l.startsWith('n/'));
+            if (cwdLine) cwd = cwdLine.slice(1);
+          } catch { /* best effort */ }
+
+          // Derive session ID from JSONL file timestamps
+          // Unlike iTerm (which has a unique session ID), Warp/Terminal have no tab ID,
+          // so we rely on: file created after PID started → most recently modified wins
+          let sessionId: string | undefined;
+          if (cwd) {
+            const startTimes = await getPidStartTimes([pid]);
+            const pidStart = startTimes.get(pid);
+            if (pidStart) {
+              try {
+                const projectDir = cwd.replace(/\//g, '-');
+                const sessionsDir = path.join(claudeHome, 'projects', projectDir);
+                const files = fs.readdirSync(sessionsDir).filter(f => f.endsWith('.jsonl') && !f.includes(':'));
+                let bestFile = '';
+                let bestMtime = 0;
+                for (const f of files) {
+                  try {
+                    const stat = fs.statSync(path.join(sessionsDir, f));
+                    // File must be created after PID started (with 60s tolerance)
+                    if (stat.birthtimeMs >= pidStart - 60_000 && stat.mtimeMs > bestMtime) {
+                      bestMtime = stat.mtimeMs;
+                      bestFile = f;
+                    }
+                  } catch { /* skip */ }
+                }
+                if (bestFile) sessionId = bestFile.replace('.jsonl', '');
+              } catch { /* best effort */ }
+            }
+          }
+
+          const paneId = `${terminal === 'warp' ? 'warp' : 'terminal'}:${pid}`;
+          if (sessionId) {
+            result.bySessionId.set(sessionId, paneId);
+          }
+          if (cwd) {
+            // Register in byTasksDir via lsof
+            try {
+              const { stdout: lsofOut } = await execFileAsync('lsof', ['-a', '-p', String(pid)], { maxBuffer: 512 * 1024, timeout: 5000 });
+              const tasksRe = /\.claude\/tasks\/([^\s/]+)/;
+              for (const line of lsofOut.split('\n')) {
+                const taskMatch = tasksRe.exec(line);
+                if (taskMatch) {
+                  result.byTasksDir.set(taskMatch[1], paneId);
+                  break;
+                }
+              }
+            } catch { /* best effort */ }
+          }
+          console.log(`[discovery] Step 3b2: PID ${pid} → ${terminal} (cwd=${cwd?.slice(-30) ?? 'unknown'}, session=${sessionId?.slice(0,8) ?? 'none'})`);
+        }
+      }
+    }
+
     // Step 3c: Extract cwd for iTerm-matched PIDs (for cwd-based session matching)
     for (const [pid, info] of result.byItermSession) {
       try {
@@ -115,7 +183,6 @@ export async function discoverClaudePanes(): Promise<ClaudePaneMapping> {
     // 1. Filter to files created AFTER the PID started (within the PID's lifetime)
     // 2. Among those, pick the one with the most recent mtime (the currently active file)
     // This handles context compaction where claude creates a new JSONL mid-session.
-    const claudeHome = path.join(os.homedir(), '.claude');
     const pidStartTimes = await getPidStartTimes([...result.byItermSession.keys()]);
     for (const [pid, info] of result.byItermSession) {
       if (!info.cwd || info.sessionId) continue;
@@ -213,12 +280,13 @@ export async function discoverClaudePanes(): Promise<ClaudePaneMapping> {
       for (const session of itermSessions) {
         if (matchedItermIds.has(session.uniqueId)) continue;
         // Skip tmux client tabs — those are tmux connections, not direct sessions
-        if (session.name.toLowerCase() === 'tmux') continue;
+        if (session.name.toLowerCase().startsWith('tmux')) continue;
 
         const ttyNum = parseTtyNumber(session.tty);
         if (ttyNum === null) continue;
 
         let cwd: string | undefined;
+        let foundShellPid: number | undefined;
         // Check TTY and TTY+1 (figterm allocates child PTY)
         for (const offset of [0, 1]) {
           const checkTty = `ttys${String(ttyNum + offset).padStart(3, '0')}`;
@@ -230,12 +298,13 @@ export async function discoverClaudePanes(): Promise<ClaudePaneMapping> {
               const shellPid = parseInt(parts[0], 10);
               const comm = parts.slice(1).join(' ');
               if (isNaN(shellPid)) continue;
-              if (/^-?(zsh|bash|fish)$/.test(comm)) {
+              if (/(^|\/)(-?)(zsh|bash|fish)\b/.test(comm)) {
                 try {
                   const { stdout: lsofOut } = await execFileAsync('lsof', ['-a', '-p', String(shellPid), '-d', 'cwd', '-Fn'], { timeout: 3000 });
                   const cwdLine = lsofOut.split('\n').find(l => l.startsWith('n/'));
                   if (cwdLine) {
                     cwd = cwdLine.slice(1);
+                    foundShellPid = shellPid;
                   }
                 } catch { /* best effort */ }
               }
@@ -245,11 +314,47 @@ export async function discoverClaudePanes(): Promise<ClaudePaneMapping> {
           } catch { /* TTY may not exist */ }
         }
 
+        // Derive candidate session IDs: find JSONL files in the project dir
+        // that were active during this shell's lifetime, sorted by mtime desc
+        const candidateSessionIds: string[] = [];
+        if (cwd && foundShellPid) {
+          try {
+            const shellStartTimes = await getPidStartTimes([foundShellPid]);
+            const shellStart = shellStartTimes.get(foundShellPid);
+            if (shellStart) {
+              const projectDir = cwd.replace(/\//g, '-');
+              const sessionsDir = path.join(claudeHome, 'projects', projectDir);
+              const files = fs.readdirSync(sessionsDir).filter(f => f.endsWith('.jsonl') && !f.includes(':'));
+
+              const candidates: Array<{ name: string; mtimeMs: number }> = [];
+              const now = Date.now();
+              for (const f of files) {
+                try {
+                  const stat = fs.statSync(path.join(sessionsDir, f));
+                  // Skip actively-written files (< 5 min old) — those have running claude processes
+                  const isActive = now - stat.mtimeMs < 5 * 60 * 1000;
+                  // File must have been modified after shell started (session was active in this shell)
+                  if (!isActive && stat.mtimeMs >= shellStart) {
+                    candidates.push({ name: f, mtimeMs: stat.mtimeMs });
+                  }
+                } catch { /* skip */ }
+              }
+
+              // Sort by mtime desc (most recent first)
+              candidates.sort((a, b) => b.mtimeMs - a.mtimeMs);
+              for (const c of candidates) {
+                candidateSessionIds.push(c.name.replace('.jsonl', ''));
+              }
+            }
+          } catch { /* best effort */ }
+        }
+
         result.orphanItermSessions.push({
           itermId: session.uniqueId,
           tty: session.tty,
           name: session.name,
           cwd,
+          candidateSessionIds,
         });
       }
     }
@@ -557,6 +662,43 @@ function matchTtyToIterm(claudeTty: string, itermSessions: ItermSessionRaw[]): I
   }
 
   return null;
+}
+
+/**
+ * Detect which terminal application is an ancestor of each PID.
+ * Builds the full process tree once and walks up from each PID.
+ */
+async function detectTerminalForPids(pids: number[]): Promise<Map<number, 'warp' | 'terminal' | 'unknown'>> {
+  if (pids.length === 0) return new Map();
+  try {
+    const { stdout } = await execFileAsync('ps', ['-axo', 'pid=,ppid=,comm=']);
+    const procs = new Map<number, { ppid: number; comm: string }>();
+    for (const line of stdout.trim().split('\n')) {
+      const match = line.trim().match(/^\s*(\d+)\s+(\d+)\s+(.+)$/);
+      if (match) {
+        procs.set(parseInt(match[1]), { ppid: parseInt(match[2]), comm: match[3].trim() });
+      }
+    }
+
+    const result = new Map<number, 'warp' | 'terminal' | 'unknown'>();
+    for (const pid of pids) {
+      let current = pid;
+      const visited = new Set<number>();
+      let detected: 'warp' | 'terminal' | 'unknown' = 'unknown';
+      while (current > 1 && !visited.has(current)) {
+        visited.add(current);
+        const proc = procs.get(current);
+        if (!proc) break;
+        if (/[Ww]arp/.test(proc.comm)) { detected = 'warp'; break; }
+        if (/^Terminal$/.test(proc.comm)) { detected = 'terminal'; break; }
+        current = proc.ppid;
+      }
+      result.set(pid, detected);
+    }
+    return result;
+  } catch {
+    return new Map();
+  }
 }
 
 /**

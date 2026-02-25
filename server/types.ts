@@ -48,6 +48,7 @@ export interface Session {
   latestPrompt?: string;
   tasksId?: string;
   paneId?: string;
+  terminalApp?: 'iterm2' | 'warp' | 'terminal' | 'tmux' | 'unknown';
   isSubagent: boolean;
   parentSessionId?: string;
   agentId?: string;

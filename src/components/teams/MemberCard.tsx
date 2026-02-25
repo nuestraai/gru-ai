@@ -47,6 +47,7 @@ export default function MemberCard({ member, session, currentTask, sessionActivi
   const statusColor = memberStatusColor(member, session);
   const statusLabel = memberStatusLabel(member, session);
   const isWorking = session?.status === 'working' || member.isActive;
+  const terminalApp = session?.terminalApp ?? (member.tmuxPaneId ? 'tmux' as const : undefined);
 
   return (
     <Card>
@@ -105,12 +106,13 @@ export default function MemberCard({ member, session, currentTask, sessionActivi
           <QuickActions
             paneId={member.tmuxPaneId}
             sessionStatus={session.status}
+            terminalApp={terminalApp}
           />
         )}
 
         {/* Send free-text input */}
         {member.tmuxPaneId && session && (
-          <SendInput paneId={member.tmuxPaneId} />
+          <SendInput paneId={member.tmuxPaneId} terminalApp={terminalApp} />
         )}
 
         {/* Pane ID */}

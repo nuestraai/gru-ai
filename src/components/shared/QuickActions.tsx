@@ -7,6 +7,7 @@ import type { Session } from '@/stores/types';
 interface QuickActionsProps {
   paneId: string;
   sessionStatus: Session['status'];
+  terminalApp?: Session['terminalApp'];
   onAction?: () => void;
 }
 
@@ -23,11 +24,20 @@ async function sendAction(paneId: string, type: ActionType): Promise<void> {
   }
 }
 
-export default function QuickActions({ paneId, sessionStatus, onAction }: QuickActionsProps) {
+export default function QuickActions({ paneId, sessionStatus, terminalApp, onAction }: QuickActionsProps) {
   const [loading, setLoading] = useState<ActionType | null>(null);
 
   if (sessionStatus !== 'waiting-input' && sessionStatus !== 'waiting-approval') {
     return null;
+  }
+
+  const supportsInput = terminalApp === 'tmux' || terminalApp === 'iterm2';
+  if (!supportsInput) {
+    return (
+      <div className="mt-3 text-xs text-muted-foreground italic">
+        Input not available{terminalApp ? ` (${terminalApp})` : ''}
+      </div>
+    );
   }
 
   async function handleAction(type: ActionType) {

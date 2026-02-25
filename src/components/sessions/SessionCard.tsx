@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Terminal, GitBranch, HardDrive, ChevronDown, ChevronRight, Clock, MessageSquare, Users, Hash } from 'lucide-react';
-import { cn, timeAgo, sessionStatusLabel } from '@/lib/utils';
+import { cn, timeAgo, sessionStatusLabel, terminalLabel } from '@/lib/utils';
 import type { Session, SessionActivity } from '@/stores/types';
 import QuickActions from '@/components/shared/QuickActions';
 import ActivityLine from '@/components/shared/ActivityLine';
@@ -139,7 +139,12 @@ export default function SessionCard({ session, teamInfo, paneId, sessionActivity
         </div>
 
         <div className="flex items-center gap-1 shrink-0">
-          {paneId && <Terminal className="h-3 w-3 text-muted-foreground" />}
+          {paneId && session.terminalApp && (
+            <div className="flex items-center gap-0.5">
+              <Terminal className="h-3 w-3 text-muted-foreground" />
+              <span className="text-[10px] text-muted-foreground">{terminalLabel(session.terminalApp)}</span>
+            </div>
+          )}
           <button
             type="button"
             onClick={(e) => { e.stopPropagation(); setExpanded(!expanded); }}
@@ -291,7 +296,7 @@ export default function SessionCard({ session, teamInfo, paneId, sessionActivity
       {/* Quick actions for waiting states */}
       {paneId && (
         <div onClick={(e) => e.stopPropagation()}>
-          <QuickActions paneId={paneId} sessionStatus={session.status} />
+          <QuickActions paneId={paneId} sessionStatus={session.status} terminalApp={session.terminalApp} />
         </div>
       )}
     </CardContent>

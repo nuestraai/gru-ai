@@ -14,6 +14,52 @@ function ttyNumber(tty: string): number | null {
 }
 
 /**
+ * Detect which terminal application hosts a given tty by walking the process tree.
+ */
+async function detectTerminalForTty(tty: string): Promise<'iterm2' | 'warp' | 'terminal' | 'unknown'> {
+  try {
+    // Get the full process tree in one call
+    const { stdout: allProcs } = await execFileAsync('ps', ['-axo', 'pid=,ppid=,comm=']);
+    const procs = new Map<number, { ppid: number; comm: string }>();
+    for (const line of allProcs.trim().split('\n')) {
+      const match = line.trim().match(/^\s*(\d+)\s+(\d+)\s+(.+)$/);
+      if (match) {
+        procs.set(parseInt(match[1]), { ppid: parseInt(match[2]), comm: match[3].trim() });
+      }
+    }
+
+    // Find processes on this tty
+    const ttyShort = tty.replace('/dev/', '');
+    const { stdout: ttyOutput } = await execFileAsync('ps', ['-t', ttyShort, '-o', 'pid=']);
+    const ttyPids = ttyOutput.trim().split('\n')
+      .map(s => parseInt(s.trim()))
+      .filter(n => !isNaN(n));
+
+    // Walk up the process tree from each tty process
+    for (const startPid of ttyPids) {
+      let current = startPid;
+      const visited = new Set<number>();
+      while (current > 1 && !visited.has(current)) {
+        visited.add(current);
+        const proc = procs.get(current);
+        if (!proc) break;
+
+        const comm = proc.comm;
+        if (/iTerm/i.test(comm)) return 'iterm2';
+        if (/[Ww]arp/.test(comm)) return 'warp';
+        if (/^Terminal$/.test(comm)) return 'terminal';
+
+        current = proc.ppid;
+      }
+    }
+
+    return 'unknown';
+  } catch {
+    return 'unknown';
+  }
+}
+
+/**
  * Bring iTerm2 to foreground, bypassing macOS focus-stealing prevention.
  */
 async function bringITermToFront(): Promise<void> {
@@ -106,29 +152,38 @@ async function activateITermTab(tmuxClientTty: string): Promise<void> {
 }
 
 /**
- * Fallback activation for non-iTerm terminals.
+ * Bring Warp to foreground. No tab selection possible (Warp has no AppleScript API).
  */
-async function activateTerminal(): Promise<void> {
-  const bundleIds = [
-    'dev.warp.Warp-Stable',
-    'com.apple.Terminal',
-  ];
-  for (const bundleId of bundleIds) {
-    try {
-      await execFileAsync('osascript', ['-l', 'JavaScript', '-e', `
-        ObjC.import('AppKit');
-        var apps = $.NSRunningApplication.runningApplicationsWithBundleIdentifier('${bundleId}');
-        if (apps.count > 0) {
-          apps.objectAtIndex(0).activateWithOptions(3);
-          'ok';
-        } else {
-          throw new Error('not running');
-        }
-      `]);
-      return;
-    } catch {
-      // Try next
-    }
+async function activateWarp(): Promise<void> {
+  try {
+    await execFileAsync('osascript', ['-l', 'JavaScript', '-e', `
+      ObjC.import('AppKit');
+      var apps = $.NSRunningApplication.runningApplicationsWithBundleIdentifier('dev.warp.Warp-Stable');
+      if (apps.count > 0) {
+        apps.objectAtIndex(0).activateWithOptions(3);
+        'ok';
+      }
+    `]);
+  } catch {
+    // Best effort
+  }
+}
+
+/**
+ * Bring Terminal.app to foreground.
+ */
+async function activateTerminalApp(): Promise<void> {
+  try {
+    await execFileAsync('osascript', ['-l', 'JavaScript', '-e', `
+      ObjC.import('AppKit');
+      var apps = $.NSRunningApplication.runningApplicationsWithBundleIdentifier('com.apple.Terminal');
+      if (apps.count > 0) {
+        apps.objectAtIndex(0).activateWithOptions(3);
+        'ok';
+      }
+    `]);
+  } catch {
+    // Best effort
   }
 }
 
@@ -179,6 +234,18 @@ export async function focusPane(paneId: string): Promise<{ ok: boolean; error?: 
     return focusItermSession(itermId);
   }
 
+  // Route Warp native sessions — best-effort bring to front (no tab selection)
+  if (paneId.startsWith('warp:')) {
+    await activateWarp();
+    return { ok: true };
+  }
+
+  // Route Terminal.app native sessions — best-effort bring to front
+  if (paneId.startsWith('terminal:')) {
+    await activateTerminalApp();
+    return { ok: true };
+  }
+
   if (!PANE_ID_REGEX.test(paneId)) {
     return { ok: false, error: `Invalid pane ID format: ${paneId}` };
   }
@@ -222,11 +289,27 @@ export async function focusPane(paneId: string): Promise<{ ok: boolean; error?: 
     await execFileAsync('tmux', ['select-window', '-t', trimmedWindowId]);
     await execFileAsync('tmux', ['select-pane', '-t', paneId]);
 
-    // Bring iTerm2 to front and switch to the right tab
+    // Detect which terminal hosts the tmux client and activate it
     if (clientTty) {
-      await activateITermTab(clientTty);
+      const terminal = await detectTerminalForTty(clientTty);
+      switch (terminal) {
+        case 'iterm2':
+          await activateITermTab(clientTty);
+          break;
+        case 'warp':
+          await activateWarp();
+          break;
+        case 'terminal':
+          await activateTerminalApp();
+          break;
+        default:
+          // Detection failed — try iTerm2 tab matching first (most common), then generic
+          await activateITermTab(clientTty);
+          break;
+      }
     } else {
-      await activateTerminal();
+      // No attached client — best-effort bring any terminal to front
+      await bringITermToFront();
     }
 
     return { ok: true };

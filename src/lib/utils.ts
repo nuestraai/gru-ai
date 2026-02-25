@@ -155,6 +155,16 @@ export function sessionStatusLabel(status: string): string {
   }
 }
 
+export function terminalLabel(app?: string): string {
+  switch (app) {
+    case 'tmux': return 'tmux';
+    case 'iterm2': return 'iTerm';
+    case 'warp': return 'Warp';
+    case 'terminal': return 'Terminal';
+    default: return '';
+  }
+}
+
 export function formatFullDate(date: string): string {
   if (!date) return '';
   return new Date(date).toLocaleString();

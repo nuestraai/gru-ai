@@ -11,13 +11,18 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 
+import type { Session } from '@/stores/types';
+
 const MAX_CHARS = 500;
 
 interface SendInputProps {
   paneId: string;
+  terminalApp?: Session['terminalApp'];
 }
 
-export default function SendInput({ paneId }: SendInputProps) {
+export default function SendInput({ paneId, terminalApp }: SendInputProps) {
+  const supportsInput = terminalApp === 'tmux' || terminalApp === 'iterm2';
+  if (!supportsInput) return null;
   const [expanded, setExpanded] = useState(false);
   const [inputValue, setInputValue] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);

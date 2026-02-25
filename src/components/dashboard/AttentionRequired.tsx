@@ -67,7 +67,7 @@ export default function AttentionRequired({ sessions, teams, sessionPaneMap }: A
                 </div>
                 {paneId && (
                   <div onClick={(e) => e.stopPropagation()}>
-                    <QuickActions paneId={paneId} sessionStatus={session.status} />
+                    <QuickActions paneId={paneId} sessionStatus={session.status} terminalApp={session.terminalApp} />
                   </div>
                 )}
               </div>

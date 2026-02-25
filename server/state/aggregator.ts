@@ -638,23 +638,41 @@ export class Aggregator extends EventEmitter {
       }
     }
 
-    // Pass 3.6: Orphan iTerm CWD matching (sessions where claude has exited)
+    // Pass 3.6: Orphan iTerm matching (sessions where claude has exited)
     if (this.paneMapping.orphanItermSessions.length > 0) {
       for (const orphan of this.paneMapping.orphanItermSessions) {
-        if (!orphan.cwd) continue;
         const itermPaneId = `iterm:${orphan.itermId}`;
         if (assignedPaneIds.has(itermPaneId)) continue;
 
-        const cwdCandidates = sortedSessions.filter(s =>
-          !s.paneId && !teamPaneSessionIds.has(s.id) && !s.isSubagent &&
-          hasLikelyPane(s) && s.cwd === orphan.cwd
-        );
+        // Strategy A: Try candidate session IDs in order (most recent first)
+        if (orphan.candidateSessionIds.length > 0) {
+          for (const candidateId of orphan.candidateSessionIds) {
+            const session = sortedSessions.find(s =>
+              s.id === candidateId && !s.paneId && !s.isSubagent
+            );
+            if (session) {
+              session.paneId = itermPaneId;
+              assignedPaneIds.add(itermPaneId);
+              changed = true;
+              break;
+            }
+          }
+          if (assignedPaneIds.has(itermPaneId)) continue;
+        }
 
-        if (cwdCandidates.length === 1) {
-          const session = cwdCandidates[0];
-          session.paneId = itermPaneId;
-          assignedPaneIds.add(itermPaneId);
-          changed = true;
+        // Strategy B: CWD matching (only if exactly 1 candidate)
+        if (orphan.cwd) {
+          const cwdCandidates = sortedSessions.filter(s =>
+            !s.paneId && !teamPaneSessionIds.has(s.id) && !s.isSubagent &&
+            hasLikelyPane(s) && s.cwd === orphan.cwd
+          );
+
+          if (cwdCandidates.length === 1) {
+            const session = cwdCandidates[0];
+            session.paneId = itermPaneId;
+            assignedPaneIds.add(itermPaneId);
+            changed = true;
+          }
         }
       }
     }
@@ -665,6 +683,28 @@ export class Aggregator extends EventEmitter {
       const parent = this.state.sessions.find((s) => s.id === session.parentSessionId);
       if (parent?.paneId && session.paneId !== parent.paneId) {
         session.paneId = parent.paneId;
+        changed = true;
+      }
+    }
+
+    // Fifth pass: derive terminalApp from paneId format
+    for (const session of this.state.sessions) {
+      let newTerminalApp: Session['terminalApp'];
+      if (!session.paneId) {
+        newTerminalApp = undefined;
+      } else if (/^%\d+$/.test(session.paneId)) {
+        newTerminalApp = 'tmux';
+      } else if (session.paneId.startsWith('iterm:')) {
+        newTerminalApp = 'iterm2';
+      } else if (session.paneId.startsWith('warp:')) {
+        newTerminalApp = 'warp';
+      } else if (session.paneId.startsWith('terminal:')) {
+        newTerminalApp = 'terminal';
+      } else {
+        newTerminalApp = 'unknown';
+      }
+      if (session.terminalApp !== newTerminalApp) {
+        session.terminalApp = newTerminalApp;
         changed = true;
       }
     }
