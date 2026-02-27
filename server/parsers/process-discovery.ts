@@ -257,6 +257,71 @@ export async function discoverClaudePanes(): Promise<ClaudePaneMapping> {
       }
     }
 
+    // Step 4c: For tmux PIDs not matched by lsof, derive session ID from JSONL file
+    // creation timestamps (same approach as iTerm step 3d and Warp step 3b2).
+    // Claude doesn't keep JSONL files open, so lsof rarely catches them. Instead:
+    // find the JSONL file created after this PID started AND most recently modified.
+    const tmuxPidsWithoutSession = [...pidToPaneId.keys()].filter(
+      (pid) => !result.bySessionId.has(
+        // Check if any session points to this PID's pane
+        [...result.bySessionId.entries()].find(([, p]) => p === pidToPaneId.get(pid))?.[0] ?? ''
+      )
+    );
+    if (tmuxPidsWithoutSession.length > 0) {
+      const pidStartTimes2 = await getPidStartTimes(tmuxPidsWithoutSession);
+      // Get CWDs for these PIDs
+      const pidCwds = new Map<number, string>();
+      for (const pid of tmuxPidsWithoutSession) {
+        try {
+          const { stdout } = await execFileAsync('lsof', ['-a', '-p', String(pid), '-d', 'cwd', '-Fn'], { timeout: 3000 });
+          const cwdLine = stdout.split('\n').find(l => l.startsWith('n/'));
+          if (cwdLine) pidCwds.set(pid, cwdLine.slice(1));
+        } catch { /* best effort */ }
+      }
+
+      // Track which session IDs have already been assigned to avoid conflicts
+      const assignedSessionIds = new Set(result.bySessionId.keys());
+
+      for (const pid of tmuxPidsWithoutSession) {
+        const pidStart = pidStartTimes2.get(pid);
+        const cwd = pidCwds.get(pid);
+        if (!pidStart || !cwd) continue;
+
+        try {
+          const projectDir = cwd.replace(/\//g, '-');
+          const sessionsDir = path.join(claudeHome, 'projects', projectDir);
+          const files = fs.readdirSync(sessionsDir).filter(f => f.endsWith('.jsonl') && !f.includes(':'));
+
+          let bestFile = '';
+          let bestMtime = 0;
+          const now = Date.now();
+          for (const f of files) {
+            try {
+              const stat = fs.statSync(path.join(sessionsDir, f));
+              const sessionId = f.replace('.jsonl', '');
+              // Skip already-assigned sessions
+              if (assignedSessionIds.has(sessionId)) continue;
+              // File must be created after PID started (with 60s tolerance)
+              // and modified recently (within 5 minutes)
+              const createdAfterPid = stat.birthtimeMs >= pidStart - 60_000;
+              const recentlyModified = now - stat.mtimeMs < 5 * 60 * 1000;
+              if (createdAfterPid && recentlyModified && stat.mtimeMs > bestMtime) {
+                bestMtime = stat.mtimeMs;
+                bestFile = f;
+              }
+            } catch { /* skip */ }
+          }
+
+          if (bestFile) {
+            const sessionId = bestFile.replace('.jsonl', '');
+            const tmuxPaneId = pidToPaneId.get(pid)!;
+            result.bySessionId.set(sessionId, tmuxPaneId);
+            assignedSessionIds.add(sessionId);
+          }
+        } catch { /* best effort */ }
+      }
+    }
+
     // Step 5: Build pane title map for fuzzy matching (tmux only)
     const claudePaneIds = new Set(pidToPaneId.values());
     for (const [paneId, rawTitle] of titleMap) {

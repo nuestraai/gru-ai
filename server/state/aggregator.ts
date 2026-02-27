@@ -677,6 +677,58 @@ export class Aggregator extends EventEmitter {
       }
     }
 
+    // Pass 3.9: Active session reclamation — if an active session has no pane but
+    // matches scrollback content in a pane currently assigned to an idle session,
+    // the active session steals the pane. This handles the common case of resuming
+    // a different session in the same tmux pane (stale title match).
+    if (this.paneMapping.panePrompts.size > 0) {
+      const activeSessions = sortedSessions.filter(
+        (s) => !s.paneId && !teamPaneSessionIds.has(s.id) && !s.isSubagent &&
+          hasLikelyPane(s) &&
+          (s.status === 'working' || s.status === 'waiting-input' || s.status === 'waiting-approval' || s.status === 'error')
+      );
+
+      for (const session of activeSessions) {
+        const sessionTexts: string[] = [];
+        if (session.latestPrompt) sessionTexts.push(session.latestPrompt.replace(/\.{3}$/, '').toLowerCase());
+        if (session.initialPrompt) sessionTexts.push(session.initialPrompt.replace(/\.{3}$/, '').toLowerCase());
+        if (sessionTexts.length === 0) continue;
+
+        let bestPaneId: string | undefined;
+        let bestScore = 0;
+
+        for (const [paneId, panePromptList] of this.paneMapping.panePrompts) {
+          // Only consider panes assigned to idle sessions
+          const currentOwner = this.state.sessions.find((s) => s.paneId === paneId && !s.isSubagent);
+          if (!currentOwner || currentOwner.status !== 'idle') continue;
+
+          for (const panePrompt of panePromptList) {
+            const paneLower = panePrompt.toLowerCase();
+            for (const sessionText of sessionTexts) {
+              if (paneLower.includes(sessionText) || sessionText.includes(paneLower)) {
+                const matchLen = Math.min(paneLower.length, sessionText.length);
+                const score = matchLen + 100;
+                if (score > bestScore) {
+                  bestScore = score;
+                  bestPaneId = paneId;
+                }
+              }
+            }
+          }
+        }
+
+        if (bestPaneId && bestScore > 100) {
+          // Steal the pane from the idle session
+          const oldOwner = this.state.sessions.find((s) => s.paneId === bestPaneId && !s.isSubagent);
+          if (oldOwner) {
+            oldOwner.paneId = undefined;
+          }
+          session.paneId = bestPaneId;
+          changed = true;
+        }
+      }
+    }
+
     // Fourth pass: propagate to subagents
     for (const session of this.state.sessions) {
       if (!session.isSubagent || !session.parentSessionId) continue;
