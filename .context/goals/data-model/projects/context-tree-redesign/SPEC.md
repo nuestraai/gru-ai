@@ -93,7 +93,7 @@
   "status": "proposed | planning | active | blocked | completed | abandoned",
   "priority": "p0 | p1 | p2 | p3",
   "sequence": "integer (optional, roadmap ordering within the goal)",
-  "depends_on_project": "string | null (optional, project ID within same goal)",
+  "depends_on_project": "string | null (optional, format: goal-id/project-id for cross-goal, or project-id for same-goal)",
   "description": "string (what this project delivers)",
   "scope": {
     "in": ["string"],
@@ -103,7 +103,7 @@
     {
       "criterion": "string (verifiable statement)",
       "met": false,
-      "verified_by": "string | null"
+      "verified_by": ["string"] | null
     }
   ],
   "verify": {
@@ -156,7 +156,7 @@
   "title": "string",
   "status": "pending | in_progress | completed | blocked | skipped",
   "phase": "string | null (optional label: research, design, build, test, etc.)",
-  "agent": "string | null (agent name, e.g. jordan, sarah)",
+  "agent": ["string"] | [] (array of agent names, e.g. ["jordan"], ["sarah", "marcus"]),
   "depends_on": ["string (task IDs within same project)"],
   "blocked_reason": "string | null (set when status = blocked)",
   "cross_project_dep": "string | null (format: goal-id/project-id:task-id)",
@@ -207,7 +207,7 @@
         "title": "string",
         "phases": ["build", "review"],
         "cast": { "engineer": "string", "reviewer": "string" },
-        "dod": [{ "criterion": "string", "met": false, "verified_by": null }],
+        "dod": [{ "criterion": "string", "met": false, "verified_by": [] }],
         "user_scenario": "string"
       }
     ]
@@ -218,7 +218,7 @@
     "review": { "outcome": "pass | fail | critical", "findings": [], "agent": "string", "timestamp": "ISO date" }
   },
   "cast": {},
-  "dod": [{ "criterion": "string", "met": false, "verified_by": null }],
+  "dod": [{ "criterion": "string", "met": false, "verified_by": [] }],
   "report_summary": "string | null",
   "telemetry": {
     "started": "ISO datetime",

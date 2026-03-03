@@ -11,8 +11,8 @@
     "out": ["Server-side session discovery (already works)", "Terminal integration"]
   },
   "dod": [
-    { "criterion": "Session cards show real-time status (running, idle, needs-you) with sub-agent tree", "met": false, "verified_by": null },
-    { "criterion": "Sub-agent status propagates to parent session within 2 seconds", "met": false, "verified_by": null }
+    { "criterion": "Session cards show real-time status (running, idle, needs-you) with sub-agent tree", "met": false, "verified_by": [] },
+    { "criterion": "Sub-agent status propagates to parent session within 2 seconds", "met": false, "verified_by": [] }
   ],
   "verify": {
     "checklist": [

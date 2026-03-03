@@ -11,8 +11,8 @@
     "out": ["Agent personality file changes", "Casting logic changes"]
   },
   "dod": [
-    { "criterion": "Org page shows all C-suite agents with their domains and current assignments", "met": false, "verified_by": null },
-    { "criterion": "Agent cards are clickable and show agent detail (personality summary, recent directives)", "met": false, "verified_by": null }
+    { "criterion": "Org page shows all C-suite agents with their domains and current assignments", "met": false, "verified_by": [] },
+    { "criterion": "Agent cards are clickable and show agent detail (personality summary, recent directives)", "met": false, "verified_by": [] }
   ],
   "verify": {
     "checklist": [
