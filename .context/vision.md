@@ -79,6 +79,24 @@ Agents read BOTH layers:
 - Framework context tells them HOW to operate (process, risk taxonomy, intelligence domains)
 - Consumer context tells them WHAT to work on (vision, guardrails, domain lessons)
 
+## Harness Engineering Alignment
+
+Agent-conductor is an **organizational harness** — OpenAI's harness engineering describes the environment layer (how to set up a codebase for agents); we extend it with the organization layer (how to structure agents into an autonomous company).
+
+| Harness Engineering Pillar | Our Implementation |
+|---|---|
+| **Context engineering** | `.context/` tree — goals, systems, lessons, intel. Domain-scoped, continuously updated by /scout and /healthcheck. |
+| **Architectural constraints** | SKILL.md typed pipelines, JSON schemas between agents, risk taxonomy, Morgan's casting rules. Organizational constraints via C-suite domain ownership. |
+| **Entropy management** | /healthcheck (internal decay), /scout (external drift), lessons/ (institutional memory). Broader than code-only — covers organizational entropy. |
+
+**What we add beyond harness engineering:**
+- **Organizational constraints** — domain ownership, challenge mode, bottom-up proposals, personality-driven decision-making
+- **Autonomous operations loop** — /scout → /healthcheck → /directive → /report (continuous, not one-shot)
+- **CEO experience design** — human reviews outcomes, not code. 45 min/week.
+- **Institutional memory** — lessons compound across directives; personality files evolve from experience
+
+**Known gap:** Deterministic enforcement. We rely heavily on LLM-based review; OpenAI uses structural tests + linters + LLM review together. Building deterministic constraint checks is a P0 priority.
+
 ## Success Criteria
 
 1. C-suite agents produce meaningfully different, opinionated outputs (not yes-men)
