@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { Outlet } from 'react-router-dom';
+import { Outlet, useLocation } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import Header from './Header';
 import SearchCommandPalette from '@/components/shared/SearchCommandPalette';
@@ -9,6 +9,8 @@ import { API_BASE } from '@/lib/api';
 export default function AppLayout() {
   const workState = useDashboardStore((s) => s.workState);
   const fetchedRef = useRef(false);
+  const location = useLocation();
+  const isGameRoute = location.pathname === '/game';
 
   // Eagerly fetch work state on app load so orientation banner + search have data
   useEffect(() => {
@@ -38,7 +40,7 @@ export default function AppLayout() {
       <Sidebar />
       <div className="flex-1 flex flex-col overflow-hidden">
         <Header />
-        <main className="flex-1 overflow-y-auto p-6">
+        <main className={`flex-1 overflow-y-auto ${isGameRoute ? '' : 'p-6'}`}>
           <Outlet />
         </main>
       </div>

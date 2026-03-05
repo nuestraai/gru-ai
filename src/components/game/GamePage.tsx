@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useDashboardStore } from '@/stores/dashboard-store';
 import { OFFICE_AGENTS, type SelectedItem } from './types';
 import type { AgentStatus, SessionInfo } from './pixel-types';
@@ -69,9 +69,14 @@ export default function GamePage() {
     for (const name of KNOWN_AGENTS) {
       map[name] = 'offline';
     }
+    // Priority: working > waiting > idle > offline
+    const priority: Record<AgentStatus, number> = { working: 3, waiting: 2, idle: 1, error: 1, offline: 0 };
     for (const s of sessions) {
-      if (s.agentName && KNOWN_AGENTS.has(s.agentName) && !s.isSubagent) {
-        map[s.agentName] = toAgentStatus(s.status);
+      if (s.agentName && KNOWN_AGENTS.has(s.agentName)) {
+        const status = toAgentStatus(s.status);
+        if (priority[status] > priority[map[s.agentName] ?? 'offline']) {
+          map[s.agentName] = status;
+        }
       }
     }
     return map;
@@ -176,12 +181,14 @@ export default function GamePage() {
     // gains multi-view support.
   }, []);
 
+  const gameContainerRef = useRef<HTMLDivElement>(null);
+
   return (
-    <div className="flex flex-col h-full">
-      <GameHeader onPanelRequest={handlePanelRequest} />
+    <div ref={gameContainerRef} className="flex flex-col h-full">
+      <GameHeader onPanelRequest={handlePanelRequest} gameContainerRef={gameContainerRef} />
 
       <div className="flex flex-1 min-h-0">
-        <div className="flex-1 min-h-0 bg-stone-200 dark:bg-stone-950">
+        <div className="flex-1 min-h-0 overflow-auto bg-stone-200 dark:bg-stone-950">
           <CanvasOffice
             onAgentClick={handleAgentClick}
             onItemClick={handleItemClick}

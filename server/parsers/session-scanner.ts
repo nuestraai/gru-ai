@@ -223,9 +223,9 @@ export function extractSubagentTypesFromParent(parentFilePath: string): Map<stri
 
   const result = new Map<string, string>();
 
-  // Scan the file in chunks from the beginning. Agent tool calls can be anywhere
-  // but are typically early in the session. We scan up to 2MB.
-  const MAX_SCAN = 2 * 1024 * 1024;
+  // Scan the entire file for Agent tool calls — they can appear anywhere in a
+  // long conversation. Previously limited to 2MB which missed late-session spawns.
+  const MAX_SCAN = stat.size;
   let fd: number | null = null;
   try {
     fd = fs.openSync(parentFilePath, 'r');

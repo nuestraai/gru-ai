@@ -1,5 +1,6 @@
 // ---------------------------------------------------------------------------
 // CanvasOffice — Canvas 2D office renderer using full pixel-agents engine
+// Fit-width layout: canvas sized to full map, native browser scrolling
 // ---------------------------------------------------------------------------
 
 import { useCallback, useEffect, useRef, useState } from 'react'
@@ -9,7 +10,7 @@ import type { AgentStatus, SessionInfo } from './pixel-types'
 import { OfficeState } from './engine/officeState'
 import { renderFrame, type SelectionRenderState, type IdentityOverlay } from './engine/renderer'
 import { TILE_SIZE } from './pixel-types'
-import { MAX_DELTA_TIME_SEC, ZOOM_MIN, ZOOM_MAX, CAMERA_FOLLOW_LERP, CAMERA_FOLLOW_SNAP_THRESHOLD } from './constants'
+import { MAX_DELTA_TIME_SEC } from './constants'
 import { loadAllAssets, onTilesetReady } from './asset-loader'
 import { CharacterState } from './pixel-types'
 import { ROOM_ZONES, getZoneAt } from './engine/roomZones'
@@ -26,6 +27,11 @@ const AGENT_ID_TO_REAL_NAME = new Map(OFFICE_AGENTS.map((a) => [a.id, a.agentNam
 // Find the player-controlled CEO agent
 const CEO_AGENT = OFFICE_AGENTS.find((a) => a.isPlayer) ?? null
 const CEO_ID = CEO_AGENT?.id ?? null
+
+// Zoom bounds
+const MIN_ZOOM_ABSOLUTE = 1
+const MAX_ZOOM_ABSOLUTE = 8
+const ZOOM_STEP = 0.15 // per wheel tick
 
 /** Tooltip state for room hover */
 interface TooltipState {
@@ -63,22 +69,28 @@ export default function CanvasOffice({
   selectedAgentName,
 }: CanvasOfficeProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  const wrapperRef = useRef<HTMLDivElement>(null)
   const stateRef = useRef<OfficeState | null>(null)
-  const cameraRef = useRef({ zoom: 3, panX: 0, panY: 0 })
   const rafRef = useRef(0)
   const lastTimeRef = useRef(0)
-  const dragRef = useRef<{
-    active: boolean
-    startX: number
-    startY: number
-    startPanX: number
-    startPanY: number
-  } | null>(null)
   const propsRef = useRef({ onAgentClick, onItemClick, agentStatuses, agentSessionInfos, selectedAgentName })
   propsRef.current = { onAgentClick, onItemClick, agentStatuses, agentSessionInfos, selectedAgentName }
 
-  const [zoomLevel, setZoomLevel] = useState(3)
+  // Zoom state: fitZoom is the baseline (fit map width to container), zoom is current
+  const [fitZoom, setFitZoom] = useState(3)
+  const [zoom, setZoom] = useState(3)
+  const zoomRef = useRef(zoom)
+  zoomRef.current = zoom
+
   const [tooltip, setTooltip] = useState<TooltipState | null>(null)
+
+  // Get map dimensions from state (or fallback)
+  const getMapDims = useCallback(() => {
+    const state = stateRef.current
+    const cols = state ? (state.tileMap[0]?.length ?? 1) : 1
+    const rows = state ? state.tileMap.length : 1
+    return { cols, rows }
+  }, [])
 
   // Initialize office state + add agents + load assets
   useEffect(() => {
@@ -171,27 +183,82 @@ export default function CanvasOffice({
     return () => canvas.removeEventListener('keydown', onKeyDown)
   }, [])
 
-  // ResizeObserver
+  // ResizeObserver — track container width to compute fitZoom
   useEffect(() => {
-    const canvas = canvasRef.current
-    if (!canvas) return
-    const parent = canvas.parentElement
+    const wrapper = wrapperRef.current
+    if (!wrapper) return
+    const parent = wrapper.parentElement
     if (!parent) return
 
     const observer = new ResizeObserver(() => {
-      const dpr = window.devicePixelRatio || 1
       const w = parent.clientWidth
-      const h = parent.clientHeight
-      if (w === 0 || h === 0) return
-      canvas.width = w * dpr
-      canvas.height = h * dpr
-      canvas.style.width = `${w}px`
-      canvas.style.height = `${h}px`
+      if (w === 0) return
+
+      const state = stateRef.current
+      if (state) {
+        const cols = state.tileMap[0]?.length ?? 1
+        const newFitZoom = w / (cols * TILE_SIZE)
+        setFitZoom(newFitZoom)
+        // If user hasn't manually zoomed yet, track fitZoom
+        // We detect "hasn't zoomed" by checking if current zoom equals old fitZoom
+        setZoom((prevZoom) => {
+          // On first load or if zoom was tracking fitZoom, update to new fitZoom
+          const oldFitZoom = fitZoomRef.current
+          if (Math.abs(prevZoom - oldFitZoom) < 0.01) {
+            return newFitZoom
+          }
+          return prevZoom
+        })
+      }
     })
 
     observer.observe(parent)
     return () => observer.disconnect()
   }, [])
+
+  // Keep a ref of fitZoom for the resize observer closure
+  const fitZoomRef = useRef(fitZoom)
+  fitZoomRef.current = fitZoom
+
+  // Wheel zoom handler
+  useEffect(() => {
+    const wrapper = wrapperRef.current
+    if (!wrapper) return
+    const parent = wrapper.parentElement
+    if (!parent) return
+
+    const onWheel = (e: WheelEvent) => {
+      // Only zoom if Ctrl/Meta is held, otherwise let native scroll work
+      if (!e.ctrlKey && !e.metaKey) return
+      e.preventDefault()
+
+      const delta = e.deltaY > 0 ? -ZOOM_STEP : ZOOM_STEP
+      setZoom((prev) => {
+        const minZoom = Math.max(MIN_ZOOM_ABSOLUTE, fitZoomRef.current * 0.5)
+        const maxZoom = Math.min(MAX_ZOOM_ABSOLUTE, fitZoomRef.current * 3)
+        return Math.max(minZoom, Math.min(maxZoom, prev + delta * prev))
+      })
+    }
+
+    parent.addEventListener('wheel', onWheel, { passive: false })
+    return () => parent.removeEventListener('wheel', onWheel)
+  }, [])
+
+  // Compute canvas pixel dimensions from zoom and map size
+  const { cols, rows } = getMapDims()
+  const canvasLogicalW = cols * TILE_SIZE * zoom
+  const canvasLogicalH = rows * TILE_SIZE * zoom
+
+  // Update canvas backing store when zoom/size changes
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const dpr = window.devicePixelRatio || 1
+    canvas.width = Math.ceil(canvasLogicalW * dpr)
+    canvas.height = Math.ceil(canvasLogicalH * dpr)
+    canvas.style.width = `${Math.ceil(canvasLogicalW)}px`
+    canvas.style.height = `${Math.ceil(canvasLogicalH)}px`
+  }, [canvasLogicalW, canvasLogicalH])
 
   // Animation loop
   useEffect(() => {
@@ -212,33 +279,11 @@ export default function CanvasOffice({
       state.update(dt)
 
       const dpr = window.devicePixelRatio || 1
-      const w = canvas.width / dpr
-      const h = canvas.height / dpr
-      const cam = cameraRef.current
-
-      // Smooth camera follow for CEO
-      if (CEO_ID !== null && dt > 0) {
-        const ceo = state.characters.get(CEO_ID)
-        if (ceo && ceo.isPlayerControlled) {
-          const cols = state.tileMap[0]?.length ?? 1
-          const rows = state.tileMap.length ?? 1
-          const mapW = cols * TILE_SIZE * cam.zoom
-          const mapH = rows * TILE_SIZE * cam.zoom
-          const baseOffsetX = Math.floor((w - mapW) / 2)
-          const baseOffsetY = Math.floor((h - mapH) / 2)
-          const targetPanX = w / 2 - ceo.x * cam.zoom - baseOffsetX
-          const targetPanY = h / 2 - ceo.y * cam.zoom - baseOffsetY
-          const dx = targetPanX - cam.panX
-          const dy = targetPanY - cam.panY
-          if (Math.abs(dx) > CAMERA_FOLLOW_SNAP_THRESHOLD || Math.abs(dy) > CAMERA_FOLLOW_SNAP_THRESHOLD) {
-            cam.panX += dx * CAMERA_FOLLOW_LERP
-            cam.panY += dy * CAMERA_FOLLOW_LERP
-          } else {
-            cam.panX = targetPanX
-            cam.panY = targetPanY
-          }
-        }
-      }
+      const currentZoom = zoomRef.current
+      const mapCols = state.tileMap[0]?.length ?? 1
+      const mapRows = state.tileMap.length ?? 1
+      const w = mapCols * TILE_SIZE * currentZoom
+      const h = mapRows * TILE_SIZE * currentZoom
 
       const ctx = canvas.getContext('2d')!
       ctx.save()
@@ -267,6 +312,7 @@ export default function CanvasOffice({
         time: time / 1000,
       }
 
+      // Canvas = full map size, so panX/panY = 0, offsets will be 0
       renderFrame(
         ctx,
         w,
@@ -274,9 +320,9 @@ export default function CanvasOffice({
         state.tileMap,
         state.furniture,
         state.getCharacters(),
-        cam.zoom,
-        cam.panX,
-        cam.panY,
+        currentZoom,
+        0,
+        0,
         selection,
         undefined,
         state.layout.tileColors,
@@ -294,68 +340,13 @@ export default function CanvasOffice({
     return () => cancelAnimationFrame(rafRef.current)
   }, [])
 
-  // Wheel zoom (anchored to cursor)
-  useEffect(() => {
-    const canvas = canvasRef.current
-    if (!canvas) return
 
-    const onWheel = (e: WheelEvent) => {
-      e.preventDefault()
-      const cam = cameraRef.current
-      const delta = e.deltaY < 0 ? 0.5 : -0.5
-      const newZoom = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, cam.zoom + delta))
-      if (newZoom === cam.zoom) return
-
-      const dpr = window.devicePixelRatio || 1
-      const logW = canvas.width / dpr
-      const logH = canvas.height / dpr
-      const state = stateRef.current
-      const cols = state?.tileMap[0]?.length ?? 1
-      const rows = state?.tileMap.length ?? 1
-
-      const mapW = cols * TILE_SIZE * cam.zoom
-      const mapH = rows * TILE_SIZE * cam.zoom
-      const offsetX = Math.floor((logW - mapW) / 2) + Math.round(cam.panX)
-      const offsetY = Math.floor((logH - mapH) / 2) + Math.round(cam.panY)
-
-      const worldX = (e.offsetX - offsetX) / cam.zoom
-      const worldY = (e.offsetY - offsetY) / cam.zoom
-
-      const newMapW = cols * TILE_SIZE * newZoom
-      const newMapH = rows * TILE_SIZE * newZoom
-      const newBaseOffsetX = Math.floor((logW - newMapW) / 2)
-      const newBaseOffsetY = Math.floor((logH - newMapH) / 2)
-
-      cam.panX = e.offsetX - worldX * newZoom - newBaseOffsetX
-      cam.panY = e.offsetY - worldY * newZoom - newBaseOffsetY
-      cam.zoom = newZoom
-      setZoomLevel(Math.round(newZoom))
-    }
-
-    canvas.addEventListener('wheel', onWheel, { passive: false })
-    return () => canvas.removeEventListener('wheel', onWheel)
-  }, [])
-
-  // Convert screen coords to world coords
+  // Convert screen coords to world coords (offsets are 0 since canvas = map)
   const screenToWorld = useCallback((screenX: number, screenY: number) => {
-    const canvas = canvasRef.current
-    const state = stateRef.current
-    if (!canvas || !state) return { worldX: 0, worldY: 0 }
-
-    const dpr = window.devicePixelRatio || 1
-    const logW = canvas.width / dpr
-    const logH = canvas.height / dpr
-    const cam = cameraRef.current
-    const cols = state.tileMap[0]?.length ?? 1
-    const rows = state.tileMap.length ?? 1
-    const mapW = cols * TILE_SIZE * cam.zoom
-    const mapH = rows * TILE_SIZE * cam.zoom
-    const offsetX = Math.floor((logW - mapW) / 2) + Math.round(cam.panX)
-    const offsetY = Math.floor((logH - mapH) / 2) + Math.round(cam.panY)
-
+    const currentZoom = zoomRef.current
     return {
-      worldX: (screenX - offsetX) / cam.zoom,
-      worldY: (screenY - offsetY) / cam.zoom,
+      worldX: screenX / currentZoom,
+      worldY: screenY / currentZoom,
     }
   }, [])
 
@@ -426,76 +417,54 @@ export default function CanvasOffice({
     [resolveAgentName, resolveRealAgentName],
   )
 
-  // Mouse handlers
-  const handleMouseDown = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
-    e.preventDefault()
-    dragRef.current = {
-      active: false,
-      startX: e.nativeEvent.offsetX,
-      startY: e.nativeEvent.offsetY,
-      startPanX: cameraRef.current.panX,
-      startPanY: cameraRef.current.panY,
-    }
+  // Mouse handlers (no drag/pan -- click and hover only)
+  const handleMouseDown = useCallback((_e: React.MouseEvent<HTMLCanvasElement>) => {
+    // no-op: click is handled on mouseUp
   }, [])
 
   const handleMouseMove = useCallback(
     (e: React.MouseEvent<HTMLCanvasElement>) => {
-      const drag = dragRef.current
-      if (!drag) {
-        const state = stateRef.current
-        if (state) {
-          const screenX = e.nativeEvent.offsetX
-          const screenY = e.nativeEvent.offsetY
-          const { worldX, worldY } = screenToWorld(screenX, screenY)
-          const charId = state.getCharacterAt(worldX, worldY)
-          state.hoveredAgentId = charId
+      const state = stateRef.current
+      if (!state) return
 
-          // Check furniture for pointer cursor
-          const tileInfo = charId === null ? state.getTileInfoAt(worldX, worldY) : null
-          const isInteractive = charId !== null || (tileInfo !== null && tileInfo.type !== 'wall')
+      const screenX = e.nativeEvent.offsetX
+      const screenY = e.nativeEvent.offsetY
+      const { worldX, worldY } = screenToWorld(screenX, screenY)
+      const charId = state.getCharacterAt(worldX, worldY)
+      state.hoveredAgentId = charId
 
-          if (canvasRef.current) {
-            canvasRef.current.style.cursor = isInteractive ? 'pointer' : 'default'
-          }
+      // Check furniture for pointer cursor
+      const tileInfo = charId === null ? state.getTileInfoAt(worldX, worldY) : null
+      const isInteractive = charId !== null || (tileInfo !== null && tileInfo.type !== 'wall')
 
-          // Room hover tooltip: only show when not hovering agent or interactive furniture
-          if (charId === null && !isInteractive) {
-            const col = Math.floor(worldX / TILE_SIZE)
-            const row = Math.floor(worldY / TILE_SIZE)
-            const zoneId = getZoneAt(col, row)
-            if (zoneId) {
-              const zone = ROOM_ZONES[zoneId]
-              const agentsInZone = state.getAgentsInZone(
-                zone.bounds.minCol, zone.bounds.minRow,
-                zone.bounds.maxCol, zone.bounds.maxRow,
-              )
-              const agentNames = agentsInZone
-                .map((a) => AGENT_ID_TO_NAME.get(a.id) ?? '')
-                .filter((n) => n !== '')
-              setTooltip({
-                x: screenX + 12,
-                y: screenY - 8,
-                roomName: zone.label,
-                agents: agentNames,
-              })
-            } else {
-              setTooltip(null)
-            }
-          } else {
-            setTooltip(null)
-          }
-        }
-        return
+      if (canvasRef.current) {
+        canvasRef.current.style.cursor = isInteractive ? 'pointer' : 'default'
       }
 
-      // Drag panning
-      const dx = e.nativeEvent.offsetX - drag.startX
-      const dy = e.nativeEvent.offsetY - drag.startY
-      if (!drag.active && Math.sqrt(dx * dx + dy * dy) >= 4) drag.active = true
-      if (drag.active) {
-        cameraRef.current.panX = drag.startPanX + dx
-        cameraRef.current.panY = drag.startPanY + dy
-        if (canvasRef.current) canvasRef.current.style.cursor = 'grabbing'
+      // Room hover tooltip: only show when not hovering agent or interactive furniture
+      if (charId === null && !isInteractive) {
+        const col = Math.floor(worldX / TILE_SIZE)
+        const row = Math.floor(worldY / TILE_SIZE)
+        const zoneId = getZoneAt(col, row)
+        if (zoneId) {
+          const zone = ROOM_ZONES[zoneId]
+          const agentsInZone = state.getAgentsInZone(
+            zone.bounds.minCol, zone.bounds.minRow,
+            zone.bounds.maxCol, zone.bounds.maxRow,
+          )
+          const agentNames = agentsInZone
+            .map((a) => AGENT_ID_TO_NAME.get(a.id) ?? '')
+            .filter((n) => n !== '')
+          setTooltip({
+            x: screenX + 12,
+            y: screenY - 8,
+            roomName: zone.label,
+            agents: agentNames,
+          })
+        } else {
+          setTooltip(null)
+        }
+      } else {
         setTooltip(null)
       }
     },
@@ -504,27 +473,20 @@ export default function CanvasOffice({
 
   const handleMouseUp = useCallback(
     (e: React.MouseEvent<HTMLCanvasElement>) => {
-      const drag = dragRef.current
-      if (!drag) return
-      if (!drag.active) {
-        const { worldX, worldY } = screenToWorld(e.nativeEvent.offsetX, e.nativeEvent.offsetY)
-        processClick(worldX, worldY)
-      }
-      dragRef.current = null
-      if (canvasRef.current) canvasRef.current.style.cursor = 'default'
+      const { worldX, worldY } = screenToWorld(e.nativeEvent.offsetX, e.nativeEvent.offsetY)
+      processClick(worldX, worldY)
     },
     [screenToWorld, processClick],
   )
 
   const handleMouseLeave = useCallback(() => {
-    dragRef.current = null
     const state = stateRef.current
     if (state) state.hoveredAgentId = null
     if (canvasRef.current) canvasRef.current.style.cursor = 'default'
     setTooltip(null)
   }, [])
 
-  // Touch handlers
+  // Touch handlers (tap-to-click only, no drag/pan or pinch-to-zoom)
   useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas) return
@@ -533,82 +495,35 @@ export default function CanvasOffice({
       const rect = canvas!.getBoundingClientRect()
       return { x: t.clientX - rect.left, y: t.clientY - rect.top }
     }
-    function touchDist(a: Touch, b: Touch) {
-      return Math.sqrt((a.clientX - b.clientX) ** 2 + (a.clientY - b.clientY) ** 2)
-    }
 
-    let pinch: { startDist: number; startZoom: number } | null = null
+    let touchStart: { x: number; y: number } | null = null
 
     function onTouchStart(e: TouchEvent) {
-      e.preventDefault()
-      if (e.touches.length === 2) {
-        dragRef.current = null
-        pinch = {
-          startDist: touchDist(e.touches[0], e.touches[1]),
-          startZoom: cameraRef.current.zoom,
-        }
-        return
-      }
+      // Don't preventDefault -- allow native scroll on touch
       if (e.touches.length === 1) {
-        pinch = null
-        const pos = touchOffset(e.touches[0])
-        dragRef.current = {
-          active: false,
-          startX: pos.x,
-          startY: pos.y,
-          startPanX: cameraRef.current.panX,
-          startPanY: cameraRef.current.panY,
-        }
+        touchStart = touchOffset(e.touches[0])
       }
     }
 
     function onTouchMove(e: TouchEvent) {
-      e.preventDefault()
-      if (e.touches.length === 2 && pinch) {
-        const d = touchDist(e.touches[0], e.touches[1])
-        const newZoom = Math.max(
-          ZOOM_MIN,
-          Math.min(ZOOM_MAX, pinch.startZoom * (d / pinch.startDist)),
-        )
-        cameraRef.current.zoom = newZoom
-        setZoomLevel(Math.round(newZoom))
-        return
-      }
-      if (e.touches.length === 1 && dragRef.current) {
+      // If finger moves too far, cancel the tap (let browser scroll)
+      if (touchStart && e.touches.length === 1) {
         const pos = touchOffset(e.touches[0])
-        const drag = dragRef.current
-        const dx = pos.x - drag.startX
-        const dy = pos.y - drag.startY
-        if (!drag.active && Math.sqrt(dx * dx + dy * dy) >= 4) drag.active = true
-        if (drag.active) {
-          cameraRef.current.panX = drag.startPanX + dx
-          cameraRef.current.panY = drag.startPanY + dy
+        const dx = pos.x - touchStart.x
+        const dy = pos.y - touchStart.y
+        if (Math.sqrt(dx * dx + dy * dy) >= 10) {
+          touchStart = null
         }
       }
     }
 
     function onTouchEnd(e: TouchEvent) {
-      e.preventDefault()
-      if (pinch) {
-        pinch = null
-        if (e.touches.length === 0) dragRef.current = null
-        return
-      }
-      if (e.touches.length === 0 && dragRef.current && !dragRef.current.active) {
+      if (e.touches.length === 0 && touchStart) {
         const state = stateRef.current
         if (state) {
-          const dpr = window.devicePixelRatio || 1
-          const logW = canvas!.width / dpr
-          const logH = canvas!.height / dpr
-          const cam = cameraRef.current
-          const cols = state.tileMap[0]?.length ?? 1
-          const rows = state.tileMap.length ?? 1
-          const mapW = cols * TILE_SIZE * cam.zoom
-          const mapH = rows * TILE_SIZE * cam.zoom
-          const offsetX = Math.floor((logW - mapW) / 2) + Math.round(cam.panX)
-          const offsetY = Math.floor((logH - mapH) / 2) + Math.round(cam.panY)
-          const worldX = (dragRef.current.startX - offsetX) / cam.zoom
-          const worldY = (dragRef.current.startY - offsetY) / cam.zoom
+          const currentZoom = zoomRef.current
+          const worldX = touchStart.x / currentZoom
+          const worldY = touchStart.y / currentZoom
           // Touch tap: same priority logic as mouse click
           const charId = state.getCharacterAt(worldX, worldY)
           if (charId !== null) {
@@ -641,16 +556,22 @@ export default function CanvasOffice({
               if (propsRef.current.onItemClick) {
                 propsRef.current.onItemClick(null)
               }
+              // Click-to-move CEO
+              if (CEO_ID !== null) {
+                const tileCol = Math.floor(worldX / TILE_SIZE)
+                const tileRow = Math.floor(worldY / TILE_SIZE)
+                state.walkToTile(CEO_ID, tileCol, tileRow)
+              }
             }
           }
         }
       }
-      dragRef.current = null
+      touchStart = null
     }
 
-    canvas.addEventListener('touchstart', onTouchStart, { passive: false })
-    canvas.addEventListener('touchmove', onTouchMove, { passive: false })
-    canvas.addEventListener('touchend', onTouchEnd, { passive: false })
+    canvas.addEventListener('touchstart', onTouchStart, { passive: true })
+    canvas.addEventListener('touchmove', onTouchMove, { passive: true })
+    canvas.addEventListener('touchend', onTouchEnd, { passive: true })
     return () => {
       canvas.removeEventListener('touchstart', onTouchStart)
       canvas.removeEventListener('touchmove', onTouchMove)
@@ -659,7 +580,14 @@ export default function CanvasOffice({
   }, [])
 
   return (
-    <div className="relative w-full h-full">
+    <div
+      ref={wrapperRef}
+      className="relative"
+      style={{
+        width: Math.ceil(canvasLogicalW),
+        height: Math.ceil(canvasLogicalH),
+      }}
+    >
       <canvas
         ref={canvasRef}
         className="block touch-none outline-none"
@@ -671,11 +599,6 @@ export default function CanvasOffice({
         aria-label="Office simulation"
         role="img"
       />
-      {zoomLevel > 1 && (
-        <div className="absolute bottom-3 right-3 bg-black/60 text-white text-xs px-2 py-1 rounded pointer-events-none">
-          {zoomLevel}x
-        </div>
-      )}
       {tooltip && (
         <div
           className="absolute pointer-events-none bg-black/80 text-white text-xs px-3 py-2 rounded-lg shadow-lg"

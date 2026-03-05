@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useDashboardStore } from '@/stores/dashboard-store';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -15,6 +15,8 @@ import {
   Zap,
   AlertTriangle,
   Clock,
+  Maximize,
+  Minimize,
 } from 'lucide-react';
 
 // ---------------------------------------------------------------------------
@@ -25,6 +27,7 @@ export type HudPanel = 'team' | 'sessions' | 'reports';
 
 interface GameHeaderProps {
   onPanelRequest?: (panel: HudPanel) => void;
+  gameContainerRef?: React.RefObject<HTMLDivElement | null>;
 }
 
 // ---------------------------------------------------------------------------
@@ -51,9 +54,27 @@ function formatGameDate(date: Date): string {
 // Component
 // ---------------------------------------------------------------------------
 
-export default function GameHeader({ onPanelRequest }: GameHeaderProps) {
+export default function GameHeader({ onPanelRequest, gameContainerRef }: GameHeaderProps) {
   const sessions = useDashboardStore((s) => s.sessions);
   const directiveState = useDashboardStore((s) => s.directiveState);
+
+  // Fullscreen state
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  useEffect(() => {
+    const onChange = () => setIsFullscreen(!!document.fullscreenElement);
+    document.addEventListener('fullscreenchange', onChange);
+    return () => document.removeEventListener('fullscreenchange', onChange);
+  }, []);
+
+  const toggleFullscreen = useCallback(() => {
+    if (document.fullscreenElement) {
+      document.exitFullscreen();
+    } else {
+      const el = gameContainerRef?.current ?? document.documentElement;
+      el.requestFullscreen();
+    }
+  }, []);
 
   // Live clock
   const [now, setNow] = useState(() => new Date());
@@ -268,6 +289,26 @@ export default function GameHeader({ onPanelRequest }: GameHeaderProps) {
               </TooltipTrigger>
               <TooltipContent side="bottom">
                 <p>Reports</p>
+              </TooltipContent>
+            </Tooltip>
+
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  onClick={toggleFullscreen}
+                  className="p-1 rounded text-gray-400 hover:text-gray-200 hover:bg-gray-800/60 transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-amber-500"
+                  aria-label={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
+                >
+                  {isFullscreen ? (
+                    <Minimize className="h-3.5 w-3.5" />
+                  ) : (
+                    <Maximize className="h-3.5 w-3.5" />
+                  )}
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">
+                <p>{isFullscreen ? 'Exit fullscreen' : 'Fullscreen'}</p>
               </TooltipContent>
             </Tooltip>
           </div>
