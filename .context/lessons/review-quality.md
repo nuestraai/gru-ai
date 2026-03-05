@@ -28,3 +28,10 @@
 ## Verify artifact_paths
 
 - **Verify artifact_paths schema covers all process types.** The checkpoint-resume directive created artifact_paths with only 4 keys, but 7 process types produce 12 distinct artifact files. Sarah's review caught this during request-clarify-loops — always expand schema examples to match all known variants.
+
+## Visual Features Require Visual Verification
+
+- **TypeScript compiling is NOT verification for UI work.** Phase 3 Living Office marked all 9 initiatives "completed" with `npm run type-check && npm run build` as the only verify step. Zero visual verification was done. Result: z-sort was completely broken (characters cover desks/chairs), agent status binding showed all agents "offline" (scanner had 2MB limit, subagents were filtered out). Type-check catches syntax errors, not visual/functional correctness.
+- **Game/canvas features MUST be browser-tested.** The project had `browser_test: true` in project.json but this flag was ignored — no one opened a browser. DOD criteria like "visually verified" were rubber-stamped without screenshots or human review.
+- **End-to-end data flow must be tested with real data.** The agent binding initiative claimed "agent sprites reflect real session state" but never checked whether sessions actually HAD agentName populated. The frontend code was correct, the data pipeline was broken (2MB scan limit + isSubagent filter). A single API call (`curl /api/state | jq '.sessions[].agentName'`) would have caught this instantly.
+- **DOD "met: true" without evidence is a lie.** If a DOD criterion says "All 25 seats visually verified" and no screenshot or browser session exists, it wasn't verified. Require evidence artifacts (screenshots, console output) for visual/functional DOD criteria, not just type-check passes.

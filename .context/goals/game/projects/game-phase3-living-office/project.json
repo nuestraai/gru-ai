@@ -2,7 +2,7 @@
   "id": "game-phase3-living-office",
   "title": "Game Phase 3 — Living Office",
   "goal_id": "game",
-  "status": "completed",
+  "status": "in_progress",
   "priority": "P0",
   "agent": ["riley"],
   "reviewers": ["sarah", "marcus"],
@@ -39,11 +39,12 @@
       "scope": "Fix FurnitureInstance.zY in layoutSerializer.ts so up-facing chairs render behind seated characters. Audit all ZDrawable sorting in renderer.ts for edge cases.",
       "verify": "npm run type-check && npm run build",
       "definition_of_done": [
-        { "criterion": "FurnitureInstance.zY correctly computed so characters in up-facing chairs render in front", "met": true },
-        { "criterion": "All 25 seats visually verified — no character-behind-furniture clipping", "met": true },
-        { "criterion": "No regressions in existing z-sort for desks, monitors, and other furniture", "met": true }
+        { "criterion": "FurnitureInstance.zY correctly computed so characters in up-facing chairs render in front", "met": false },
+        { "criterion": "All 25 seats visually verified — no character-behind-furniture clipping", "met": false },
+        { "criterion": "No regressions in existing z-sort for desks, monitors, and other furniture", "met": false }
       ],
-      "status": "completed"
+      "status": "pending",
+      "notes": "NOT DONE. GID tile layers render flat before characters — no z-interleaving. Characters cover desks/chairs. Needs Tiled map restructuring: desk front-edge and chair-back tiles must be in a dedicated 'above-player' layer. Code-only approaches (layer promotion, z-sort) failed because the same tile needs to be in front of one character and behind another. Requires editing the TMX source and re-exporting layers."
     },
     {
       "id": "data-binding-agent-state",
@@ -59,7 +60,8 @@
         { "criterion": "State transitions are debounced — rapid updates don't cause visual jitter", "met": true },
         { "criterion": "Context data (task name, session info) available on Character object", "met": true }
       ],
-      "status": "completed"
+      "status": "completed",
+      "notes": "Was broken: all agents showed 'offline' because (1) session-scanner had 2MB scan limit missing Agent tool calls in long conversations, (2) GamePage filtered out isSubagent sessions. Fixed 2026-03-05: removed scan limit, removed isSubagent filter, added priority-based status merging."
     },
     {
       "id": "character-identity-status",
