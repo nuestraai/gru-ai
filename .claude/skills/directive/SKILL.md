@@ -7,11 +7,15 @@ description: "Execute work through the directive pipeline — evaluate, plan, ca
 
 Execute the CEO directive: $ARGUMENTS
 
-## Step 0a: Routing Decision
+## MANDATORY: Start with Triage — DO NOT SKIP
 
-Decide how to run this directive based on weight (determined in triage):
+**YOU MUST read and execute [00-delegation-and-triage.md](docs/pipeline/00-delegation-and-triage.md) BEFORE doing anything else.**
 
-All directives run inline in the current session. Proceed to triage (which determines how much process overhead to apply), then execute.
+DO NOT read source code. DO NOT edit files. DO NOT start solving the problem. The pipeline exists to ensure quality — every shortcut you take skips a review, a gate, or a verification step.
+
+Your FIRST action must be: Read the triage doc, classify the directive weight, output the triage block, and create directive.json. Only then proceed to the next pipeline step.
+
+If you catch yourself wanting to "just fix it quickly" — STOP. That impulse is exactly what the pipeline prevents. Even lightweight directives have a defined process (triage → context → plan → audit → build → review → digest → completion). Morgan plans for ALL weights.
 
 ---
 
@@ -22,12 +26,17 @@ This file is a routing table. Each row points to a modular doc containing full i
 ### Pipeline Progress Protocol
 
 **After completing each pipeline step**, update `.context/directives/{id}/directive.json`:
-1. Set `pipeline.{stepId}.status` to `"completed"` (with optional `output` and `artifacts`)
+1. Set `pipeline.{stepId}.status` to `"completed"` with:
+   - `agent`: who performed this step (e.g. "CEO", "Morgan", "Sarah, Devon")
+   - `output`: REQUIRED object with at least a `summary` string (1-2 sentences of what happened/decided). Add other keys as relevant (e.g. `decision`, `weight`, `projects`).
+   - `artifacts`: array of file paths produced (if any)
 2. Set `current_step` to the next step's ID
 3. Set `updated_at` to the current ISO timestamp
 4. Use the Write tool to overwrite the full directive.json
 
 **When starting a step**, set `pipeline.{stepId}.status` to `"active"`.
+
+> **Why output is mandatory:** The dashboard renders pipeline step details directly from directive.json. Without `output.summary`, the UI shows empty steps — the CEO can't see what happened. Every step must leave a trace.
 
 The server's directive-watcher reads `directive.json` directly (NOT `current.json`) and pushes pipeline state to the dashboard via WebSocket. Keeping `pipeline` updated is what makes the stepper UI show real-time progress.
 

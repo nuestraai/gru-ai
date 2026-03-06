@@ -1,10 +1,9 @@
 // ---------------------------------------------------------------------------
-// Asset Loader — loads walls.png, characters, LimeZu singles, and floor tiles
+// Asset Loader — loads characters, LimeZu singles, and floor tiles
 // ---------------------------------------------------------------------------
 
 import type { SpriteData } from './pixel-types'
 import type { LoadedCharacterData } from './sprites/spriteData'
-import { setWallSprites } from './wallTiles'
 import { setFloorSprites } from './floorTiles'
 import { setCharacterTemplates } from './sprites/spriteData'
 import { loadLimeZuSprites } from './tileset-loader'
@@ -62,38 +61,6 @@ function toGrayscale(sprite: SpriteData): SpriteData {
   )
 }
 
-// ── Wall Sprites (walls.png: 64x128, 16 tiles at 16x32) ────────
-
-export async function loadWallAssets(src = '/assets/walls.png'): Promise<void> {
-  try {
-    const img = await loadImage(src)
-    const canvas = document.createElement('canvas')
-    canvas.width = img.width
-    canvas.height = img.height
-    const ctx = canvas.getContext('2d')!
-    ctx.drawImage(img, 0, 0)
-    const imageData = ctx.getImageData(0, 0, img.width, img.height)
-    const data = imageData.data
-
-    const TILE_W = 16
-    const TILE_H = 32
-    const cols = img.width / TILE_W   // 4
-    const rows = img.height / TILE_H  // 4
-
-    const sprites: SpriteData[] = []
-    // Bitmask order: row-major (top-to-bottom, left-to-right) = indices 0..15
-    for (let r = 0; r < rows; r++) {
-      for (let c = 0; c < cols; c++) {
-        sprites.push(extractSprite(data, img.width, c * TILE_W, r * TILE_H, TILE_W, TILE_H))
-      }
-    }
-
-    setWallSprites(sprites)
-  } catch (e) {
-    console.warn('Failed to load wall sprites:', e)
-  }
-}
-
 // ── Floor Tiles (room-builder.png: 256x224, 16x14 grid of 16px tiles) ──
 
 /**
@@ -143,7 +110,7 @@ export async function loadFloorAssets(src = '/assets/office/room-builder.png'): 
     setFloorSprites(sprites)
     console.log(`✓ Loaded ${sprites.length} floor tile patterns from room-builder.png`)
   } catch (e) {
-    console.warn('Failed to load floor tiles:', e)
+    console.warn('Floor tileset not found. Using fallback rendering. Run scripts/setup-assets.sh to install premium assets.')
   }
 }
 
@@ -199,7 +166,6 @@ export function onTilesetReady(cb: () => void): void {
 export function loadAllAssets(): void {
   if (loaded) return
   loaded = true
-  loadWallAssets()
   loadFloorAssets()
   loadCharacterAssets() // char_0..11.png for all agents
   loadTilesetCache() // Load room-builder.png tiles for direct TMX rendering

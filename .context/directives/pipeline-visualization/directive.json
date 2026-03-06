@@ -1,12 +1,13 @@
 {
   "id": "pipeline-visualization",
   "title": "Pipeline Visualization UI for Directives",
-  "status": "reopened",
+  "status": "completed",
   "created": "2026-03-06",
   "completed": null,
   "weight": "medium",
-  "goal_ids": ["ui", "game"],
-  "produced_projects": ["ui/pipeline-visualization"],
+  "produced_projects": [
+    "ui/pipeline-visualization"
+  ],
   "report": null,
   "backlog_sources": [],
   "revision": 2,
@@ -22,5 +23,7 @@
       "opened_at": "2026-03-06",
       "feedback": "Missing designer agent (Quinn) for design review on UI tasks. V2: Add Quinn to the pipeline — design prototypes during planning, design review during execution. Ensure all UI-touching tasks get Quinn's design review."
     }
-  ]
+  ],
+  "category": "dashboard",
+  "current_step": "completion"
 }

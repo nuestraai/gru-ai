@@ -1,11 +1,11 @@
 // ---------------------------------------------------------------------------
-// OpsPanel — KPI strip + Goal health cards (2-level: Goals -> Projects)
+// OpsPanel — KPI strip + Category health cards (2-level: Categories -> Projects)
 // ---------------------------------------------------------------------------
 
 import { useState, useMemo, useCallback } from 'react';
 import { Target, FolderOpen, TrendingUp, Layers, ClipboardList, AlertCircle, ChevronDown, ChevronRight } from 'lucide-react';
 import { useDashboardStore } from '@/stores/dashboard-store';
-import type { GoalRecord, FeatureRecord, BacklogRecord, LifecycleState } from '@/stores/types';
+import type { FeatureRecord, BacklogRecord, LifecycleState } from '@/stores/types';
 import {
   SectionHeader, PixelProgress, ParchmentDivider,
   PIXEL_CARD, PIXEL_CARD_RAISED, PARCHMENT,
@@ -45,7 +45,7 @@ function StatusBadge({ status }: { status: LifecycleState }) {
 }
 
 // ---------------------------------------------------------------------------
-// Goal health color (based on project statuses under that goal)
+// Category health color (based on project statuses under that category)
 // ---------------------------------------------------------------------------
 
 function goalHealthColor(features: FeatureRecord[]): string {
@@ -114,13 +114,13 @@ function KpiCard({
 // ---------------------------------------------------------------------------
 
 function KpiStrip({
-  activeGoals,
+  activeCategories,
   activeProjects,
   backlogDepth,
   p0Count,
   completionRate,
 }: {
-  activeGoals: number;
+  activeCategories: number;
   activeProjects: number;
   backlogDepth: number;
   p0Count: number;
@@ -129,8 +129,8 @@ function KpiStrip({
   return (
     <div className="grid grid-cols-2 gap-1.5 mb-2">
       <KpiCard
-        label="Active Goals"
-        value={activeGoals}
+        label="Categories"
+        value={activeCategories}
         icon={<Target className="h-3 w-3" />}
         color="#22C55E"
       />
@@ -159,15 +159,15 @@ function KpiStrip({
 }
 
 // ---------------------------------------------------------------------------
-// Goal health card (expandable)
+// Category health card (expandable)
 // ---------------------------------------------------------------------------
 
-function GoalHealthCard({
-  goal,
+function CategoryHealthCard({
+  category,
   features,
   backlogCount,
 }: {
-  goal: GoalRecord;
+  category: string;
   features: FeatureRecord[];
   backlogCount: number;
 }) {
@@ -181,6 +181,15 @@ function GoalHealthCard({
   const totalProjects = features.length;
   const Chevron = expanded ? ChevronDown : ChevronRight;
 
+  // Derive status from features
+  const categoryStatus: LifecycleState = blockedCount > 0
+    ? 'blocked'
+    : activeCount > 0
+    ? 'in_progress'
+    : doneCount === totalProjects && totalProjects > 0
+    ? 'completed'
+    : 'pending';
+
   // Status one-liner
   const parts: string[] = [];
   if (activeCount > 0) parts.push(`${activeCount} active`);
@@ -188,6 +197,8 @@ function GoalHealthCard({
   if (doneCount > 0) parts.push(`${doneCount} done`);
   if (backlogCount > 0) parts.push(`${backlogCount} backlog`);
   const oneLiner = parts.join(', ') || 'No projects';
+
+  const displayName = category.replace(/-/g, ' ');
 
   return (
     <div
@@ -206,7 +217,7 @@ function GoalHealthCard({
           e.currentTarget.style.backgroundColor = '';
         }}
         aria-expanded={expanded}
-        aria-label={`Goal: ${goal.title}, ${oneLiner}`}
+        aria-label={`Category: ${displayName}, ${oneLiner}`}
       >
         {/* Header row */}
         <div className="flex items-center gap-2 mb-1">
@@ -214,9 +225,9 @@ function GoalHealthCard({
             className="text-[11px] font-bold font-mono truncate flex-1"
             style={{ color: PARCHMENT.text }}
           >
-            {goal.title}
+            {displayName}
           </span>
-          <StatusBadge status={goal.status} />
+          <StatusBadge status={categoryStatus} />
           <Chevron
             className="h-3 w-3 shrink-0"
             style={{ color: PARCHMENT.textDim }}
@@ -314,7 +325,7 @@ function GoalHealthCard({
             className="text-[9px] font-mono text-center py-2"
             style={{ color: PARCHMENT.textDim }}
           >
-            No projects under this goal
+            No projects under this category
           </p>
         </div>
       )}
@@ -383,16 +394,10 @@ function BacklogPreview({ items }: { items: BacklogRecord[] }) {
 // ---------------------------------------------------------------------------
 
 export default function OpsPanel() {
-  const goals = useDashboardStore((s) => s.workState?.goals?.goals ?? []);
   const features = useDashboardStore((s) => s.workState?.features?.features ?? []);
   const backlogItems = useDashboardStore((s) => s.workState?.backlogs?.items ?? []);
 
   // --- KPI computations ---
-
-  const activeGoals = useMemo(
-    () => goals.filter((g) => g.status === 'in_progress').length,
-    [goals],
-  );
 
   const activeProjects = useMemo(
     () => features.filter((f) => f.status === 'in_progress').length,
@@ -414,43 +419,46 @@ export default function OpsPanel() {
     ).length;
   }, [features]);
 
-  // --- Features by goal ---
-  const featuresByGoal = useMemo(() => {
+  // --- Features by category ---
+  const featuresByCategory = useMemo(() => {
     const map: Record<string, FeatureRecord[]> = {};
     for (const f of features) {
-      if (!map[f.goalId]) map[f.goalId] = [];
-      map[f.goalId].push(f);
+      const cat = f.category ?? 'uncategorized';
+      if (!map[cat]) map[cat] = [];
+      map[cat].push(f);
     }
     return map;
   }, [features]);
 
-  // --- Backlog count by goal ---
-  const backlogCountByGoal = useMemo(() => {
+  // --- Backlog count by category ---
+  const backlogCountByCategory = useMemo(() => {
     const map: Record<string, number> = {};
     for (const b of backlogItems) {
-      map[b.goalId] = (map[b.goalId] ?? 0) + 1;
+      const cat = b.category ?? 'uncategorized';
+      map[cat] = (map[cat] ?? 0) + 1;
     }
     return map;
   }, [backlogItems]);
 
-  // Sort goals: in_progress first, then by number of active features desc
-  const sortedGoals = useMemo(() => {
-    return [...goals].sort((a, b) => {
-      // in_progress before everything else
-      if (a.status === 'in_progress' && b.status !== 'in_progress') return -1;
-      if (a.status !== 'in_progress' && b.status === 'in_progress') return 1;
-      // then by active feature count desc
-      const aActive = (featuresByGoal[a.id] ?? []).filter((f) => f.status === 'in_progress').length;
-      const bActive = (featuresByGoal[b.id] ?? []).filter((f) => f.status === 'in_progress').length;
+  // Unique categories sorted by active feature count desc
+  const sortedCategories = useMemo(() => {
+    const cats = Object.keys(featuresByCategory);
+    return cats.sort((a, b) => {
+      const aActive = featuresByCategory[a].filter((f) => f.status === 'in_progress').length;
+      const bActive = featuresByCategory[b].filter((f) => f.status === 'in_progress').length;
       return bActive - aActive;
     });
-  }, [goals, featuresByGoal]);
+  }, [featuresByCategory]);
+
+  const activeCategories = sortedCategories.filter(
+    cat => featuresByCategory[cat].some(f => f.status === 'in_progress')
+  ).length;
 
   return (
     <div className="space-y-2">
       {/* KPI Strip */}
       <KpiStrip
-        activeGoals={activeGoals}
+        activeCategories={activeCategories}
         activeProjects={activeProjects}
         backlogDepth={backlogDepth}
         p0Count={p0Count}
@@ -459,28 +467,28 @@ export default function OpsPanel() {
 
       <ParchmentDivider ornament />
 
-      {/* Goal Health Cards */}
+      {/* Category Health Cards */}
       <SectionHeader
         icon={<Layers className="h-3 w-3" />}
-        count={goals.length}
+        count={sortedCategories.length}
       >
-        Goal Health
+        Category Health
       </SectionHeader>
 
-      {sortedGoals.length === 0 ? (
+      {sortedCategories.length === 0 ? (
         <div className="text-center py-6 font-mono" style={PIXEL_CARD}>
           <p className="text-[11px]" style={{ color: PARCHMENT.textDim }}>
-            No goals found
+            No categories found
           </p>
         </div>
       ) : (
         <div className="space-y-1.5">
-          {sortedGoals.map((goal) => (
-            <GoalHealthCard
-              key={goal.id}
-              goal={goal}
-              features={featuresByGoal[goal.id] ?? []}
-              backlogCount={backlogCountByGoal[goal.id] ?? 0}
+          {sortedCategories.map((cat) => (
+            <CategoryHealthCard
+              key={cat}
+              category={cat}
+              features={featuresByCategory[cat] ?? []}
+              backlogCount={backlogCountByCategory[cat] ?? 0}
             />
           ))}
         </div>

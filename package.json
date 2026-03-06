@@ -1,16 +1,28 @@
 {
-  "name": "agent-conductor",
+  "name": "gruai",
   "private": false,
   "version": "0.1.0",
   "type": "module",
   "bin": {
-    "agent-conductor": "./cli/index.ts"
+    "gruai": "./dist-cli/index.js"
   },
+  "files": [
+    "dist/",
+    "dist-server/",
+    "dist-cli/",
+    "cli/templates/",
+    "LICENSE",
+    "README.md"
+  ],
   "scripts": {
     "dev": "concurrently \"tsx watch server/index.ts\" \"vite\"",
     "dev:server": "tsx watch server/index.ts",
     "dev:client": "vite",
-    "build": "vite build",
+    "build:client": "vite build",
+    "build:server": "tsc -p server/tsconfig.json",
+    "build:cli": "tsc -p cli/tsconfig.json",
+    "build": "npm run build:client && npm run build:server && npm run build:cli",
+    "prepublishOnly": "npm run build",
     "start": "node dist-server/index.js",
     "lint": "eslint .",
     "type-check": "tsc --noEmit",

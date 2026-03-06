@@ -23,7 +23,7 @@ const FULL_PIPELINE_STEPS: Array<{ id: string; label: string }> = [
 ];
 
 const SKIPPED_STEPS: Record<string, Set<string>> = {
-  lightweight: new Set(['challenge', 'brainstorm', 'project-brainstorm', 'audit', 'approve']),
+  lightweight: new Set(['challenge', 'brainstorm', 'approve']),
   medium: new Set(['challenge']),
   heavyweight: new Set([]),
   strategic: new Set([]),
@@ -39,14 +39,25 @@ function buildPipelineFromDirective(directive: any): PipelineStep[] {
   const skipped = SKIPPED_STEPS[weight];
   const pipeline = directive.pipeline ?? {};
 
+  // Build an ordered index so we can infer completed steps from current position
+  const currentStepId: string = directive.current_step ?? '';
+  const currentIdx = FULL_PIPELINE_STEPS.findIndex(s => s.id === currentStepId);
+
   return FULL_PIPELINE_STEPS
-    .map(def => {
+    .map((def, idx) => {
       const stepData = pipeline[def.id];
       const isSkipped = skipped?.has(def.id) && !stepData;
+
+      // Infer status: if no explicit data but directive is past this step, treat as completed
+      let inferredStatus: PipelineStep['status'] = stepData?.status ?? 'pending';
+      if (!stepData && !isSkipped && currentIdx > idx) {
+        inferredStatus = 'completed';
+      }
+
       const step: PipelineStep = {
         id: def.id,
         label: def.label,
-        status: isSkipped ? 'skipped' : (stepData?.status ?? 'pending'),
+        status: isSkipped ? 'skipped' : inferredStatus,
       };
 
       // Build artifacts from step output + agent
@@ -223,6 +234,16 @@ export class DirectiveWatcher {
   }
 
   /**
+   * Return DirectiveState[] for all active directives (in_progress, awaiting_completion, reopened).
+   * Filters from readAllDirectiveStates() to get only actionable ones.
+   */
+  readActiveDirectives(): DirectiveState[] {
+    const all = this.readAllDirectiveStates();
+    const activeStatuses = new Set(['in_progress', 'awaiting_completion']);
+    return all.filter((d) => activeStatuses.has(d.status));
+  }
+
+  /**
    * Build DirectiveState[] for ALL directives (completed, failed, in_progress, etc.).
    * Uses mtime-based caching so we only re-parse directive.json when it changes.
    */
@@ -290,7 +311,7 @@ export class DirectiveWatcher {
         const tasks = Array.isArray(projJson.tasks) ? projJson.tasks : [];
         const totalTasks = tasks.length;
         const completedTasks = tasks.filter(
-          (t: { status?: string }) => t.status === 'completed'
+          (t: { status?: string }) => t.status === 'completed' || t.status === 'done'
         ).length;
 
         // Determine phase from current task status
@@ -307,21 +328,26 @@ export class DirectiveWatcher {
           phase,
           totalTasks,
           completedTasks,
+          tasks: tasks.map((t: { title?: string; status?: string; agent?: string; dod?: Array<{ criterion: string; met: boolean }> }) => ({
+            title: String(t.title ?? ''),
+            status: String(t.status ?? 'pending'),
+            agent: t.agent ? String(t.agent) : undefined,
+            dod: Array.isArray(t.dod) ? t.dod.map((d) => ({
+              criterion: String(d.criterion ?? ''),
+              met: !!d.met,
+            })) : undefined,
+          })),
         });
       }
     }
 
-    // Also check produced_projects for projects stored under goals/
+    // Also check produced_projects for projects stored elsewhere
     if (Array.isArray(directive.produced_projects)) {
       for (const prodPath of directive.produced_projects) {
         const prodId = String(prodPath).split('/').pop() ?? '';
         // Skip if already found in directive's projects/ dir
         if (projects.some(p => p.id === prodId)) continue;
-
-        // Try reading from goals structure
-        // produced_projects format: "directive-id/projects/project-id" or "goal-id/project-id"
-        // We already read from directive's projects/ dir above, so this catches
-        // any projects stored elsewhere
+        // Projects are now always under directive's projects/ dir
       }
     }
 
@@ -358,6 +384,13 @@ export class DirectiveWatcher {
       pipelineSteps,
       currentStepId: currentStep,
       weight: directive.weight,
+      category: directive.category,
+      triageRationale: directive.triage?.rationale,
+      approvalStatus: directive.planning?.ceo_approval?.status,
+      brainstormSummary: directive.pipeline?.brainstorm?.output?.summary,
+      planSummary: directive.pipeline?.plan?.output?.summary ?? directive.pipeline?.plan?.output?.projects,
+      brainstormContent: this.readTextFile(path.join(this.directivesDir, dirId, 'brainstorm.md')),
+      directiveBrief: this.readTextFile(path.join(this.directivesDir, dirId, 'directive.md')),
     };
   }
 
@@ -387,6 +420,14 @@ export class DirectiveWatcher {
     }
   }
 
+  private readTextFile(filePath: string): string | undefined {
+    try {
+      return fs.readFileSync(filePath, 'utf-8');
+    } catch {
+      return undefined;
+    }
+  }
+
   private listDirs(dirPath: string): string[] {
     try {
       return fs.readdirSync(dirPath).filter((name) => {
@@ -413,9 +454,20 @@ export class DirectiveWatcher {
   }
 
   private readAndUpdate(): void {
-    const state = this.readCurrentState();
+    // Single pass: read all directives once, derive active + best from the result
     const history = this.readAllDirectiveStates();
-    console.log(`[directive-watcher] Directive state: ${state ? `${state.directiveName} (${state.status}, ${state.currentProject}/${state.totalProjects})` : 'none'} | history: ${history.length} directives`);
-    this.aggregator.updateDirectiveState(state, history);
+    const activeStatuses = new Set(['in_progress', 'awaiting_completion']);
+    const activeDirectives = history.filter((d) => activeStatuses.has(d.status));
+
+    // Pick the most recently updated active directive as the singular state (backward compat)
+    let state: DirectiveState | null = null;
+    for (const d of activeDirectives) {
+      if (!state || d.lastUpdated > state.lastUpdated) {
+        state = d;
+      }
+    }
+
+    console.log(`[directive-watcher] Directive state: ${state ? `${state.directiveName} (${state.status}, ${state.currentProject}/${state.totalProjects})` : 'none'} | history: ${history.length} directives | active: ${activeDirectives.length}`);
+    this.aggregator.updateDirectiveState(state, history, activeDirectives);
   }
 }

@@ -19,7 +19,7 @@ Spawn Sam (QA Engineer) in investigation mode to scan the codebase and gather ra
 
 **Sam's investigation prompt must include:**
 - Morgan's projects (the ones assigned to this investigation group)
-- Existing OKRs from `.context/goals/{goal_folder}/goal.json` `okrs` field (if populated) — so they avoid re-investigating solved problems
+- The directive's category (from directive.json `category` field) — for domain context
 - `.context/vision.md` guardrails section — for constraint awareness
 - `.context/preferences.md` — CEO standing orders
 - `.context/lessons/agent-behavior.md` — agent behavior lessons

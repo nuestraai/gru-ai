@@ -1,0 +1,56 @@
+{
+  "id": "game-productionize-and-publish",
+  "title": "Productionize and Publish gruAI as Open Source",
+  "status": "in_progress",
+  "created": "2026-03-06",
+  "completed": null,
+  "weight": "strategic",
+  "produced_features": [],
+  "report": null,
+  "backlog_sources": [],
+  "started_at": "2026-03-06T13:00:00Z",
+  "updated_at": "2026-03-07T01:00:00Z",
+  "current_step": "execute",
+  "pipeline": {
+    "triage": { "status": "completed", "agent": "CEO", "output": { "weight": "strategic" } },
+    "read": { "status": "completed", "agent": "CEO" },
+    "context": { "status": "completed", "agent": "CEO" },
+    "challenge": { "status": "completed", "agent": "C-suite" },
+    "brainstorm": { "status": "completed", "agent": "C-suite", "output": { "artifact": "brainstorm.md" } },
+    "plan": { "status": "completed", "agent": "Morgan", "output": { "artifact": "morgan-plan.json", "projects_count": 5 } },
+    "audit": { "status": "completed", "agent": "Sarah" },
+    "approve": { "status": "completed", "agent": "CEO", "output": { "decision": "approved" } },
+    "project-brainstorm": {
+      "status": "completed",
+      "agent": "Sarah",
+      "output": {
+        "total_tasks": 21,
+        "projects": {
+          "repo-brand-publish": 4,
+          "role-based-pipeline": 5,
+          "init-and-scaffolding": 6,
+          "game-dynamic-team": 3,
+          "first-run-and-readme": 3
+        }
+      }
+    },
+    "setup": { "status": "completed", "agent": "CEO", "output": { "summary": "All 5 project.json files validated. No worktree needed (working on game branch). Execution waves computed." } },
+    "execute": { "status": "active", "agent": "CEO", "output": { "current_wave": 1, "total_waves": 3, "progress": "0/21 tasks" } },
+    "review-gate": { "status": "pending" },
+    "wrapup": { "status": "pending", "agent": "CEO" },
+    "completion": { "status": "pending", "agent": "CEO" }
+  },
+  "projects": ["repo-brand-publish", "role-based-pipeline", "init-and-scaffolding", "game-dynamic-team", "first-run-and-readme"],
+  "planning": {
+    "morgan_plan": { "artifact": "morgan-plan.json" },
+    "ceo_approval": { "status": "approved", "modifications": ["game-dynamic-team descoped to simple"] },
+    "worktree_path": null
+  },
+  "wrapup": {
+    "okrs_persisted": false,
+    "follow_ups_processed": false,
+    "digest_path": null,
+    "lessons_updated": false
+  },
+  "category": "game"
+}

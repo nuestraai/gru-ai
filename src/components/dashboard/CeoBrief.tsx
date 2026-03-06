@@ -16,7 +16,7 @@ import {
   Target,
   CheckCircle2,
 } from 'lucide-react';
-import type { ArtifactRecord, GoalRecord, FeatureRecord, DirectiveRecord } from '@/stores/types';
+import type { ArtifactRecord, FeatureRecord, DirectiveRecord } from '@/stores/types';
 import { API_BASE } from '@/lib/api';
 
 // ---------------------------------------------------------------------------
@@ -144,8 +144,7 @@ export default function CeoBrief() {
   }, [expandedReportId, loadReport]);
 
   // Compute attention items and completions
-  const { goalsWithIssues, blockedFeatures, activeFeatures, recentCompletions } = useMemo(() => {
-    const goals = workState?.goals?.goals ?? [];
+  const { blockedFeatures, activeFeatures, recentCompletions } = useMemo(() => {
     const features = workState?.features?.features ?? [];
     const directives = workState?.conductor?.directives ?? [];
 
@@ -158,7 +157,6 @@ export default function CeoBrief() {
       .slice(0, 5);
 
     return {
-      goalsWithIssues: goals.filter((g: GoalRecord) => (g.issues?.length ?? 0) > 0),
       blockedFeatures: features.filter((f: FeatureRecord) => f.status === 'blocked'),
       activeFeatures: features.filter((f: FeatureRecord) => f.status === 'in_progress'),
       recentCompletions: doneDirectives,
@@ -166,7 +164,6 @@ export default function CeoBrief() {
   }, [workState]);
 
   const hasAnything = recentReports.length > 0
-    || goalsWithIssues.length > 0
     || blockedFeatures.length > 0
     || activeFeatures.length > 0
     || recentCompletions.length > 0;
@@ -182,14 +179,14 @@ export default function CeoBrief() {
       </h2>
       <div className="space-y-3">
         {/* Attention items — blocked + issues */}
-        {(blockedFeatures.length > 0 || goalsWithIssues.length > 0) && (
+        {blockedFeatures.length > 0 && (
           <Card className="border-status-yellow/30">
             <CardContent className="p-3">
               <div className="flex items-center gap-2 mb-2">
                 <AlertTriangle className="h-3.5 w-3.5 text-status-yellow" />
                 <span className="text-xs font-medium">Needs Attention</span>
                 <Badge variant="outline" className="bg-status-yellow/15 text-status-yellow border-status-yellow/30 text-[10px] px-1.5 py-0">
-                  {blockedFeatures.length + goalsWithIssues.length}
+                  {blockedFeatures.length}
                 </Badge>
               </div>
               <div className="space-y-1">
@@ -197,22 +194,11 @@ export default function CeoBrief() {
                   <button
                     key={f.id}
                     className="flex items-center gap-2 w-full text-left hover:bg-secondary/50 rounded px-2 py-1 -mx-1 transition-colors cursor-pointer"
-                    onClick={() => navigate(`/projects?expand=${f.goalId}&highlight=${f.id}`)}
+                    onClick={() => navigate(`/projects?highlight=${f.id}`)}
                   >
                     <Ban className="h-3 w-3 text-status-red shrink-0" />
                     <span className="text-xs truncate flex-1">{f.title}</span>
                     <Badge variant="outline" className="text-[9px] px-1 py-0 bg-status-red/10 text-status-red border-status-red/30">blocked</Badge>
-                  </button>
-                ))}
-                {goalsWithIssues.map(g => (
-                  <button
-                    key={g.id}
-                    className="flex items-center gap-2 w-full text-left hover:bg-secondary/50 rounded px-2 py-1 -mx-1 transition-colors cursor-pointer"
-                    onClick={() => navigate(`/projects?expand=${g.id}`)}
-                  >
-                    <AlertTriangle className="h-3 w-3 text-status-yellow shrink-0" />
-                    <span className="text-xs truncate flex-1">{g.title}</span>
-                    <span className="text-[9px] text-status-yellow">{g.issues!.length} issue{g.issues!.length !== 1 ? 's' : ''}</span>
                   </button>
                 ))}
               </div>
@@ -238,7 +224,7 @@ export default function CeoBrief() {
                     <button
                       key={f.id}
                       className="flex items-center gap-2 w-full text-left hover:bg-secondary/50 rounded px-2 py-1 -mx-1 transition-colors cursor-pointer"
-                      onClick={() => navigate(`/projects?expand=${f.goalId}&highlight=${f.id}`)}
+                      onClick={() => navigate(`/projects?highlight=${f.id}`)}
                     >
                       <Target className="h-3 w-3 text-status-yellow shrink-0" />
                       <span className="text-xs truncate flex-1">{f.title}</span>

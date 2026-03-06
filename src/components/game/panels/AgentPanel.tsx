@@ -7,7 +7,7 @@ import {
   GitBranch, ExternalLink, Loader2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { cn, timeAgo, sessionStatusLabel } from '@/lib/utils';
+import { timeAgo, sessionStatusLabel } from '@/lib/utils';
 import { useDashboardStore } from '@/stores/dashboard-store';
 import { API_BASE } from '@/lib/api';
 import ActivityLine from '@/components/shared/ActivityLine';
@@ -19,6 +19,43 @@ import {
   SectionHeader, PIXEL_CARD, PIXEL_CARD_RAISED,
   ParchmentDivider, PARCHMENT,
 } from './panelUtils';
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+/** Get a meaningful title — extract the task, not the agent preamble */
+function sessionTitle(s: { feature?: string; gitBranch?: string; initialPrompt?: string; latestPrompt?: string; slug?: string; id: string }) {
+  if (s.feature) return s.feature;
+  // Git branch is often more descriptive than the prompt
+  if (s.gitBranch && s.gitBranch !== 'main' && s.gitBranch !== 'game') return s.gitBranch;
+  // Extract meaningful part from prompts — strip "You are Name, Role." preamble
+  const raw = s.initialPrompt || s.latestPrompt;
+  if (raw) return cleanPromptTitle(raw);
+  if (s.slug) return s.slug;
+  return s.id.slice(0, 8);
+}
+
+/** Strip agent preamble from prompts to get the actual task description */
+function cleanPromptTitle(prompt: string): string {
+  let text = prompt;
+  // Strip "MODE: " prefix
+  text = text.replace(/^MODE:\s*/, '');
+  // Strip "You are [Name], [Role]." or "You are [Name], [Role]," — various patterns
+  const nameRoleMatch = text.match(/^You are [A-Z][a-z]+ [A-Z][a-z]+[,.]?\s*[A-Z][A-Za-z/ ]*[.,]\s*/);
+  if (nameRoleMatch) {
+    text = text.slice(nameRoleMatch[0].length);
+  }
+  // Strip generic "You are" only if next word is a verb-like
+  if (!nameRoleMatch) {
+    text = text.replace(/^You are (performing|reviewing|decomposing|running|executing|building|creating|writing|doing)\s+/i, '$1 ');
+  }
+  // Strip "You " if still starting with it and followed by a past tense verb
+  text = text.replace(/^You (proposed|completed|finished|started|created|built|reviewed|performed)\s+/i, '$1 ');
+  // Capitalize first letter
+  if (text.length > 0) text = text[0].toUpperCase() + text.slice(1);
+  return text.slice(0, 60);
+}
 
 // ---------------------------------------------------------------------------
 // Props
@@ -44,7 +81,8 @@ export default function AgentPanel({ agentName, agentStatuses }: AgentPanelProps
     const subagent = sessions.filter((s) => s.agentName === agentName && s.isSubagent);
     const isActive = (s: typeof sessions[0]) =>
       s.status === 'working' || s.status === 'waiting-approval' ||
-      s.status === 'waiting-input' || s.status === 'error';
+      s.status === 'waiting-input' || s.status === 'error' ||
+      s.status === 'paused';
 
     // Prefer primary sessions; fall back to subagent sessions if no active primaries
     let activePrimary = primary.filter(isActive);
@@ -53,12 +91,14 @@ export default function AgentPanel({ agentName, agentStatuses }: AgentPanelProps
       : subagent.filter(isActive).slice(0, 3); // cap subagent display
     active = active.sort((a, b) => statusPriority(a.status) - statusPriority(b.status));
 
-    const idle = primary
-      .filter((s) => (s.status === 'idle' || s.status === 'paused' || s.status === 'done')
-        && (s.feature || s.slug || s.latestPrompt || s.initialPrompt))
+    // Historical: all non-active sessions with some content, sorted by recency
+    const activeIds = new Set(active.map((s) => s.id));
+    const historical = [...primary, ...subagent]
+      .filter((s) => !activeIds.has(s.id)
+        && (s.feature || s.initialPrompt || s.latestPrompt))
       .sort((a, b) => new Date(b.lastActivity).getTime() - new Date(a.lastActivity).getTime())
-      .slice(0, 3);
-    return { activeSessions: active, recentIdle: idle };
+      .slice(0, 8);
+    return { activeSessions: active, recentIdle: historical };
   }, [sessions, agentName]);
 
   const [focusingPane, setFocusingPane] = useState<string | null>(null);
@@ -130,7 +170,7 @@ export default function AgentPanel({ agentName, agentStatuses }: AgentPanelProps
       {activeSessions.length > 0 ? (
         activeSessions.map((sess) => {
           const activity = sessionActivities[sess.id];
-          const title = sess.feature ?? sess.slug ?? sess.id.slice(0, 8);
+          const title = sessionTitle(sess);
           const prompt = sess.latestPrompt ?? sess.initialPrompt;
           const subagents = sessions.filter(
             (s) => s.parentSessionId === sess.id && s.isSubagent,
@@ -262,33 +302,69 @@ export default function AgentPanel({ agentName, agentStatuses }: AgentPanelProps
         </div>
       )}
 
-      {/* Recent idle */}
+      {/* History */}
       {recentIdle.length > 0 && (
         <>
           <ParchmentDivider ornament />
-          <div className="space-y-1">
-            <SectionHeader>Recent</SectionHeader>
-            {recentIdle.map((s) => (
-              <div
-                key={s.id}
-                className="flex items-center gap-1.5 text-xs py-1 px-2 font-mono rounded-sm"
-                style={PIXEL_CARD}
-              >
-                <span
-                  className="h-1.5 w-1.5 rounded-full shrink-0"
-                  style={{ backgroundColor: '#9CA3AF' }}
-                />
-                <span className="truncate" style={{ color: PARCHMENT.textDim }}>
-                  {s.feature ?? s.slug ?? s.latestPrompt?.slice(0, 40) ?? s.initialPrompt?.slice(0, 40) ?? s.id.slice(0, 8)}
-                </span>
-                <span
-                  className="ml-auto shrink-0 text-[10px]"
-                  style={{ color: PARCHMENT.textDim, opacity: 0.6 }}
+          <div className="space-y-1.5">
+            <SectionHeader>History</SectionHeader>
+            {recentIdle.map((s) => {
+              const title = sessionTitle(s);
+              const prompt = s.initialPrompt || s.latestPrompt;
+              const statusColor = s.status === 'done' ? '#5B8C3E'
+                : s.status === 'error' ? '#B44' : '#9CA3AF';
+              return (
+                <div
+                  key={s.id}
+                  className="px-2 py-1.5 font-mono rounded-sm space-y-0.5"
+                  style={PIXEL_CARD}
                 >
-                  {timeAgo(s.lastActivity)}
-                </span>
-              </div>
-            ))}
+                  {/* Title + time */}
+                  <div className="flex items-start gap-1.5 text-xs">
+                    <span
+                      className="h-1.5 w-1.5 rounded-full shrink-0 mt-1"
+                      style={{ backgroundColor: statusColor }}
+                    />
+                    <span
+                      className="truncate font-medium"
+                      style={{ color: PARCHMENT.text }}
+                    >
+                      {title}
+                    </span>
+                    <span
+                      className="ml-auto shrink-0 text-[10px]"
+                      style={{ color: PARCHMENT.textDim, opacity: 0.6 }}
+                    >
+                      {timeAgo(s.lastActivity)}
+                    </span>
+                  </div>
+                  {/* Prompt snippet — only if title came from feature (not prompt itself) */}
+                  {prompt && s.feature && (
+                    <p
+                      className="text-[10px] line-clamp-1 leading-tight pl-3"
+                      style={{ color: PARCHMENT.textDim, opacity: 0.7 }}
+                    >
+                      {prompt.slice(0, 80)}
+                    </p>
+                  )}
+                  {/* Meta row: branch + model + status */}
+                  <div className="flex items-center gap-2 pl-3 text-[10px]" style={{ color: PARCHMENT.textDim, opacity: 0.6 }}>
+                    {s.gitBranch && (
+                      <span className="flex items-center gap-0.5 truncate">
+                        <GitBranch className="h-2.5 w-2.5 shrink-0" />
+                        {s.gitBranch}
+                      </span>
+                    )}
+                    {s.model && (
+                      <span className="shrink-0">{shortenModel(s.model)}</span>
+                    )}
+                    <span className="shrink-0" style={{ color: statusColor }}>
+                      {sessionStatusLabel(s.status)}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </>
       )}

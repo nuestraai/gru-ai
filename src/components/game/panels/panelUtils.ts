@@ -15,7 +15,7 @@ export const PARCHMENT = {
   card: '#E8D5B0',
   cardHover: '#E0CCA0',
   text: '#3D2B1F',
-  textDim: '#6B4C3B',
+  textDim: '#4A3328',
   border: '#C4A265',
   borderDark: '#8B6914',
   highlight: '#F5ECD7',

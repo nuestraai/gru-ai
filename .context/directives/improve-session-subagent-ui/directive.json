@@ -1,7 +1,7 @@
 {
   "id": "improve-session-subagent-ui",
   "title": "Improve Session Page: Sub-Agent Cards & Hierarchy",
-  "status": "pending",
+  "status": "cancelled",
   "source": "ceo",
   "weight": "tactical",
   "created": "2026-03-02T00:00:00Z",
@@ -9,10 +9,8 @@
   "completed": null,
   "triage": {
     "action": "update_existing",
-    "goal_id": "ui",
     "project_id": null,
     "task_ids": [],
-    "secondary_goal_ids": [],
     "rationale": null,
     "requires_ceo_approval": false
   },
@@ -21,5 +19,7 @@
   "cast": null,
   "dod": null,
   "report_summary": "improve-session-subagent-ui-2026-03-02",
-  "telemetry": null
+  "telemetry": null,
+  "category": "dashboard",
+  "current_step": "cancelled"
 }

@@ -195,11 +195,11 @@
   ],
   "teams": [
     {
-      "id": "platform",
-      "name": "Platform",
-      "description": "Infrastructure, backend services, data pipelines",
+      "id": "engineering",
+      "name": "Engineering",
+      "description": "Architecture, backend, data, full-stack engineering",
       "leadAgentId": "sarah",
-      "memberAgentIds": ["sarah", "jordan", "casey"],
+      "memberAgentIds": ["sarah", "jordan", "casey", "devon"],
       "color": "text-violet-400",
       "bgColor": "bg-violet-500/10",
       "borderColor": "border-violet-500/30"

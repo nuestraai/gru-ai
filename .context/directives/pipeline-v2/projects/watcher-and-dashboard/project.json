@@ -8,7 +8,7 @@
     {
       "id": "rename-types",
       "title": "Rename DirectiveInitiative to DirectiveProject in all type files",
-      "status": "pending",
+      "status": "done",
       "agent": ["riley"],
       "dod": [
         { "criterion": "DirectiveInitiative renamed to DirectiveProject in server/types.ts and src/stores/types.ts", "met": false },
@@ -21,7 +21,7 @@
     {
       "id": "rewrite-watcher",
       "title": "Rewrite directive-watcher.ts for nested directory structure",
-      "status": "pending",
+      "status": "done",
       "agent": ["riley"],
       "dod": [
         { "criterion": "Watcher reads .context/directives/{name}/directive.json (directory format only, no flat fallback)", "met": false },
@@ -35,7 +35,7 @@
     {
       "id": "update-directive-progress",
       "title": "Update DirectiveProgress.tsx: projects terminology, task counts, completion gate",
-      "status": "pending",
+      "status": "done",
       "agent": ["riley"],
       "dod": [
         { "criterion": "All initiative text replaced with project", "met": false },
@@ -49,7 +49,7 @@
     {
       "id": "update-game-panels",
       "title": "Update all game panels: IntelPanel, FurniturePanels, ProjectsPanel, GamePage",
-      "status": "pending",
+      "status": "done",
       "agent": ["riley"],
       "dod": [
         { "criterion": "IntelPanel uses DirectiveProject, reads .projects", "met": false },
@@ -64,7 +64,7 @@
     {
       "id": "update-orientation-banner",
       "title": "Update OrientationBanner.tsx for projects terminology",
-      "status": "pending",
+      "status": "done",
       "agent": ["riley"],
       "dod": [
         { "criterion": "OrientationBanner reads from directiveState.projects", "met": false },
@@ -75,7 +75,7 @@
     {
       "id": "update-work-summary-terminology",
       "title": "Update WorkSummary: features → projects terminology alignment",
-      "status": "pending",
+      "status": "done",
       "agent": ["riley"],
       "dod": [
         { "criterion": "WorkSummary labels use 'projects' instead of 'features' where referring to project.json entities", "met": false },
@@ -86,7 +86,7 @@
     {
       "id": "completion-gate-interaction",
       "title": "Add completion gate approve/reject interaction in dashboard",
-      "status": "pending",
+      "status": "done",
       "agent": ["riley"],
       "dod": [
         { "criterion": "When directive status is awaiting_completion, pipeline stepper shows completion step with needsAction=true", "met": false },

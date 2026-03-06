@@ -14,26 +14,22 @@ export default function AppLayout() {
 
   // Eagerly fetch work state on app load so orientation banner + search have data
   useEffect(() => {
-    if (workState?.goals || fetchedRef.current) return;
+    if (workState?.features || fetchedRef.current) return;
     fetchedRef.current = true;
     Promise.all([
-      fetch( `${API_BASE}/api/state/goals`).then(r => r.json()).catch(() => null),
       fetch( `${API_BASE}/api/state/features`).then(r => r.json()).catch(() => null),
       fetch( `${API_BASE}/api/state/backlogs`).then(r => r.json()).catch(() => null),
       fetch( `${API_BASE}/api/state/conductor`).then(r => r.json()).catch(() => null),
-    ]).then(([goals, features, backlogs, conductor]) => {
-      if (goals?.goals) {
-        const current = useDashboardStore.getState().workState;
-        useDashboardStore.getState().setWorkState({
-          goals: current?.goals ?? goals,
-          features: current?.features ?? features,
-          backlogs: current?.backlogs ?? backlogs,
-          conductor: current?.conductor ?? conductor,
-          index: current?.index ?? null,
-        });
-      }
+    ]).then(([features, backlogs, conductor]) => {
+      const current = useDashboardStore.getState().workState;
+      useDashboardStore.getState().setWorkState({
+        features: current?.features ?? features,
+        backlogs: current?.backlogs ?? backlogs,
+        conductor: current?.conductor ?? conductor,
+        index: current?.index ?? null,
+      });
     });
-  }, [workState?.goals]);
+  }, [workState?.features]);
 
   return (
     <div className="flex h-screen overflow-hidden">

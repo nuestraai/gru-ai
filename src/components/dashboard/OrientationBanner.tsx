@@ -57,8 +57,8 @@ export default function OrientationBanner() {
 
     // Work state metrics
     let blockedCount = 0;
-    let inProgressFeatures: Array<{ title: string; goalId: string; taskCount: number; completedTaskCount: number }> = [];
-    let activeGoalCount = 0;
+    let inProgressFeatures: Array<{ title: string; category: string; taskCount: number; completedTaskCount: number }> = [];
+    let _activeGoalCount = 0;
     let totalPendingBacklog = 0;
 
     if (workState?.features) {
@@ -68,7 +68,7 @@ export default function OrientationBanner() {
         .filter(f => f.status === 'in_progress' || f.status === 'blocked')
         .map(f => ({
           title: f.title,
-          goalId: f.goalId,
+          category: f.category ?? 'uncategorized',
           taskCount: f.taskCount ?? 0,
           completedTaskCount: f.completedTaskCount ?? 0,
         }));
@@ -78,14 +78,11 @@ export default function OrientationBanner() {
       blockedCount += items.filter(b => b.status === 'blocked').length;
       totalPendingBacklog = items.filter(b => !b.status || b.status === 'pending' || b.status === 'not_started').length;
     }
-    if (workState?.goals) {
-      activeGoalCount = (workState.goals.goals ?? []).filter(g => g.status === 'in_progress').length;
-    }
 
-    return { lastActive, activeWork, attentionCount, blockedCount, inProgressFeatures, activeGoalCount, totalPendingBacklog };
+    return { lastActive, activeWork, attentionCount, blockedCount, inProgressFeatures, totalPendingBacklog };
   }, [sessions, directiveState, workState]);
 
-  const hasWorkState = inProgressFeatures.length > 0 || blockedCount > 0 || activeGoalCount > 0;
+  const hasWorkState = inProgressFeatures.length > 0 || blockedCount > 0;
 
   // Don't show banner if there's nothing to show
   if (!lastActive && !activeWork && attentionCount === 0 && !hasWorkState) {
@@ -134,16 +131,6 @@ export default function OrientationBanner() {
             </div>
           )}
 
-          {/* Active goals count */}
-          {activeGoalCount > 0 && (
-            <div className="flex items-center gap-1.5 text-muted-foreground">
-              <ListChecks className="h-3.5 w-3.5 shrink-0" />
-              <span>
-                <span className="text-foreground">{activeGoalCount}</span> active goal{activeGoalCount !== 1 ? 's' : ''}
-              </span>
-            </div>
-          )}
-
           {/* Last active — lowest urgency */}
           {lastActive && (
             <div className="flex items-center gap-1.5 text-muted-foreground">
@@ -158,9 +145,9 @@ export default function OrientationBanner() {
           <div className="mt-2 pt-2 border-t border-border/40 flex items-center gap-3 flex-wrap text-xs">
             {inProgressFeatures.slice(0, 4).map((f) => (
               <button
-                key={`${f.goalId}-${f.title}`}
+                key={`${f.category}-${f.title}`}
                 className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
-                onClick={() => navigate(`/projects?expand=${f.goalId}`)}
+                onClick={() => navigate('/projects')}
               >
                 <ArrowRight className="h-3 w-3 text-status-blue shrink-0" />
                 <span className="truncate max-w-[180px]">{f.title}</span>

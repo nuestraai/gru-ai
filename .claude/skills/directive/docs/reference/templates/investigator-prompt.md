@@ -10,8 +10,8 @@ You are operating in INVESTIGATION MODE. Your job is PURE DATA GATHERING — sca
 PROJECTS TO INVESTIGATE:
 {Morgan's projects assigned to this investigator — id, title, scope_summary for each}
 
-EXISTING OKRs (avoid re-investigating solved problems):
-{okrs from .context/goals/{goal_folder}/goal.json, if populated}
+DIRECTIVE CATEGORY:
+{category from directive.json — one of: framework, pipeline, dashboard, game}
 
 GUARDRAILS:
 {.context/vision.md guardrails section}

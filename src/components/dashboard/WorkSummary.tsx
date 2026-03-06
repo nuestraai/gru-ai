@@ -10,49 +10,51 @@ import {
   ArrowRight,
   CircleDot,
 } from 'lucide-react';
-import type { BacklogRecord, FeatureRecord, GoalRecord } from '@/stores/types';
+import type { FeatureRecord } from '@/stores/types';
 
 export default function WorkSummary() {
   const workState = useDashboardStore((s) => s.workState);
   const navigate = useNavigate();
 
   const summary = useMemo(() => {
-    if (!workState?.goals) return null;
+    if (!workState?.features) return null;
 
-    const goals = workState.goals.goals ?? [];
     const features = workState.features?.features ?? [];
     const backlogs = workState.backlogs?.items ?? [];
+    const directives = workState.conductor?.directives ?? [];
 
-    const activeGoals = goals.filter((g: GoalRecord) => g.status === 'in_progress');
     const inProgressFeatures = features.filter((f: FeatureRecord) => f.status === 'in_progress');
     const pendingFeatures = features.filter((f: FeatureRecord) => f.status === 'pending');
     const doneFeatures = features.filter((f: FeatureRecord) => f.status === 'completed');
     const totalBacklog = backlogs.length;
     const actionableBacklog = backlogs.filter(b => b.status === 'pending' || b.status === 'in_progress' || b.status === 'blocked').length;
 
-    // Top goals by active feature count
-    const goalFeatureCount: Record<string, number> = {};
+    // Top categories by active feature count
+    const categoryFeatureCount: Record<string, number> = {};
     for (const f of [...inProgressFeatures, ...pendingFeatures]) {
-      goalFeatureCount[f.goalId] = (goalFeatureCount[f.goalId] ?? 0) + 1;
+      const cat = f.category ?? 'uncategorized';
+      categoryFeatureCount[cat] = (categoryFeatureCount[cat] ?? 0) + 1;
     }
-    const topGoals = activeGoals
-      .map((g: GoalRecord) => ({
-        ...g,
-        activeCount: goalFeatureCount[g.id] ?? 0,
-        backlogCount: backlogs.filter(b => b.goalId === g.id).length,
+    const topCategories = Object.entries(categoryFeatureCount)
+      .map(([category, activeCount]) => ({
+        category,
+        activeCount,
+        backlogCount: backlogs.filter(b => (b.category ?? 'uncategorized') === category).length,
       }))
       .sort((a, b) => b.activeCount - a.activeCount)
       .slice(0, 5);
 
+    const activeDirectiveCount = directives.filter(d => d.status === 'in_progress').length;
+
     return {
-      activeGoals: activeGoals.length,
-      totalGoals: goals.length,
+      activeDirectives: activeDirectiveCount,
+      totalDirectives: directives.length,
       inProgress: inProgressFeatures.length,
       pending: pendingFeatures.length,
       done: doneFeatures.length,
       backlog: totalBacklog,
       actionableBacklog,
-      topGoals,
+      topCategories,
     };
   }, [workState]);
 
@@ -71,8 +73,8 @@ export default function WorkSummary() {
               <button className="flex items-center gap-2 text-left hover:bg-secondary/50 rounded p-1 -m-1 transition-colors cursor-pointer" onClick={() => navigate('/directives')}>
                 <Target className="h-4 w-4 text-primary" />
                 <div>
-                  <p className="text-lg font-bold">{summary.activeGoals}</p>
-                  <p className="text-[10px] text-muted-foreground">Active Goals</p>
+                  <p className="text-lg font-bold">{summary.activeDirectives}</p>
+                  <p className="text-[10px] text-muted-foreground">Active Directives</p>
                 </div>
               </button>
               <button className="flex items-center gap-2 text-left hover:bg-secondary/50 rounded p-1 -m-1 transition-colors cursor-pointer" onClick={() => navigate('/directives')}>
@@ -100,32 +102,32 @@ export default function WorkSummary() {
           </CardContent>
         </Card>
 
-        {/* Top active goals */}
+        {/* Top categories */}
         <Card>
           <CardContent className="p-4">
             <div className="space-y-2">
-              {summary.topGoals.map((goal) => (
+              {summary.topCategories.map((cat) => (
                 <button
-                  key={goal.id}
+                  key={cat.category}
                   className="flex items-center gap-2 w-full text-left hover:bg-secondary/50 rounded px-2 py-1 -mx-2 transition-colors cursor-pointer"
-                  onClick={() => navigate(`/projects?expand=${goal.id}`)}
+                  onClick={() => navigate('/projects')}
                 >
                   <ArrowRight className="h-3 w-3 text-muted-foreground shrink-0" />
-                  <span className="text-xs truncate flex-1">{goal.title}</span>
-                  {goal.activeCount > 0 && (
+                  <span className="text-xs truncate flex-1">{cat.category.replace(/-/g, ' ')}</span>
+                  {cat.activeCount > 0 && (
                     <Badge variant="outline" className="text-[9px] px-1 py-0 bg-status-yellow/10 text-status-yellow border-status-yellow/30">
-                      {goal.activeCount} active
+                      {cat.activeCount} active
                     </Badge>
                   )}
-                  {goal.backlogCount > 0 && (
+                  {cat.backlogCount > 0 && (
                     <span className="text-[9px] text-muted-foreground">
-                      {goal.backlogCount} backlog
+                      {cat.backlogCount} backlog
                     </span>
                   )}
                 </button>
               ))}
-              {summary.topGoals.length === 0 && (
-                <p className="text-xs text-muted-foreground text-center py-2">No active goals</p>
+              {summary.topCategories.length === 0 && (
+                <p className="text-xs text-muted-foreground text-center py-2">No active work</p>
               )}
             </div>
           </CardContent>

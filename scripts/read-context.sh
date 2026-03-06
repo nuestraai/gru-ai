@@ -5,9 +5,9 @@
 #   ./scripts/read-context.sh <role> [--compact]
 #
 # Roles:
-#   morgan    — planner: vision, preferences, goal.json files, orchestration + agent-behavior lessons, backlogs, project.json files
+#   morgan    — planner: vision, preferences, directive.json files, orchestration + agent-behavior lessons, backlogs, project.json files
 #   auditor   — codebase scanner: vision (guardrails section), preferences, review-quality + agent-behavior lessons
-#   challenger — C-suite challenge: vision, preferences, goal.json summaries
+#   challenger — C-suite challenge: vision, preferences, directive summaries
 #   engineer  — builder: preferences, all lesson files (alias: builder)
 #   reviewer  — code reviewer: preferences, review-quality + agent-behavior lessons
 #   alex      — orchestrator: vision, preferences, orchestration + agent-behavior lessons
@@ -30,9 +30,9 @@ if [[ $# -lt 1 ]] || [[ "$1" == "--help" ]] || [[ "$1" == "-h" ]]; then
   echo "Assembles context files based on agent role."
   echo ""
   echo "Roles:"
-  echo "  morgan     — planner context (vision, goals, lessons, backlogs, projects)"
+  echo "  morgan     — planner context (vision, directives, lessons, backlogs, projects)"
   echo "  auditor    — codebase scanner context (guardrails, review lessons)"
-  echo "  challenger — C-suite challenge context (vision, goal summaries)"
+  echo "  challenger — C-suite challenge context (vision, directive summaries)"
   echo "  engineer   — builder context (preferences, all lessons) (alias: builder)"
   echo "  reviewer   — code reviewer context (preferences, review-quality + agent-behavior lessons)"
   echo "  alex       — orchestrator context (vision, orchestration lessons)"
@@ -102,11 +102,11 @@ case "$ROLE" in
   morgan)
     print_file ".context/vision.md"
     print_file ".context/preferences.md"
-    print_glob ".context/goals/*/goal.json"
+    print_glob ".context/directives/*/directive.json"
     print_file ".context/lessons/orchestration.md"
     print_file ".context/lessons/agent-behavior.md"
-    print_glob ".context/goals/*/backlog.json"
-    print_glob ".context/goals/*/projects/*/project.json"
+    print_file ".context/backlog.json"
+    print_glob ".context/directives/*/projects/*/project.json"
     ;;
 
   auditor)
@@ -119,8 +119,8 @@ case "$ROLE" in
   challenger)
     print_file ".context/vision.md"
     print_file ".context/preferences.md"
-    # Goal summaries: just the goal.json files
-    print_glob ".context/goals/*/goal.json"
+    # Directive summaries
+    print_glob ".context/directives/*/directive.json"
     ;;
 
   engineer|builder)

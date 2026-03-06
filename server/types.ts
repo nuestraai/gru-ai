@@ -78,6 +78,13 @@ export interface HookEvent {
   metadata?: Record<string, unknown>;
 }
 
+export interface DirectiveProjectTask {
+  title: string;
+  status: string;
+  agent?: string;
+  dod?: Array<{ criterion: string; met: boolean }>;
+}
+
 export interface DirectiveProject {
   id: string;
   title: string;
@@ -85,6 +92,7 @@ export interface DirectiveProject {
   phase: 'audit' | 'design' | 'build' | 'review' | null;
   totalTasks?: number;
   completedTasks?: number;
+  tasks?: DirectiveProjectTask[];
 }
 
 export type PipelineStepStatus = 'pending' | 'active' | 'completed' | 'skipped' | 'failed';
@@ -115,33 +123,22 @@ export interface DirectiveState {
   currentStepId?: string;
   /** Directive weight class */
   weight?: string;
+  /** Directive category (e.g. game, ui, framework) */
+  category?: string;
+  /** Triage rationale — why this weight was assigned */
+  triageRationale?: string;
+  /** CEO approval status */
+  approvalStatus?: string;
+  /** Brainstorm summary from brainstorm step output */
+  brainstormSummary?: string;
+  /** Plan summary from plan step output */
+  planSummary?: string;
+  /** Full brainstorm markdown content */
+  brainstormContent?: string;
+  /** Full directive brief markdown content (often contains plan) */
+  directiveBrief?: string;
 }
 
-export interface GoalInventory {
-  generated: string;
-  goals: GoalArea[];
-}
-
-export interface GoalArea {
-  id: string;
-  title: string;
-  status: 'in_progress' | 'not_started' | 'done';
-  has_goal_md: boolean;
-  has_backlog: boolean;
-  has_okrs: boolean;
-  active_features: ActiveFeature[];
-  done_count: number;
-  backlog_count: number;
-  issues: string[];
-}
-
-export interface ActiveFeature {
-  name: string;
-  tasks_completed: number;
-  tasks_total: number;
-  completion_pct: number;
-  status: 'in_progress' | 'completed' | 'not_started';
-}
 
 export interface DashboardState {
   teams: Team[];
@@ -153,7 +150,7 @@ export interface DashboardState {
   sessionActivities: Record<string, SessionActivity>;
   directiveState: DirectiveState | null;
   directiveHistory: DirectiveState[];
-  goalInventory: GoalInventory | null;
+  activeDirectives: DirectiveState[];
   lastUpdated: string;
 }
 
@@ -206,7 +203,6 @@ export type WsMessageType =
   | 'config_updated'
   | 'notification_fired'
   | 'directive_updated'
-  | 'goals_updated'
   | 'state_updated';
 
 export interface WsMessage {

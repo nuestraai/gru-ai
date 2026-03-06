@@ -9,7 +9,6 @@ import { Aggregator } from './state/aggregator.js';
 import { ClaudeWatcher } from './watchers/claude-watcher.js';
 import { SessionWatcher } from './watchers/session-watcher.js';
 import { DirectiveWatcher } from './watchers/directive-watcher.js';
-import { GoalWatcher } from './watchers/goal-watcher.js';
 import { StateWatcher } from './watchers/state-watcher.js';
 import { processEvent } from './hooks/event-receiver.js';
 import { focusPane } from './actions/terminal.js';
@@ -53,14 +52,11 @@ notifier.on('notification_fired', (payload: { sessionId: string; suppressBrowser
 const claudeWatcher = new ClaudeWatcher(aggregator, config.claudeHome);
 claudeWatcher.start();
 
-const sessionWatcher = new SessionWatcher(aggregator, config.claudeHome);
+const sessionWatcher = new SessionWatcher(aggregator, config.claudeHome, aggregator.projectFilter);
 sessionWatcher.start();
 
 const directiveWatcher = new DirectiveWatcher(aggregator, config.claudeHome);
 directiveWatcher.start();
-
-const goalWatcher = new GoalWatcher(aggregator, config);
-goalWatcher.start();
 
 const stateWatcher = new StateWatcher(aggregator, config);
 stateWatcher.start();
@@ -112,17 +108,7 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  if (url.pathname === '/api/goals' && req.method === 'GET') {
-    handleGetGoals(res);
-    return;
-  }
-
   // --- Work state API routes ---
-  if (url.pathname === '/api/state/goals' && req.method === 'GET') {
-    handleStateGoals(res);
-    return;
-  }
-
   if (url.pathname === '/api/state/features' && req.method === 'GET') {
     handleStateFeatures(url, res);
     return;
@@ -276,10 +262,7 @@ aggregator.on('change', (type: WsMessageType) => {
       payload = { sessionActivities: state.sessionActivities };
       break;
     case 'directive_updated':
-      payload = { directiveState: state.directiveState, directiveHistory: state.directiveHistory };
-      break;
-    case 'goals_updated':
-      payload = { goalInventory: state.goalInventory };
+      payload = { directiveState: state.directiveState, directiveHistory: state.directiveHistory, activeDirectives: state.activeDirectives };
       break;
     case 'state_updated':
       payload = { workState: aggregator.getWorkState() };
@@ -353,7 +336,6 @@ function handleHealth(res: http.ServerResponse): void {
       claude: claudeWatcher.ready,
       session: sessionWatcher.ready,
       directive: directiveWatcher.ready,
-      goals: goalWatcher.ready,
       state: stateWatcher.ready,
     },
     connectedClients: wss.clients.size,
@@ -373,27 +355,15 @@ function handleGetDirective(res: http.ServerResponse): void {
   res.end(JSON.stringify(state));
 }
 
-function handleGetGoals(res: http.ServerResponse): void {
-  const state = goalWatcher.readCurrentState();
-  res.writeHead(200, { 'Content-Type': 'application/json' });
-  res.end(JSON.stringify(state));
-}
-
 // --- Work State Handlers ---
-
-function handleStateGoals(res: http.ServerResponse): void {
-  const ws = aggregator.getWorkState();
-  res.writeHead(200, { 'Content-Type': 'application/json' });
-  res.end(JSON.stringify(ws.goals));
-}
 
 function handleStateFeatures(url: URL, res: http.ServerResponse): void {
   const ws = aggregator.getWorkState();
-  const goalId = url.searchParams.get('goalId');
+  const category = url.searchParams.get('category');
 
   let features = ws.features?.features ?? [];
-  if (goalId) {
-    features = features.filter(f => f.goalId === goalId);
+  if (category) {
+    features = features.filter(f => f.category === category);
   }
 
   res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -402,11 +372,11 @@ function handleStateFeatures(url: URL, res: http.ServerResponse): void {
 
 function handleStateBacklogs(url: URL, res: http.ServerResponse): void {
   const ws = aggregator.getWorkState();
-  const goalId = url.searchParams.get('goalId');
+  const category = url.searchParams.get('category');
 
   let items = ws.backlogs?.items ?? [];
-  if (goalId) {
-    items = items.filter(b => b.goalId === goalId);
+  if (category) {
+    items = items.filter(b => b.category === category);
   }
 
   res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -558,23 +528,35 @@ function handleDirectiveComplete(req: http.IncomingMessage, res: http.ServerResp
   });
   req.on('end', () => {
     try {
-      const parsed = JSON.parse(body) as { action: string; feedback?: string };
+      const parsed = JSON.parse(body) as { action: string; feedback?: string; directiveName?: string };
       if (!parsed.action || !['approve', 'reject'].includes(parsed.action)) {
         res.writeHead(400, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: 'Missing or invalid action (approve|reject)' }));
         return;
       }
 
-      // Read current directive state to find the directive name
-      const state = directiveWatcher.readCurrentState();
-      if (!state) {
-        res.writeHead(404, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: 'No active directive' }));
-        return;
+      // If directiveName is provided, use it directly; otherwise fall back to readCurrentState()
+      let targetDirectiveName: string;
+      if (parsed.directiveName) {
+        // Sanitize: reject path traversal attempts
+        if (parsed.directiveName.includes('/') || parsed.directiveName.includes('\\') || parsed.directiveName.includes('..')) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Invalid directive name' }));
+          return;
+        }
+        targetDirectiveName = parsed.directiveName;
+      } else {
+        const state = directiveWatcher.readCurrentState();
+        if (!state) {
+          res.writeHead(404, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'No active directive' }));
+          return;
+        }
+        targetDirectiveName = state.directiveName;
       }
 
       // Update the directive.json status
-      const directiveJsonPath = path.join(process.cwd(), '.context', 'directives', state.directiveName, 'directive.json');
+      const directiveJsonPath = path.join(process.cwd(), '.context', 'directives', targetDirectiveName, 'directive.json');
       try {
         const raw = fs.readFileSync(directiveJsonPath, 'utf-8');
         const directive = JSON.parse(raw);
@@ -960,15 +942,15 @@ let foremanInterval: ReturnType<typeof setInterval> | null = null;
 // Skip markers — directives containing these are skipped by the foreman
 const SKIP_MARKERS = ['<!-- foreman:skip -->', '**Requires**: manual', 'DEFERRED', '**Status**: deferred', '**Status**: needs-human'];
 
-// Priority goals — backlogs from these goals are boosted to match inbox priority
-const PRIORITY_GOALS = ['agent-conductor'];
+// Priority categories — backlogs from these categories are boosted to match inbox priority
+const PRIORITY_CATEGORIES = ['pipeline'];
 
 interface WorkItem {
   name: string;
   priority: string;
   source: 'inbox' | 'backlog';
   path: string;
-  goal?: string;
+  category?: string;
   trigger?: string;
   sortOrder: number; // lower = higher priority
 }
@@ -1027,7 +1009,7 @@ function foremanCheck(trigger?: string): void {
     }
 
     const next = work[0];
-    console.log(`[foreman] Launching: ${next.name} (${next.priority}, ${next.source}${next.goal ? `, ${next.goal}` : ''})`);
+    console.log(`[foreman] Launching: ${next.name} (${next.priority}, ${next.source}${next.category ? `, ${next.category}` : ''})`);
 
     foremanLaunch(next, projectPath, now);
   } catch (err) {
@@ -1078,54 +1060,44 @@ function findInboxWork(projectPath: string): WorkItem[] {
 }
 
 function findBacklogWork(projectPath: string): WorkItem[] {
-  const goalsDir = path.join(projectPath, '.context', 'goals');
-  if (!fs.existsSync(goalsDir)) return [];
+  const backlogPath = path.join(projectPath, '.context', 'backlog.json');
+  if (!fs.existsSync(backlogPath)) return [];
 
   const items: WorkItem[] = [];
-  const goalDirs = fs.readdirSync(goalsDir).filter(d => {
-    try { return fs.statSync(path.join(goalsDir, d)).isDirectory() && !d.startsWith('_'); }
-    catch { return false; }
-  });
+  let backlogItems: Array<Record<string, unknown>>;
+  try {
+    const raw = JSON.parse(fs.readFileSync(backlogPath, 'utf-8'));
+    if (!Array.isArray(raw)) return [];
+    backlogItems = raw;
+  } catch { return []; }
 
-  for (const goalDir of goalDirs) {
-    const backlogPath = path.join(goalsDir, goalDir, 'backlog.json');
-    if (!fs.existsSync(backlogPath)) continue;
+  for (const bi of backlogItems) {
+    // Skip done/deferred items
+    const status = String(bi.status ?? 'pending');
+    if (status === 'done' || status === 'deferred') continue;
 
-    let backlogItems: Array<Record<string, unknown>>;
-    try {
-      const raw = JSON.parse(fs.readFileSync(backlogPath, 'utf-8'));
-      if (!Array.isArray(raw)) continue;
-      backlogItems = raw;
-    } catch { continue; }
+    const trigger = bi.trigger ? String(bi.trigger) : '';
+    if (!trigger) continue; // Only items with triggers can be auto-launched
 
-    const isPriorityGoal = PRIORITY_GOALS.includes(goalDir);
+    const triggerMet = checkTriggerFired(trigger, projectPath);
+    if (!triggerMet) continue;
 
-    for (const bi of backlogItems) {
-      // Skip done/deferred items
-      const status = String(bi.status ?? 'pending');
-      if (status === 'done' || status === 'deferred') continue;
+    const title = String(bi.title ?? 'unknown');
+    const category = String(bi.category ?? 'uncategorized');
+    const rawPriority = String(bi.priority ?? 'P2').toUpperCase();
+    const currentPriority = ['P0', 'P1', 'P2'].includes(rawPriority) ? rawPriority : 'P2';
+    const isPriorityCategory = PRIORITY_CATEGORIES.includes(category);
+    const effectivePriority = isPriorityCategory && currentPriority === 'P2' ? 'P1' : currentPriority;
 
-      const trigger = bi.trigger ? String(bi.trigger) : '';
-      if (!trigger) continue; // Only items with triggers can be auto-launched
-
-      const triggerMet = checkTriggerFired(trigger, projectPath);
-      if (!triggerMet) continue;
-
-      const title = String(bi.title ?? 'unknown');
-      const rawPriority = String(bi.priority ?? 'P2').toUpperCase();
-      const currentPriority = ['P0', 'P1', 'P2'].includes(rawPriority) ? rawPriority : 'P2';
-      const effectivePriority = isPriorityGoal && currentPriority === 'P2' ? 'P1' : currentPriority;
-
-      items.push({
-        name: title,
-        priority: effectivePriority,
-        source: 'backlog',
-        path: backlogPath,
-        goal: goalDir,
-        trigger,
-        sortOrder: priorityToOrder(effectivePriority) + 0.5, // inbox wins ties
-      });
-    }
+    items.push({
+      name: title,
+      priority: effectivePriority,
+      source: 'backlog',
+      path: backlogPath,
+      category,
+      trigger,
+      sortOrder: priorityToOrder(effectivePriority) + 0.5, // inbox wins ties
+    });
   }
   return items;
 }
@@ -1170,7 +1142,7 @@ function foremanLaunch(work: WorkItem, projectPath: string, now: Date): void {
   if (work.source === 'inbox') {
     prompt = `/directive ${work.name}`;
   } else {
-    prompt = `/directive Execute backlog item "${work.name}" in goal "${work.goal}" (trigger: ${work.trigger ?? 'unknown'}). Backlog file: ${work.path}`;
+    prompt = `/directive Execute backlog item "${work.name}" [${work.category ?? 'uncategorized'}] (trigger: ${work.trigger ?? 'unknown'}). Backlog file: ${work.path}`;
   }
 
   const logDir = path.join(import.meta.dirname, '..', 'logs');
@@ -1193,7 +1165,7 @@ function foremanLaunch(work: WorkItem, projectPath: string, now: Date): void {
     directive: work.name,
     priority: work.priority,
     source: work.source,
-    goal: work.goal,
+    category: work.category,
     estimated_cost_usd: 5,
   });
   console.log(`[foreman] Launched ${work.name}, PID ${child.pid}, log: ${logFile}`);
@@ -1275,7 +1247,6 @@ function shutdown(): void {
   claudeWatcher.stop().catch(console.error);
   sessionWatcher.stop().catch(console.error);
   directiveWatcher.stop().catch(console.error);
-  goalWatcher.stop().catch(console.error);
   stateWatcher.stop().catch(console.error);
 
   // Destroy aggregator (cleans up timers)

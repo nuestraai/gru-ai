@@ -1,0 +1,67 @@
+{
+  "id": "dashboard-to-game-migration",
+  "title": "Phase Out Dashboard UI — Migrate to Game UI",
+  "status": "in_progress",
+  "created": "2026-03-07",
+  "completed": null,
+  "weight": "strategic",
+  "category": "game",
+  "produced_features": [],
+  "report": null,
+  "backlog_sources": [],
+
+  "started_at": "2026-03-07T00:00:00Z",
+  "updated_at": "2026-03-07T12:00:00Z",
+  "current_step": "brainstorm",
+
+  "pipeline": {
+    "triage": {
+      "status": "completed",
+      "agent": "CEO",
+      "output": {
+        "weight": "strategic",
+        "summary": "Strategic classification — phasing out dashboard and migrating all functionality to game UI crosses two major domains, has multiple valid approaches, and has lasting architectural consequences.",
+        "rationale": "Crosses dashboard + game domains, multiple valid migration strategies, lasting consequences expensive to reverse, directive states problem without prescribing solution approach."
+      }
+    },
+    "checkpoint": { "status": "skipped", "output": { "summary": "No prior checkpoint found" } },
+    "read": {
+      "status": "completed",
+      "agent": "CEO",
+      "output": { "summary": "Read directive.md — CEO wants to phase out dashboard UI entirely and consolidate all functionality into the game UI as the single interface." }
+    },
+    "context": {
+      "status": "completed",
+      "agent": "CEO",
+      "output": {
+        "summary": "Read vision.md, lessons (agent-behavior, orchestration), reviewed all dashboard components (DashboardPage, StatsBar, DirectiveProgress, AttentionRequired, CeoBrief, WorkSummary, TeamCard, SchedulerCard, OrientationBanner), game components (GamePage, GameHeader, CanvasOffice, panels: TeamPanel, OpsPanel, AgentPanel, LogPanel, ActionPanel, DirectivePanel, BookshelfPanel, FurniturePanels), router.tsx, and Sidebar.tsx. Game already has HUD tabs (Team, Tasks, Ops, Log) covering most dashboard functionality. Key gaps: CeoBrief, SchedulerCard, OrientationBanner, and the separate pages (Sessions, Projects/Directives, Org) accessed via sidebar navigation."
+      }
+    },
+    "challenge": { "status": "pending" },
+    "brainstorm": { "status": "active" },
+    "plan": { "status": "pending" },
+    "audit": { "status": "pending" },
+    "approve": { "status": "pending" },
+    "project-brainstorm": { "status": "pending" },
+    "setup": { "status": "pending" },
+    "execute": { "status": "pending" },
+    "review-gate": { "status": "pending" },
+    "wrapup": { "status": "pending" },
+    "completion": { "status": "pending" }
+  },
+
+  "projects": [],
+
+  "planning": {
+    "morgan_plan": {},
+    "ceo_approval": { "status": null, "modifications": [] },
+    "worktree_path": null
+  },
+
+  "wrapup": {
+    "okrs_persisted": false,
+    "follow_ups_processed": false,
+    "digest_path": null,
+    "lessons_updated": false
+  }
+}

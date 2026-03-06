@@ -13,6 +13,14 @@ export function projectLabel(dirName: string): string {
   return parts.slice(-3).join('/');
 }
 
+/**
+ * Derive the Claude projects directory name from an absolute repo path.
+ * Inverse of the encoding Claude Code uses: `/Users/foo/bar` → `-Users-foo-bar`
+ */
+export function projectDirFromPath(repoPath: string): string {
+  return repoPath.replace(/\//g, '-');
+}
+
 function headRead(filepath: string, size = HEAD_SIZE): string | null {
   let fd: number | null = null;
   try {

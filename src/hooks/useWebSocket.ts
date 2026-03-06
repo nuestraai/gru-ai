@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { useDashboardStore } from '@/stores/dashboard-store';
-import type { WsMessage, DashboardState, DirectiveState, GoalInventory, Session, HookEvent, Team, TeamTask, SessionActivity, NotificationConfig, ProjectGroup, FullWorkState } from '@/stores/types';
+import type { WsMessage, DashboardState, DirectiveState, Session, HookEvent, Team, TeamTask, SessionActivity, NotificationConfig, ProjectGroup, FullWorkState } from '@/stores/types';
 import { API_BASE, WS_URL } from '@/lib/api';
 const MAX_RECONNECT_DELAY = 30000;
 
@@ -20,7 +20,6 @@ export function useWebSocket() {
     setConnected,
     updateSessionActivities,
     updateDirectiveState,
-    updateGoalInventory,
     setWorkState,
     updateNotificationConfig,
     addNotificationFired,
@@ -46,18 +45,13 @@ export function useWebSocket() {
           .catch(() => {});
 
         // Fetch initial work state
-        fetch(`${API_BASE}/api/state/goals`)
-          .then((res) => res.json())
-          .then((goals: FullWorkState['goals']) => {
-            Promise.all([
-              fetch(`${API_BASE}/api/state/features`).then(r => r.json()),
-              fetch(`${API_BASE}/api/state/backlogs`).then(r => r.json()),
-              fetch(`${API_BASE}/api/state/conductor`).then(r => r.json()),
-            ]).then(([features, backlogs, conductor]) => {
-              setWorkState({ goals, features, backlogs, conductor, index: null });
-            }).catch(() => {});
-          })
-          .catch(() => {});
+        Promise.all([
+          fetch(`${API_BASE}/api/state/features`).then(r => r.json()),
+          fetch(`${API_BASE}/api/state/backlogs`).then(r => r.json()),
+          fetch(`${API_BASE}/api/state/conductor`).then(r => r.json()),
+        ]).then(([features, backlogs, conductor]) => {
+          setWorkState({ features, backlogs, conductor, index: null });
+        }).catch(() => {});
       };
 
       ws.onmessage = (event) => {
@@ -100,11 +94,9 @@ export function useWebSocket() {
             case 'directive_updated':
               updateDirectiveState(
                 payload.directiveState as DirectiveState | null,
-                payload.directiveHistory as DirectiveState[] | undefined
+                payload.directiveHistory as DirectiveState[] | undefined,
+                payload.activeDirectives as DirectiveState[] | undefined
               );
-              break;
-            case 'goals_updated':
-              updateGoalInventory(payload.goalInventory as GoalInventory | null);
               break;
             case 'state_updated':
               setWorkState(payload.workState as FullWorkState);
@@ -157,5 +149,5 @@ export function useWebSocket() {
         wsRef.current = null;
       }
     };
-  }, [setFullState, updateSessions, updateProjects, updateTeams, updateTasks, addEvent, updateEvents, setConnected, updateSessionActivities, updateDirectiveState, updateGoalInventory, setWorkState, updateNotificationConfig, addNotificationFired]);
+  }, [setFullState, updateSessions, updateProjects, updateTeams, updateTasks, addEvent, updateEvents, setConnected, updateSessionActivities, updateDirectiveState, setWorkState, updateNotificationConfig, addNotificationFired]);
 }

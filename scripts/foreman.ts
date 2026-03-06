@@ -243,44 +243,32 @@ function findReadyWork(projectPath: string): ReadyWork[] {
     }
   }
 
-  // 2. Scan backlog.json files for items with met triggers
-  const goalsDir = path.join(projectPath, '.context', 'goals');
-  if (fs.existsSync(goalsDir)) {
-    const goalDirs = fs.readdirSync(goalsDir).filter(d => {
-      try {
-        const stat = fs.statSync(path.join(goalsDir, d));
-        return stat.isDirectory() && !d.startsWith('_') && !d.startsWith('.');
-      } catch { return false; }
-    });
+  // 2. Scan .context/backlog.json for items with met triggers
+  const backlogPath = path.join(projectPath, '.context', 'backlog.json');
+  if (fs.existsSync(backlogPath)) {
+    let items: Array<{
+      id?: string; title?: string; status?: string;
+      priority?: string; category?: string; trigger?: string;
+    }>;
+    try {
+      const raw = JSON.parse(fs.readFileSync(backlogPath, 'utf-8'));
+      items = Array.isArray(raw) ? raw : [];
+    } catch { items = []; }
 
-    for (const goalDir of goalDirs) {
-      const backlogPath = path.join(goalsDir, goalDir, 'backlog.json');
-      if (!fs.existsSync(backlogPath)) continue;
+    for (const item of items) {
+      if (!item.trigger) continue;
+      if (item.status === 'done' || item.status === 'deferred') continue;
 
-      let items: Array<{
-        id?: string; title?: string; status?: string;
-        priority?: string; trigger?: string;
-      }>;
-      try {
-        const raw = JSON.parse(fs.readFileSync(backlogPath, 'utf-8'));
-        items = Array.isArray(raw) ? raw : [];
-      } catch { continue; }
+      const triggerMet = checkTrigger(item.trigger, projectPath);
+      if (!triggerMet) continue;
 
-      for (const item of items) {
-        if (!item.trigger) continue;
-        if (item.status === 'done' || item.status === 'deferred') continue;
-
-        const triggerMet = checkTrigger(item.trigger, projectPath);
-        if (!triggerMet) continue;
-
-        work.push({
-          path: backlogPath,
-          name: item.title ?? item.id ?? 'unknown',
-          priority: item.priority ?? 'P2',
-          source: 'backlog',
-          trigger: item.trigger,
-        });
-      }
+      work.push({
+        path: backlogPath,
+        name: item.title ?? item.id ?? 'unknown',
+        priority: item.priority ?? 'P2',
+        source: 'backlog',
+        trigger: item.trigger,
+      });
     }
   }
 
@@ -360,7 +348,7 @@ function launchDirective(work: ReadyWork, projectPath: string): void {
   if (work.source === 'inbox') {
     prompt = `/directive ${work.name}`;
   } else {
-    prompt = `/directive Execute backlog item "${work.name}" in goal "${work.goal}" (trigger: ${work.trigger ?? 'unknown'}). Backlog file: ${work.path}`;
+    prompt = `/directive Execute backlog item "${work.name}" (trigger: ${work.trigger ?? 'unknown'}). Backlog file: ${work.path}`;
   }
 
   console.log(`[foreman] Launching: ${work.name} (${work.priority}, ${work.source})`);

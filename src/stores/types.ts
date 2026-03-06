@@ -99,6 +99,13 @@ export interface SessionActivity {
   active: boolean;
 }
 
+export interface DirectiveProjectTask {
+  title: string;
+  status: string;
+  agent?: string;
+  dod?: Array<{ criterion: string; met: boolean }>;
+}
+
 export interface DirectiveProject {
   id: string;
   title: string;
@@ -106,6 +113,7 @@ export interface DirectiveProject {
   phase: 'audit' | 'design' | 'build' | 'review' | null;
   totalTasks?: number;
   completedTasks?: number;
+  tasks?: DirectiveProjectTask[];
 }
 
 export type PipelineStepStatus = 'pending' | 'active' | 'completed' | 'skipped' | 'failed';
@@ -134,32 +142,13 @@ export interface DirectiveState {
   pipelineSteps?: PipelineStep[];
   currentStepId?: string;
   weight?: string;
-}
-
-export interface GoalInventory {
-  generated: string;
-  goals: GoalArea[];
-}
-
-export interface GoalArea {
-  id: string;
-  title: string;
-  status: 'in_progress' | 'not_started' | 'completed';
-  has_goal_md: boolean;
-  has_backlog: boolean;
-  has_okrs: boolean;
-  active_features: ActiveFeature[];
-  done_count: number;
-  backlog_count: number;
-  issues: string[];
-}
-
-export interface ActiveFeature {
-  name: string;
-  tasks_completed: number;
-  tasks_total: number;
-  completion_pct: number;
-  status: 'in_progress' | 'not_started' | 'completed';
+  category?: string;
+  triageRationale?: string;
+  approvalStatus?: string;
+  brainstormSummary?: string;
+  planSummary?: string;
+  brainstormContent?: string;
+  directiveBrief?: string;
 }
 
 export interface DashboardState {
@@ -172,7 +161,7 @@ export interface DashboardState {
   sessionActivities: Record<string, SessionActivity>;
   directiveState: DirectiveState | null;
   directiveHistory: DirectiveState[];
-  goalInventory: GoalInventory | null;
+  activeDirectives: DirectiveState[];
   lastUpdated: string;
 }
 
@@ -236,7 +225,6 @@ export type WsMessageType =
   | 'config_updated'
   | 'notification_fired'
   | 'directive_updated'
-  | 'goals_updated'
   | 'state_updated';
 
 export interface WsMessage {
@@ -249,7 +237,7 @@ export interface WsMessage {
 // Work State types (mirrors server/state/work-item-types.ts for frontend)
 // ---------------------------------------------------------------------------
 
-export type WorkItemType = 'goal' | 'feature' | 'task' | 'backlog-item' | 'directive' | 'report' | 'discussion' | 'research';
+export type WorkItemType = 'feature' | 'task' | 'backlog-item' | 'directive' | 'report' | 'discussion' | 'research';
 export type LifecycleState = 'pending' | 'in_progress' | 'blocked' | 'deferred' | 'completed' | 'abandoned';
 export type Priority = 'P0' | 'P1' | 'P2';
 
@@ -259,31 +247,15 @@ export interface BaseWorkItem {
   title: string;
   status: LifecycleState;
   parentId?: string;
-  goalId?: string;
+  category?: string;
   createdAt: string;
   updatedAt: string;
   tags?: string[];
 }
 
-export interface GoalRecord extends BaseWorkItem {
-  type: 'goal';
-  description?: string;
-  category?: string;
-  activeFeatures: string[];
-  doneFeatures: string[];
-  backlogCount: number;
-  hasOkrs: boolean;
-  hasGoalMd: boolean;
-  hasGoalJson: boolean;
-  hasBacklog: boolean;
-  issues?: string[];
-  repoId?: string;
-  repoName?: string;
-}
-
 export interface FeatureRecord extends BaseWorkItem {
   type: 'feature';
-  goalId: string;
+  category?: string;
   taskCount: number;
   completedTaskCount: number;
   hasSpec: boolean;
@@ -295,7 +267,7 @@ export interface FeatureRecord extends BaseWorkItem {
 
 export interface BacklogRecord extends BaseWorkItem {
   type: 'backlog-item';
-  goalId: string;
+  category?: string;
   priority?: Priority;
   description?: string;
   trigger?: string;
@@ -320,7 +292,7 @@ export interface DirectiveRecord extends BaseWorkItem {
   reportPath?: string;
   // Structured fields from directive.json
   weight?: string;
-  goalIds?: string[];
+  category?: string;
   producedFeatures?: string[];
   report?: string | null;
   backlogSources?: string[];
@@ -336,12 +308,7 @@ export interface LessonRecord {
   updatedAt: string;
 }
 
-export type WorkItem = GoalRecord | FeatureRecord | BacklogRecord | ArtifactRecord | DirectiveRecord;
-
-export interface GoalsState {
-  generated: string;
-  goals: GoalRecord[];
-}
+export type WorkItem = FeatureRecord | BacklogRecord | ArtifactRecord | DirectiveRecord;
 
 export interface FeaturesState {
   generated: string;
@@ -365,7 +332,6 @@ export interface ConductorState {
 export interface IndexState {
   generated: string;
   counts: {
-    goals: number;
     activeFeatures: number;
     doneFeatures: number;
     pendingTasks: number;
@@ -379,7 +345,6 @@ export interface IndexState {
 }
 
 export interface FullWorkState {
-  goals: GoalsState | null;
   features: FeaturesState | null;
   backlogs: BacklogsState | null;
   conductor: ConductorState | null;

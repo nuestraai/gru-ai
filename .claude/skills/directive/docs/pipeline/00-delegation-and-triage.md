@@ -25,7 +25,7 @@ Read `.context/vision.md` guardrails and `.context/preferences.md`.
 
 ### Classification Rules
 
-**Lightweight** — Run inline, no Morgan, no C-suite challenges, no CEO approval:
+**Lightweight** — Morgan plans, but minimal overhead. No C-suite challenges, no CEO approval:
 - Single clear task (fix a bug, delete dead code, update a config)
 - All changes are in well-understood files
 - No user-facing impact
@@ -72,13 +72,18 @@ Process: {what steps will be used}
 ### Lightweight Process
 
 1. Read context files (lessons/ topic files, preferences.md — skip the full context load)
-2. Scan the codebase yourself (or spawn Sam for investigation if needed)
-3. Spawn engineer agent(s) to do the work
-4. Verify (type-check)
-5. Generate a short digest to `.context/reports/`
-6. Return CEO summary (Done / Changes / Needs CEO Eyes / Next)
+2. Spawn Morgan to plan projects (plan) — even for simple work, Morgan produces the plan so the CEO session stays clean
+3. Spawn auditor for technical baseline (audit) — lightweight audit, not full investigation
+4. **No plan-approval gate** — auto-approve
+5. Create branch (setup) — worktree only if working directory is dirty
+6. Execute tasks (execute)
+7. Review verification (review-gate)
+8. Generate a short digest to `.context/reports/`
+9. Return CEO summary (Done / Changes / Needs CEO Eyes / Next)
 
-No Morgan. No C-suite challenges. No plan-approval gate. No worktree (unless the CEO has uncommitted changes). No OKR updates. Just get it done. CEO approves completion after the fact (completion step).
+No C-suite challenges. No brainstorm. No plan-approval gate. No worktree (unless the CEO has uncommitted changes). No OKR updates. CEO approves completion after the fact (completion step).
+
+**CEO SESSION RULE: The CEO session NEVER plans or builds — it triages, delegates to Morgan/agents, and reviews results. This applies to ALL weights including lightweight.**
 
 ### Medium Process
 
@@ -136,7 +141,7 @@ Same as heavyweight but with an additional deliberation round during brainstorm.
 
    **Collect rebuttals** — same collection pattern as Phase 1. If a rebuttal agent fails, continue without it.
 
-4. **Synthesize** — collect all proposals AND rebuttals. Identify which critiques landed, which proposals survived challenge. Write synthesis to `.context/goals/{goal}/projects/{project}/{directive_name}/brainstorm.md`
+4. **Synthesize** — collect all proposals AND rebuttals. Identify which critiques landed, which proposals survived challenge. Write synthesis to `.context/directives/{directive-id}/brainstorm.md`
 5. **CEO clarification** — write 2-3 clarifying questions based on unresolved disagreements from the deliberation. STOP and return to CEO: "This directive is strategic. The team brainstormed N approaches and debated. Here are questions before we proceed: [questions]"
 6. **After CEO answers** — feed brainstorm synthesis + CEO answers into Morgan's prompt as additional context. Continue as heavyweight from the plan step onward.
 
@@ -167,10 +172,10 @@ Agent tool call (per brainstorm agent):
 
 **Error handling** — if a brainstorm agent fails or times out, log the error and continue with the remaining proposals. If ALL brainstorm agents fail, skip the brainstorm synthesis and proceed to Morgan planning with a note: "brainstorm phase failed — Morgan must derive the approach independently."
 
-**Synthesize** — collect all proposals (NO rebuttals for heavyweight). Identify convergence points and key disagreements. Write synthesis to `.context/goals/{goal}/projects/{project}/{directive_name}/brainstorm.md`. CEO clarification questions are included in the plan-for-approval artifact rather than as a separate STOP gate. This ensures the team thinks through the approach before Morgan plans, without adding a separate round-trip to the CEO.
+**Synthesize** — collect all proposals (NO rebuttals for heavyweight). Identify convergence points and key disagreements. Write synthesis to `.context/directives/{directive-id}/brainstorm.md`. CEO clarification questions are included in the plan-for-approval artifact rather than as a separate STOP gate. This ensures the team thinks through the approach before Morgan plans, without adding a separate round-trip to the CEO.
 
 > See [docs/reference/templates/brainstorm-prompt.md](../reference/templates/brainstorm-prompt.md) for the full brainstorm agent prompt template.
 
 > See [docs/reference/schemas/brainstorm-output.md](../reference/schemas/brainstorm-output.md) for the brainstorm agent output JSON schema.
 
-For the CEO approval gate (approve step): write the plan to `.context/goals/{goal}/projects/{project}/{directive_name}/plan-for-approval.md` and STOP. Output a summary asking the CEO to approve. Include brainstorm synthesis and any clarifying questions alongside Morgan's plan. After CEO approval, continue execution from the setup step.
+For the CEO approval gate (approve step): write the plan to `.context/directives/{directive-id}/plan-for-approval.md` and STOP. Output a summary asking the CEO to approve. Include brainstorm synthesis and any clarifying questions alongside Morgan's plan. After CEO approval, continue execution from the setup step.

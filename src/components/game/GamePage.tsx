@@ -22,8 +22,8 @@ const KNOWN_AGENTS = new Set(OFFICE_AGENTS.map((a) => a.agentName));
 // ---------------------------------------------------------------------------
 
 const FURNITURE_TAB_MAP: Partial<Record<TileType, HudPanel>> = {
-  'ceo-desk':    'action',     // CEO desk -> Action tab (inbox)
-  'whiteboard':  'directive',  // Whiteboard -> Directive tab
+  'ceo-desk':    'tasks',      // CEO desk -> Tasks tab
+  'whiteboard':  'tasks',      // Whiteboard -> Tasks tab (directives merged in)
   'conference':  'ops',        // Conference room -> Ops tab (company overview)
   'server-room': 'team',      // Server room -> Team tab (sessions)
 };
@@ -59,8 +59,8 @@ function toAgentStatus(sessionStatus: string): AgentStatus {
     case 'working':          return 'working';
     case 'waiting-approval':
     case 'waiting-input':    return 'waiting';
+    case 'paused':           return 'working'; // process is running, just between turns
     case 'idle':
-    case 'paused':
     case 'done':             return 'idle';
     case 'error':            return 'error';
     default:                 return 'offline';
@@ -79,13 +79,11 @@ const PIXEL_BORDER_STYLE = {
 // StatsOverlay (Task 5)
 // ---------------------------------------------------------------------------
 
-function StatsOverlay({ sessions }: { sessions: Session[] }) {
+function StatsOverlay({ agentStatuses }: { agentStatuses: Record<string, AgentStatus> }) {
   const directiveState = useDashboardStore((s) => s.directiveState);
 
-  const workingCount = new Set(
-    sessions.filter((s) => s.status === 'working' && s.agentName).map((s) => s.agentName)
-  ).size;
   const staffCount = OFFICE_AGENTS.filter((a) => !a.isPlayer).length;
+  const workingCount = Object.values(agentStatuses).filter((s) => s === 'working').length;
   const progressCurrent = directiveState?.currentProject ?? 0;
   const progressTotal = directiveState?.totalProjects ?? 0;
 
@@ -338,9 +336,8 @@ export default function GamePage() {
   const handlePanelRequest = useCallback((panel: HudPanel) => {
     const typeMap: Record<HudPanel, TileType> = {
       team: 'hud-team',
-      action: 'hud-action',
+      tasks: 'hud-tasks',
       ops: 'hud-ops',
-      directive: 'hud-directive',
       log: 'hud-log',
     };
     // Toggle: if same panel already open, close it
@@ -401,9 +398,10 @@ export default function GamePage() {
     if (!selected) return null;
     switch (selected.type) {
       case 'hud-team': return 'team';
-      case 'hud-action': return 'action';
+      case 'hud-tasks': return 'tasks';
+      case 'hud-action': return 'tasks'; // backward compat
+      case 'hud-directive': return 'tasks'; // merged
       case 'hud-ops': return 'ops';
-      case 'hud-directive': return 'directive';
       case 'hud-log': return 'log';
       default: return null;
     }
@@ -432,7 +430,7 @@ export default function GamePage() {
             reviewInteractions={reviewInteractions}
             selectedAgentName={selected?.agentName ?? null}
           />
-          <StatsOverlay sessions={sessions} />
+          <StatsOverlay agentStatuses={agentStatuses} />
           <ControlsHint />
         </div>
 
@@ -456,6 +454,11 @@ export default function GamePage() {
         />
       )}
 
+      <div style={{ textAlign: 'center', padding: '4px 0', fontSize: '11px', color: '#666', opacity: 0.7 }}>
+        Tileset by <a href="https://limezu.itch.io/modernoffice" target="_blank" rel="noopener" style={{ color: '#888' }}>LimeZu</a>
+        {' | '}
+        Characters by <a href="https://jik-a-4.itch.io/metrocity-free-topdown-character-pack" target="_blank" rel="noopener" style={{ color: '#888' }}>JIK-A-4</a> (CC0)
+      </div>
     </div>
   );
 }

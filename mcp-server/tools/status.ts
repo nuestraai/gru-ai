@@ -3,13 +3,11 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { getProjectPath, readJsonSafe } from './paths.js';
 
-interface GoalJson {
+interface DirectiveJson {
   id: string;
   title: string;
   status: string;
   category?: string;
-  description?: string;
-  okrs?: unknown[];
 }
 
 interface ProjectJson {
@@ -18,57 +16,57 @@ interface ProjectJson {
   tasks?: Array<{ status?: string }>;
 }
 
-interface DirectiveJson {
-  id: string;
-  title: string;
-  status: string;
-}
-
-interface BacklogItem {
-  status?: string;
-}
-
 export function conductorStatus(): string {
   const projectPath = getProjectPath();
-  const goalsDir = path.join(projectPath, '.context', 'goals');
   const directivesDir = path.join(projectPath, '.context', 'directives');
   const reportsDir = path.join(projectPath, '.context', 'reports');
-  const lessonsDir = path.join(projectPath, '.context', 'lessons');
 
   const lines: string[] = [];
   const generated = new Date().toISOString();
   lines.push(`## Conductor Status (as of ${generated})`);
   lines.push('');
 
-  // --- Count goals, projects, tasks, backlog ---
-  let goalCount = 0;
+  // --- Count directives, projects, tasks by scanning directives/ ---
+  let directiveCount = 0;
   let activeFeatureCount = 0;
   let doneFeatureCount = 0;
   let pendingTaskCount = 0;
   let completedTaskCount = 0;
-  let backlogItemCount = 0;
 
-  interface GoalInfo {
-    id: string;
-    title: string;
-    status: string;
-    features: Array<{ id: string; title: string; status: string; tasksCompleted: number; tasksTotal: number }>;
-  }
-  const goalInfos: GoalInfo[] = [];
+  const pendingDirectives: Array<{ id: string; title: string }> = [];
+  const activeDirectives: Array<{ id: string; title: string; category: string; projects: Array<{ id: string; title: string; status: string; tasksCompleted: number; tasksTotal: number }> }> = [];
+  const recentDone: Array<{ id: string; title: string }> = [];
 
-  if (fs.existsSync(goalsDir)) {
-    const goalDirs = listDirs(goalsDir);
-    for (const goalId of goalDirs) {
-      const goalJsonPath = path.join(goalsDir, goalId, 'goal.json');
-      const goalJson = readJsonSafe<GoalJson>(goalJsonPath);
-      if (!goalJson) continue;
+  const categoryCounts: Record<string, { active: number; completed: number }> = {};
 
-      goalCount++;
-      const goalStatus = mapGoalStatus(goalJson.status ?? 'active');
-      const goalInfo: GoalInfo = { id: goalId, title: goalJson.title ?? goalId, status: goalStatus, features: [] };
+  if (fs.existsSync(directivesDir)) {
+    const dirDirs = listDirs(directivesDir);
+    for (const dirId of dirDirs) {
+      const dirJsonPath = path.join(directivesDir, dirId, 'directive.json');
+      const dirJson = readJsonSafe<DirectiveJson>(dirJsonPath);
+      if (!dirJson) continue;
 
-      // Read projects
-      const projectsDir = path.join(goalsDir, goalId, 'projects');
+      directiveCount++;
+      const category = dirJson.category ?? 'uncategorized';
+
+      if (!categoryCounts[category]) {
+        categoryCounts[category] = { active: 0, completed: 0 };
+      }
+
+      if (dirJson.status === 'pending' || dirJson.status === 'triaged') {
+        pendingDirectives.push({ id: dirJson.id ?? dirId, title: dirJson.title ?? dirId });
+      }
+      if (dirJson.status === 'completed' || dirJson.status === 'done') {
+        recentDone.push({ id: dirJson.id ?? dirId, title: dirJson.title ?? dirId });
+        categoryCounts[category]!.completed++;
+      } else {
+        categoryCounts[category]!.active++;
+      }
+
+      // Read projects under this directive
+      const projectsDir = path.join(directivesDir, dirId, 'projects');
+      const directiveProjects: Array<{ id: string; title: string; status: string; tasksCompleted: number; tasksTotal: number }> = [];
+
       if (fs.existsSync(projectsDir)) {
         const projDirs = listDirs(projectsDir);
         for (const projId of projDirs) {
@@ -90,45 +88,23 @@ export function conductorStatus(): string {
             activeFeatureCount++;
           }
 
-          goalInfo.features.push({
+          directiveProjects.push({
             id: projId,
             title: projJson.title ?? projId,
-            status: isDone ? 'done' : projStatus === 'active' ? 'in-progress' : 'pending',
+            status: isDone ? 'done' : projStatus === 'in_progress' ? 'in-progress' : 'pending',
             tasksCompleted: completed,
             tasksTotal: total,
           });
         }
       }
 
-      // Read backlog
-      const backlogPath = path.join(goalsDir, goalId, 'backlog.json');
-      const backlogRaw = readJsonSafe<BacklogItem[]>(backlogPath);
-      if (Array.isArray(backlogRaw)) {
-        backlogItemCount += backlogRaw.filter(i => i.status !== 'done').length;
-      }
-
-      goalInfos.push(goalInfo);
-    }
-  }
-
-  // --- Count directives ---
-  let directiveCount = 0;
-  const pendingDirectives: Array<{ id: string; title: string }> = [];
-  const recentDone: Array<{ id: string; title: string }> = [];
-
-  if (fs.existsSync(directivesDir)) {
-    const files = fs.readdirSync(directivesDir).filter(f => f.endsWith('.json'));
-    for (const file of files) {
-      const filePath = path.join(directivesDir, file);
-      try { if (fs.statSync(filePath).isDirectory()) continue; } catch { continue; }
-      const dirJson = readJsonSafe<DirectiveJson>(filePath);
-      if (!dirJson) continue;
-      directiveCount++;
-      if (dirJson.status === 'pending' || dirJson.status === 'triaged') {
-        pendingDirectives.push({ id: dirJson.id ?? file.replace('.json', ''), title: dirJson.title ?? file });
-      }
-      if (dirJson.status === 'completed' || dirJson.status === 'done') {
-        recentDone.push({ id: dirJson.id ?? file.replace('.json', ''), title: dirJson.title ?? file });
+      if (dirJson.status === 'in_progress' || dirJson.status === 'active') {
+        activeDirectives.push({
+          id: dirJson.id ?? dirId,
+          title: dirJson.title ?? dirId,
+          category,
+          projects: directiveProjects,
+        });
       }
     }
   }
@@ -141,29 +117,34 @@ export function conductorStatus(): string {
 
   // --- Summary counts ---
   lines.push('### Summary');
-  lines.push(`- Goals: ${goalCount}`);
-  lines.push(`- Active features: ${activeFeatureCount}`);
-  lines.push(`- Done features: ${doneFeatureCount}`);
+  lines.push(`- Directives (total): ${directiveCount}`);
+  lines.push(`- Active projects: ${activeFeatureCount}`);
+  lines.push(`- Done projects: ${doneFeatureCount}`);
   lines.push(`- Pending tasks: ${pendingTaskCount}`);
   lines.push(`- Completed tasks: ${completedTaskCount}`);
-  lines.push(`- Backlog items: ${backlogItemCount}`);
-  lines.push(`- Directives (total): ${directiveCount}`);
   lines.push(`- Reports: ${reportCount}`);
   lines.push('');
 
-  // Active goals with features
-  const activeGoals = goalInfos.filter(
-    g => g.status === 'in-progress' && g.features.some(f => f.status !== 'done')
-  );
-  if (activeGoals.length > 0) {
-    lines.push('### Active Goals');
-    for (const goal of activeGoals) {
-      lines.push(`- **${goal.title}** (${goal.id})`);
-      for (const feat of goal.features.filter(f => f.status !== 'done')) {
-        const pct = feat.tasksTotal > 0
-          ? Math.round((feat.tasksCompleted / feat.tasksTotal) * 100)
+  // Categories
+  const categoryEntries = Object.entries(categoryCounts);
+  if (categoryEntries.length > 0) {
+    lines.push('### Categories');
+    for (const [cat, counts] of categoryEntries) {
+      lines.push(`- **${cat}**: ${counts.active} active, ${counts.completed} completed`);
+    }
+    lines.push('');
+  }
+
+  // Active directives with projects
+  if (activeDirectives.length > 0) {
+    lines.push('### Active Directives');
+    for (const dir of activeDirectives) {
+      lines.push(`- **${dir.title}** (${dir.id}) [${dir.category}]`);
+      for (const proj of dir.projects.filter(p => p.status !== 'done')) {
+        const pct = proj.tasksTotal > 0
+          ? Math.round((proj.tasksCompleted / proj.tasksTotal) * 100)
           : 0;
-        lines.push(`  - ${feat.title}: ${pct}% (${feat.tasksCompleted}/${feat.tasksTotal} tasks)`);
+        lines.push(`  - ${proj.title}: ${pct}% (${proj.tasksCompleted}/${proj.tasksTotal} tasks)`);
       }
     }
     lines.push('');
@@ -214,15 +195,5 @@ function listDirs(dirPath: string): string[] {
     });
   } catch {
     return [];
-  }
-}
-
-function mapGoalStatus(status: string): string {
-  switch (status) {
-    case 'active': return 'in-progress';
-    case 'exploring': return 'pending';
-    case 'paused': return 'deferred';
-    case 'done': return 'done';
-    default: return 'pending';
   }
 }

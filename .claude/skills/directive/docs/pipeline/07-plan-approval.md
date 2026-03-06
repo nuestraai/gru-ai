@@ -19,7 +19,7 @@ This prevents Morgan (an LLM optimistic about complexity) from classifying every
 
 ---
 
-**If running in a dedicated CLI session (non-interactive):** Write the full plan to `.context/goals/{goal}/projects/{project}/$ARGUMENTS/plan-for-approval.md` using the format below, update directive.json, and stop. The CEO reviews and re-launches with approval.
+**If running in a dedicated CLI session (non-interactive):** Write the full plan to `.context/directives/$ARGUMENTS/plan-for-approval.md` using the format below, update directive.json, and stop. The CEO reviews and re-launches with approval.
 
 **If running inline (CEO session):** Present as described below.
 
@@ -121,7 +121,7 @@ Once the CEO approves (or approves with changes), create the project.json — th
 2. Write `project.json` with fields derived from Morgan's plan (incorporating any CEO modifications):
    - `id`: directive name
    - `title`: from Morgan's plan goal title
-   - `goal_id`: from Morgan's `goal_folder`
+   - `category`: from Morgan's `category` field (or directive.json `category`)
    - `status`: `"in_progress"`
    - `priority`: highest priority from tasks (P0 > P1 > P2)
    - `agent`: array of builder agent names from Morgan's cast (e.g. `["riley"]`, `["jordan", "casey"]`)

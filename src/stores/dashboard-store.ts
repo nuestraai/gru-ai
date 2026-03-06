@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { DashboardState, DirectiveState, GoalInventory, Session, HookEvent, Team, TeamTask, SessionActivity, NotificationConfig, ProjectGroup, FullWorkState } from './types';
+import type { DashboardState, DirectiveState, Session, HookEvent, Team, TeamTask, SessionActivity, NotificationConfig, ProjectGroup, FullWorkState } from './types';
 
 interface DashboardStore extends DashboardState {
   connected: boolean;
@@ -15,8 +15,7 @@ interface DashboardStore extends DashboardState {
   updateEvents: (events: HookEvent[]) => void;
   setConnected: (connected: boolean) => void;
   updateSessionActivities: (activities: Record<string, SessionActivity>) => void;
-  updateDirectiveState: (state: DirectiveState | null, history?: DirectiveState[]) => void;
-  updateGoalInventory: (inventory: GoalInventory | null) => void;
+  updateDirectiveState: (state: DirectiveState | null, history?: DirectiveState[], activeDirectives?: DirectiveState[]) => void;
   setWorkState: (state: FullWorkState) => void;
   updateNotificationConfig: (config: NotificationConfig) => void;
   addNotificationFired: (sessionId: string) => void;
@@ -33,7 +32,7 @@ export const useDashboardStore = create<DashboardStore>((set) => ({
   sessionActivities: {},
   directiveState: null,
   directiveHistory: [],
-  goalInventory: null,
+  activeDirectives: [],
   workState: null,
   lastUpdated: '',
   connected: false,
@@ -50,7 +49,7 @@ export const useDashboardStore = create<DashboardStore>((set) => ({
       events: state.events ?? [],
       directiveState: state.directiveState ?? null,
       directiveHistory: state.directiveHistory ?? [],
-      goalInventory: state.goalInventory ?? null,
+      activeDirectives: state.activeDirectives ?? [],
       lastUpdated: state.lastUpdated || new Date().toISOString(),
     }),
 
@@ -86,14 +85,12 @@ export const useDashboardStore = create<DashboardStore>((set) => ({
       sessionActivities: { ...state.sessionActivities, ...activities },
     })),
 
-  updateDirectiveState: (directiveState, history) =>
+  updateDirectiveState: (directiveState, history, activeDirectives) =>
     set((state) => ({
       directiveState,
       directiveHistory: history ?? state.directiveHistory,
+      activeDirectives: activeDirectives ?? state.activeDirectives,
     })),
-
-  updateGoalInventory: (goalInventory) =>
-    set({ goalInventory }),
 
   setWorkState: (workState) =>
     set({ workState, lastUpdated: new Date().toISOString() }),

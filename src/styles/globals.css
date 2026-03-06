@@ -95,6 +95,20 @@
   }
 }
 
+/* Parchment theme override — used when dashboard components (PipelineStepper etc.)
+   are embedded inside the game's parchment-colored panels */
+.parchment-context {
+  --color-foreground: #3D2B1F;
+  --color-muted-foreground: #1A1008;
+  --color-muted: #D4C4A0;
+  --color-primary: #2B5EA7;
+  --color-primary-foreground: #ffffff;
+  --color-border: #C4A265;
+  --color-ring: #C4A265;
+  --color-destructive: #DC2626;
+  color: #3D2B1F;
+}
+
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;

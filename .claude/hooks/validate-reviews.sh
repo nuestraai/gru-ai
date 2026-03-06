@@ -5,7 +5,6 @@
 # Blocks completion if any completed task with reviewers has no review evidence.
 #
 # Usage: echo '{"directive_dir":".context/directives/my-dir","project_id":"my-project"}' | ./validate-reviews.sh
-#    or: echo '{"goal_folder":"game","directive_name":"char-identity"}' | ./validate-reviews.sh
 #
 # Checks project.json for completed tasks and verifies that:
 # 1. Tasks with "review" in their phases array were actually reviewed
@@ -25,15 +24,14 @@ INPUT=$(cat)
 
 DIRECTIVE_DIR=$(echo "$INPUT" | jq -r '.directive_dir // empty')
 PROJECT_ID=$(echo "$INPUT" | jq -r '.project_id // empty')
-GOAL_FOLDER=$(echo "$INPUT" | jq -r '.goal_folder // empty')
 DIRECTIVE_NAME=$(echo "$INPUT" | jq -r '.directive_name // .id // empty')
 
 if [[ -n "$DIRECTIVE_DIR" && -n "$PROJECT_ID" ]]; then
   PROJECT_PATH="${DIRECTIVE_DIR}/projects/${PROJECT_ID}/project.json"
-elif [[ -n "$GOAL_FOLDER" && -n "$DIRECTIVE_NAME" ]]; then
-  PROJECT_PATH=".context/goals/${GOAL_FOLDER}/projects/${DIRECTIVE_NAME}/project.json"
+elif [[ -n "$DIRECTIVE_DIR" && -n "$DIRECTIVE_NAME" ]]; then
+  PROJECT_PATH="${DIRECTIVE_DIR}/projects/${DIRECTIVE_NAME}/project.json"
 else
-  echo '{"valid": false, "violations": ["Pass JSON with directive_dir+project_id or goal_folder+directive_name fields."]}'
+  echo '{"valid": false, "violations": ["Pass JSON with directive_dir+project_id fields."]}'
   exit 0
 fi
 

@@ -9,7 +9,7 @@ Morgan's output must follow this schema EXACTLY. Morgan plans at the **project l
 ```json
 {
   "goal": "CEO's goal title",
-  "goal_folder": "which .context/goals/ folder this belongs to (existing or new)",
+  "category": "framework | pipeline | dashboard | game",
   "challenges": {
     "risks": ["Top 3 risks with this directive — be specific, not generic"],
     "over_engineering_flags": ["Anything in the directive that's scoped too broadly or could be simpler"],

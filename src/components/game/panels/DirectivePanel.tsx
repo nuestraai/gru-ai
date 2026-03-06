@@ -71,9 +71,11 @@ function ProjectIcon({ status }: { status: DirectiveProject['status'] }) {
 
 function weightBg(weight: string | undefined): string {
   switch (weight) {
-    case 'lightweight': return '#BBF7D0';
-    case 'medium':      return '#FDE68A';
-    case 'heavyweight':  return '#FECACA';
+    case 'lightweight': return '#BBF7D0'; // green
+    case 'medium':      return '#FDE68A'; // yellow
+    case 'heavyweight': return '#FECACA'; // red
+    case 'strategic':   return '#DDD6FE'; // purple
+    case 'tactical':    return '#BFDBFE'; // blue
     default:            return '#E5E7EB';
   }
 }
@@ -82,7 +84,9 @@ function weightFg(weight: string | undefined): string {
   switch (weight) {
     case 'lightweight': return '#14532D';
     case 'medium':      return '#713F12';
-    case 'heavyweight':  return '#7F1D1D';
+    case 'heavyweight': return '#7F1D1D';
+    case 'strategic':   return '#4C1D95';
+    case 'tactical':    return '#1E3A8A';
     default:            return '#374151';
   }
 }
@@ -157,7 +161,7 @@ function DirectiveHealthCard({ directive }: { directive: DirectiveState }) {
       {directive.status === 'awaiting_completion' && (
         <div className="flex items-center gap-1.5 text-[10px] font-mono">
           <span className="h-1.5 w-1.5 rounded-full bg-yellow-500 shrink-0" aria-hidden="true" />
-          <span className="font-semibold" style={{ color: '#92400E' }}>Awaiting CEO sign-off</span>
+          <span className="font-semibold" style={{ color: '#6B2E08' }}>Awaiting CEO sign-off</span>
         </div>
       )}
       {directive.status === 'failed' && (
@@ -181,7 +185,7 @@ function ProjectCard({ project }: { project: DirectiveProject }) {
 
   return (
     <div
-      className={cn('px-2 py-1.5 space-y-1', isActive ? '' : 'opacity-60')}
+      className={cn('px-2 py-1.5 space-y-1')}
       style={isActive ? PIXEL_CARD_RAISED : PIXEL_CARD}
     >
       <div className="flex items-center gap-1.5 min-w-0">
@@ -379,8 +383,8 @@ export default function DirectivePanel() {
           <SectionHeader icon={<Crosshair className="h-3 w-3" />}>
             Pipeline
           </SectionHeader>
-          <div className="p-2" style={PIXEL_CARD}>
-            <PipelineStepper steps={directiveState.pipelineSteps!} compact />
+          <div className="parchment-context p-2" style={PIXEL_CARD}>
+            <PipelineStepper steps={directiveState.pipelineSteps!} />
           </div>
         </div>
       )}

@@ -73,7 +73,7 @@ export async function loadTilesetCache(): Promise<void> {
     loaded = true
     console.log(`✓ Tileset cache: ${rbCount} room-builder + ${fnCount} furniture = ${tileCanvases.size} tiles`)
   } catch (e) {
-    console.warn('Failed to load tileset cache:', e)
+    console.warn('Tileset cache not available. Using fallback rendering. Run scripts/setup-assets.sh to install premium assets.')
   }
 }
 

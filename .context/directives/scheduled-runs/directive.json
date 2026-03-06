@@ -1,0 +1,9 @@
+{
+  "id": "scheduled-runs",
+  "title": "Scheduled runs via launchd \u2014 foreman triggers scouts and reports",
+  "status": "completed",
+  "category": "pipeline",
+  "weight": "tactical",
+  "created": "2026-03-02T00:00:00Z",
+  "completed": "2026-03-03T00:00:00Z"
+}

@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import type { SessionActivity } from '../types.js';
-import { projectLabel, extractInitialPrompt, extractLatestPrompt, cleanPromptText, isSystemContent, extractAgentIdentityFromFile, resolveAgentFromParent, resolveAgentFromSetting } from './session-scanner.js';
+import { projectLabel, projectDirFromPath, extractInitialPrompt, extractLatestPrompt, cleanPromptText, isSystemContent, extractAgentIdentityFromFile, resolveAgentFromParent, resolveAgentFromSetting } from './session-scanner.js';
 import type { LastEntryType } from './session-scanner.js';
 
 // --- Constants ---
@@ -261,19 +261,88 @@ export function processFileUpdate(filePath: string): SessionFileState | null {
   // Re-extract latestPrompt on change (might have new user message)
   state.latestPrompt = extractLatestPrompt(filePath);
 
+  // Retry agent identity detection if still unknown (common for subagents
+  // where the first update fires before the user prompt is written)
+  if (!state.agentName) {
+    const identity = extractAgentIdentityFromFile(filePath);
+    if (identity) {
+      state.agentName = identity.name;
+      state.agentRole = identity.role;
+    }
+
+    // Fallback: cross-reference parent session for subagent_type
+    if (!state.agentName) {
+      const subagentsIdx = filePath.indexOf('/subagents/');
+      if (subagentsIdx !== -1) {
+        const parentDir = filePath.slice(0, subagentsIdx);
+        const parentSessionId = path.basename(parentDir);
+        const parentJsonl = path.join(path.dirname(parentDir), `${parentSessionId}.jsonl`);
+        const childFilename = path.basename(filePath);
+        const childAgentId = childFilename.replace(/^agent-/, '').replace(/\.jsonl$/, '');
+        const parentIdentity = resolveAgentFromParent(parentJsonl, childAgentId);
+        if (parentIdentity) {
+          state.agentName = parentIdentity.name;
+          state.agentRole = parentIdentity.role;
+        }
+      }
+    }
+  }
+
   return state;
 }
 
 /**
  * Initialize all file states from disk. Called once at startup.
+ * Only fully parses sessions modified within RECENT_THRESHOLD_MS.
+ * Older sessions get a lightweight stub (idle, mtime only) and are
+ * fully parsed on-demand if they receive a file-change event.
  */
-export function initializeAllFileStates(claudeHome: string): Map<string, DiscoveredFile> {
-  const discovered = discoverSessionFiles(claudeHome);
+const RECENT_THRESHOLD_MS = 24 * 60 * 60 * 1000; // 24 hours
+
+export function initializeAllFileStates(claudeHome: string, projectFilter?: string): Map<string, DiscoveredFile> {
+  const discovered = discoverSessionFiles(claudeHome, projectFilter);
+  const now = Date.now();
+  let fullCount = 0;
+  let stubCount = 0;
 
   for (const [filePath] of discovered) {
-    bootstrapFromTail(filePath);
+    let mtime: number;
+    try {
+      mtime = fs.statSync(filePath).mtimeMs;
+    } catch {
+      continue;
+    }
+
+    if (now - mtime < RECENT_THRESHOLD_MS) {
+      // Recent file — full parse
+      bootstrapFromTail(filePath);
+      fullCount++;
+    } else {
+      // Old file — lightweight stub (skip expensive JSONL parsing)
+      const stat = fs.statSync(filePath);
+      const stub: SessionFileState = {
+        byteOffset: stat.size,
+        mtimeMs: stat.mtimeMs,
+        fileSize: stat.size,
+        machineState: 'done',
+        toolUseCount: 0,
+        toolResultCount: 0,
+        pendingInputTool: false,
+        lastActivityAt: new Date(stat.mtimeMs).toISOString(),
+        messageCount: 0,
+      };
+      // Quick agent name extraction from head (cheap — reads first few KB only)
+      const identity = extractAgentIdentityFromFile(filePath);
+      if (identity) {
+        stub.agentName = identity.name;
+        stub.agentRole = identity.role;
+      }
+      fileStates.set(filePath, stub);
+      stubCount++;
+    }
   }
 
+  console.log(`[session-state] Bootstrapped ${fullCount} recent + ${stubCount} stubs (${discovered.size} total)`);
   return discovered;
 }
 
@@ -324,21 +393,34 @@ function collectSubagentFiles(
 }
 
 /**
- * Discover all .jsonl session files under ~/.claude/projects/.
+ * Discover .jsonl session files under ~/.claude/projects/.
+ * When projectFilter is provided, only scan that single project directory
+ * instead of iterating all directories.
  */
-export function discoverSessionFiles(claudeHome: string): Map<string, DiscoveredFile> {
+export function discoverSessionFiles(claudeHome: string, projectFilter?: string): Map<string, DiscoveredFile> {
   const projectsDir = path.join(claudeHome, 'projects');
   const result = new Map<string, DiscoveredFile>();
 
   let projectDirs: string[];
   try {
-    projectDirs = fs.readdirSync(projectsDir).filter((d) => {
-      try {
-        return fs.statSync(path.join(projectsDir, d)).isDirectory();
-      } catch {
-        return false;
+    if (projectFilter) {
+      // Scoped: only scan the single matching project directory
+      const filtered = path.join(projectsDir, projectFilter);
+      if (fs.existsSync(filtered) && fs.statSync(filtered).isDirectory()) {
+        projectDirs = [projectFilter];
+      } else {
+        console.warn(`[session-state] Project filter directory not found: ${filtered}`);
+        projectDirs = [];
       }
-    });
+    } else {
+      projectDirs = fs.readdirSync(projectsDir).filter((d) => {
+        try {
+          return fs.statSync(path.join(projectsDir, d)).isDirectory();
+        } catch {
+          return false;
+        }
+      });
+    }
   } catch {
     return result;
   }

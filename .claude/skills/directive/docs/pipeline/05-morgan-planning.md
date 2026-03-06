@@ -20,7 +20,7 @@ Spawn Morgan as an Agent (model: opus, subagent_type: "morgan").
 > See [docs/reference/rules/scope-and-dod.md](../reference/rules/scope-and-dod.md) for scope format rules, Definition of Done rules, and user scenario rules.
 
 **If this directive was classified as strategic**, also include in Morgan's prompt:
-- The brainstorm synthesis from `.context/goals/{goal}/projects/{project}/{directive_name}/brainstorm.md`
+- The brainstorm synthesis from `.context/directives/{directive-id}/brainstorm.md`
 - CEO's clarification answers
 - Additional instruction to Morgan: "The team has brainstormed approach options for this directive. Use the brainstorm synthesis and CEO's answers to inform your plan — you don't need to re-derive the approach from scratch. Focus on execution planning, not strategy."
 
@@ -41,7 +41,7 @@ If Morgan's plan contains a `projects` array (triggered when genuinely complex w
 3. **Each project gets its own brainstorm** (2-3 agents + deliberation) before build
 4. **Each project gets its own execution cycle** in the execute step: brainstorm -> audit -> build -> review -> verify
 5. **Projects execute sequentially by priority tier** (all P0 projects before P1)
-6. **Project directories**: `.context/goals/{goal_folder}/projects/{project-id}/` (use the project's `id`, not the directive name)
+6. **Project directories**: `.context/directives/{directive-id}/projects/{project-id}/` (use the project's `id`, not the directive name)
 
 Most directives should use a single project with simple tasks. Multi-project is the exception for genuinely complex AND independent work.
 

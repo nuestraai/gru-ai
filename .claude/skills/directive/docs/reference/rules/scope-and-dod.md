@@ -26,5 +26,5 @@ Also from the first DOD block in Morgan's prompt:
 - Every task MUST have a definition_of_done array with 2-5 concrete, testable criteria
 - Each criterion must be verifiable (not vague like "improve quality")
 - DOD is what the CEO reviews to approve/reject the task's result
-- Examples of good DOD: "All 16 goal folders have goal.json", "Indexer reads goal.json and populates category field", "Type-check passes"
+- Examples of good DOD: "All directive.json files have category field", "Watcher reads directive.json and populates category field", "Type-check passes"
 - Examples of bad DOD: "Improve goal structure", "Make it work", "Better code quality"

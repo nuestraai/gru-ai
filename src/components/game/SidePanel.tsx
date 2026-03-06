@@ -3,7 +3,7 @@
 // ---------------------------------------------------------------------------
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { X, Users, Zap, Activity, GitBranch, ScrollText } from 'lucide-react';
+import { X, Users, Zap, Activity, ScrollText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
@@ -13,7 +13,6 @@ import {
   TeamPanel,
   ActionPanel,
   OpsPanel,
-  DirectivePanel,
   LogPanel,
   AgentPanel,
   CeoDeskPanel,
@@ -38,36 +37,35 @@ interface SidePanelProps {
   variant?: 'side' | 'bottom';
 }
 
-type HudTab = 'team' | 'action' | 'ops' | 'directive' | 'log';
+type HudTab = 'team' | 'tasks' | 'ops' | 'log';
 
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
 
-const HUD_TYPES = new Set(['hud-team', 'hud-action', 'hud-ops', 'hud-directive', 'hud-log']);
+const HUD_TYPES = new Set(['hud-team', 'hud-tasks', 'hud-ops', 'hud-log']);
 
 const TAB_ICONS: Record<HudTab, React.ReactNode> = {
   team: <Users className="h-3 w-3" />,
-  action: <Zap className="h-3 w-3" />,
+  tasks: <Zap className="h-3 w-3" />,
   ops: <Activity className="h-3 w-3" />,
-  directive: <GitBranch className="h-3 w-3" />,
   log: <ScrollText className="h-3 w-3" />,
 };
 
 const TAB_LIST: { id: HudTab; label: string }[] = [
   { id: 'team', label: 'Team' },
-  { id: 'action', label: 'Action' },
+  { id: 'tasks', label: 'Tasks' },
   { id: 'ops', label: 'Ops' },
-  { id: 'directive', label: 'Directive' },
   { id: 'log', label: 'Log' },
 ];
 
 function hudTypeToTab(type: string): HudTab | null {
   switch (type) {
     case 'hud-team': return 'team';
-    case 'hud-action': return 'action';
+    case 'hud-tasks': return 'tasks';
+    case 'hud-action': return 'tasks'; // backward compat
+    case 'hud-directive': return 'tasks'; // merged into tasks
     case 'hud-ops': return 'ops';
-    case 'hud-directive': return 'directive';
     case 'hud-log': return 'log';
     default: return null;
   }
@@ -200,12 +198,10 @@ function PanelContent({
     switch (activeTab) {
       case 'team':
         return <TeamPanel agentStatuses={agentStatuses} onSelectAgent={onSelectAgent} />;
-      case 'action':
+      case 'tasks':
         return <ActionPanel />;
       case 'ops':
         return <OpsPanel />;
-      case 'directive':
-        return <DirectivePanel />;
       case 'log':
         return <LogPanel />;
     }
@@ -351,11 +347,6 @@ export default function SidePanel({ selected, agentStatuses, onClose, variant = 
           )}
         </div>
 
-        {/* Tab strip — only in HUD mode */}
-        {isHudMode && activeTab && !agentOverride && (
-          <TabStrip activeTab={activeTab} onTabChange={handleTabChange} badges={badges} />
-        )}
-
         {/* Content — with subtle inner frame */}
         <ScrollArea className="flex-1">
           <div
@@ -441,11 +432,6 @@ export default function SidePanel({ selected, agentStatuses, onClose, variant = 
             <X className="h-3.5 w-3.5" style={{ color: '#C4A265' }} />
           </button>
         </div>
-
-        {/* Tab strip — only in HUD mode */}
-        {isHudMode && activeTab && !agentOverride && (
-          <TabStrip activeTab={activeTab} onTabChange={handleTabChange} badges={badges} />
-        )}
 
         {/* Content — with subtle inner frame */}
         <ScrollArea className="flex-1 min-h-0">

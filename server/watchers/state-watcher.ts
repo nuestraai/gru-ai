@@ -4,13 +4,11 @@ import { watch, type FSWatcher } from 'chokidar';
 import type { Aggregator } from '../state/aggregator.js';
 import type { ConductorConfig } from '../types.js';
 import type {
-  GoalsState,
   FeaturesState,
   BacklogsState,
   ConductorState,
   IndexState,
   FullWorkState,
-  GoalRecord,
   FeatureRecord,
   BacklogRecord,
   DirectiveRecord,
@@ -18,8 +16,8 @@ import type {
 } from '../state/work-item-types.js';
 
 /**
- * Watches .context/ source files (goal.json, project.json, directive.json,
- * backlog.json, reports, lessons) and builds FullWorkState directly.
+ * Watches .context/ source files (directive.json, project.json,
+ * reports, lessons) and builds FullWorkState directly.
  *
  * Replaces the old two-stage pipeline (ContextWatcher -> indexer -> state/*.json -> StateWatcher).
  * Now reads source files directly via glob patterns.
@@ -31,7 +29,6 @@ export class StateWatcher {
   private debounceTimer: ReturnType<typeof setTimeout> | null = null;
   private _ready = false;
   private _state: FullWorkState = {
-    goals: null,
     features: null,
     backlogs: null,
     conductor: null,
@@ -133,7 +130,6 @@ export class StateWatcher {
 
   private readAndUpdate(): void {
     const state: FullWorkState = {
-      goals: null,
       features: null,
       backlogs: null,
       conductor: null,
@@ -141,7 +137,6 @@ export class StateWatcher {
     };
 
     const generated = new Date().toISOString();
-    const allGoals: GoalRecord[] = [];
     const allProjects: FeatureRecord[] = [];
     const allBacklog: BacklogRecord[] = [];
     const allDirectives: DirectiveRecord[] = [];
@@ -160,124 +155,6 @@ export class StateWatcher {
       const repoId = path.basename(project.path).toLowerCase();
       const repoName = project.name;
 
-      // --- Goals ---
-      const goalsDir = path.join(contextDir, 'goals');
-      if (fs.existsSync(goalsDir)) {
-        const goalDirs = this.listDirs(goalsDir);
-
-        for (const goalId of goalDirs) {
-          const goalDir = path.join(goalsDir, goalId);
-          const goalJsonPath = path.join(goalDir, 'goal.json');
-          const goalJson = this.readJson(goalJsonPath) as Record<string, unknown> | null;
-          if (!goalJson) continue;
-
-          // Read projects for this goal
-          const projectsDir = path.join(goalDir, 'projects');
-          const projectIds = fs.existsSync(projectsDir) ? this.listDirs(projectsDir) : [];
-
-          const goalProjects: FeatureRecord[] = [];
-          for (const projId of projectIds) {
-            const projJsonPath = path.join(projectsDir, projId, 'project.json');
-            const projJson = this.readJson(projJsonPath) as Record<string, unknown> | null;
-            if (!projJson) continue;
-
-            const tasks = Array.isArray(projJson.tasks) ? projJson.tasks as Array<Record<string, unknown>> : [];
-            const taskCount = tasks.length;
-            const completedTaskCount = tasks.filter(
-              (t) => t.status === 'completed' || t.status === 'done'
-            ).length;
-
-            const projStatus = this.mapProjectStatus(String(projJson.status ?? 'pending'));
-            const featureId = `${goalId}/${projId}`;
-
-            const record: FeatureRecord = {
-              id: featureId,
-              type: 'feature',
-              title: String(projJson.title ?? projId),
-              status: projStatus,
-              goalId,
-              createdAt: String(projJson.created ?? generated),
-              updatedAt: String(projJson.updated ?? generated),
-              taskCount,
-              completedTaskCount,
-              hasSpec: false,
-              hasDesign: false,
-              specSummary: projJson.description
-                ? String(projJson.description).slice(0, 200)
-                : undefined,
-              repoId,
-              repoName,
-            };
-
-            goalProjects.push(record);
-            allProjects.push(record);
-          }
-
-          // Read backlog for this goal
-          const backlogJsonPath = path.join(goalDir, 'backlog.json');
-          const backlogRaw = this.readJson(backlogJsonPath);
-          const backlogItems: BacklogRecord[] = [];
-
-          if (Array.isArray(backlogRaw)) {
-            for (const item of backlogRaw) {
-              const bi = item as Record<string, unknown>;
-              backlogItems.push({
-                id: `${goalId}/${bi.id ?? 'unknown'}`,
-                type: 'backlog-item',
-                title: String(bi.title ?? ''),
-                status: this.mapBacklogStatus(String(bi.status ?? 'pending')),
-                goalId,
-                createdAt: String(bi.created ?? generated),
-                updatedAt: String(bi.updated ?? generated),
-                priority: this.mapPriority(bi.priority),
-                trigger: bi.trigger ? String(bi.trigger) : undefined,
-                sourceDirective: bi.source_directive ? String(bi.source_directive) : undefined,
-                sourceContext: bi.context ? String(bi.context) : bi.description ? String(bi.description) : undefined,
-                repoId,
-                repoName,
-              });
-            }
-          }
-          allBacklog.push(...backlogItems);
-
-          // Build goal record
-          const goalStatus = this.mapGoalStatus(String(goalJson.status ?? 'active'));
-          const activeProjectIds = goalProjects
-            .filter((p) => p.status !== 'done')
-            .map((p) => p.id);
-          const doneProjectIds = goalProjects
-            .filter((p) => p.status === 'done')
-            .map((p) => p.id);
-          const pendingBacklogCount = backlogItems.filter(
-            (b) => b.status !== 'done'
-          ).length;
-
-          const okrs = goalJson.okrs;
-          const hasOkrs = Array.isArray(okrs) && okrs.length > 0;
-
-          allGoals.push({
-            id: goalId,
-            type: 'goal',
-            title: String(goalJson.title ?? goalId),
-            status: goalStatus,
-            createdAt: String(goalJson.created ?? generated),
-            updatedAt: String(goalJson.updated ?? generated),
-            description: goalJson.description ? String(goalJson.description) : undefined,
-            category: goalJson.category ? String(goalJson.category) : undefined,
-            activeFeatures: activeProjectIds,
-            doneFeatures: doneProjectIds,
-            backlogCount: pendingBacklogCount,
-            hasOkrs,
-            hasGoalMd: fs.existsSync(path.join(goalDir, 'context.md')),
-            hasGoalJson: true,
-            hasBacklog: backlogItems.length > 0,
-            issues: [],
-            repoId,
-            repoName,
-          });
-        }
-      }
-
       // --- Directives (directory format: {id}/directive.json) ---
       const directivesDir = path.join(contextDir, 'directives');
       if (fs.existsSync(directivesDir)) {
@@ -288,6 +165,7 @@ export class StateWatcher {
           if (!dirJson) continue;
 
           const dirStatus = this.mapDirectiveStatus(String(dirJson.status ?? 'pending'));
+          const category = dirJson.category ? String(dirJson.category) : undefined;
 
           allDirectives.push({
             id: dirId,
@@ -298,11 +176,52 @@ export class StateWatcher {
             updatedAt: String(dirJson.updated ?? dirJson.created ?? generated),
             projects: [],
             weight: dirJson.weight ? String(dirJson.weight) : undefined,
-            goalIds: Array.isArray(dirJson.goal_ids) ? dirJson.goal_ids.map(String) : undefined,
+            category,
             producedFeatures: Array.isArray(dirJson.produced_features) ? dirJson.produced_features.map(String) : undefined,
             report: dirJson.report != null ? String(dirJson.report) : null,
             backlogSources: Array.isArray(dirJson.backlog_sources) ? dirJson.backlog_sources.map(String) : undefined,
           });
+
+          // --- Projects under this directive ---
+          const projectsDir = path.join(directivesDir, dirId, 'projects');
+          if (fs.existsSync(projectsDir)) {
+            const projectIds = this.listDirs(projectsDir);
+            for (const projId of projectIds) {
+              const projJsonPath = path.join(projectsDir, projId, 'project.json');
+              const projJson = this.readJson(projJsonPath) as Record<string, unknown> | null;
+              if (!projJson) continue;
+
+              const tasks = Array.isArray(projJson.tasks) ? projJson.tasks as Array<Record<string, unknown>> : [];
+              const taskCount = tasks.length;
+              const completedTaskCount = tasks.filter(
+                (t) => t.status === 'completed' || t.status === 'done'
+              ).length;
+
+              const projStatus = this.mapProjectStatus(String(projJson.status ?? 'pending'));
+              const featureId = `${dirId}/${projId}`;
+
+              const record: FeatureRecord = {
+                id: featureId,
+                type: 'feature',
+                title: String(projJson.title ?? projId),
+                status: projStatus,
+                category,
+                createdAt: String(projJson.created ?? generated),
+                updatedAt: String(projJson.updated ?? generated),
+                taskCount,
+                completedTaskCount,
+                hasSpec: false,
+                hasDesign: false,
+                specSummary: projJson.description
+                  ? String(projJson.description).slice(0, 200)
+                  : undefined,
+                repoId,
+                repoName,
+              };
+
+              allProjects.push(record);
+            }
+          }
         }
       }
 
@@ -352,7 +271,6 @@ export class StateWatcher {
     }
 
     // Build state objects
-    state.goals = { generated, goals: allGoals };
     state.features = { generated, features: allProjects };
     state.backlogs = { generated, items: allBacklog };
     state.conductor = {
@@ -366,7 +284,6 @@ export class StateWatcher {
     state.index = {
       generated,
       counts: {
-        goals: allGoals.length,
         activeFeatures: allProjects.filter((f) => f.status !== 'done').length,
         doneFeatures: allProjects.filter((f) => f.status === 'done').length,
         pendingTasks: 0, // TODO: aggregate from project tasks
@@ -381,29 +298,17 @@ export class StateWatcher {
 
     this._state = state;
 
-    const goalCount = allGoals.length;
     const projectCount = allProjects.length;
     const backlogCount = allBacklog.length;
     const directiveCount = allDirectives.length;
     console.log(
-      `[state-watcher] Direct read: ${goalCount} goals, ${projectCount} projects, ${backlogCount} backlog items, ${directiveCount} directives`
+      `[state-watcher] Direct read: ${projectCount} projects, ${backlogCount} backlog items, ${directiveCount} directives`
     );
 
     this.aggregator.updateWorkState(state);
   }
 
   // --- Status Mappers ---
-
-  private mapGoalStatus(status: string): 'pending' | 'in_progress' | 'blocked' | 'deferred' | 'completed' | 'abandoned' {
-    switch (status) {
-      case 'in_progress': return 'in_progress';
-      case 'active': return 'in_progress'; // legacy
-      case 'exploring': return 'pending';
-      case 'paused': return 'deferred';
-      case 'completed': return 'completed';
-      default: return 'pending';
-    }
-  }
 
   private mapProjectStatus(status: string): 'pending' | 'in_progress' | 'blocked' | 'deferred' | 'completed' | 'abandoned' {
     switch (status) {
@@ -427,6 +332,7 @@ export class StateWatcher {
       case 'executing': return 'in_progress'; // legacy
       case 'awaiting_completion': return 'in_progress';
       case 'completed': return 'completed';
+      case 'cancelled': return 'abandoned';
       case 'rejected': return 'abandoned';
       default: return 'pending';
     }

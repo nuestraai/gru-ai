@@ -36,8 +36,8 @@ set -euo pipefail
 #   required_fields = comma-separated jq paths (for json type only)
 #
 # Weight skip rules (from directive-watcher.ts SKIPPED_STEPS):
-#   lightweight: skips brainstorm, project-brainstorm, audit, approve
-#   medium: skips nothing
+#   lightweight: skips challenge, brainstorm, approve (Morgan still plans, audit + project-brainstorm still run)
+#   medium: skips challenge
 #   heavyweight: skips nothing
 #   strategic: skips nothing
 #

@@ -1,12 +1,13 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { getProjectPath, goalsPath, readJsonSafe } from './paths.js';
+import { getProjectPath, directivesPath, readJsonSafe } from './paths.js';
 
 interface BacklogItem {
   id: string;
   title: string;
   status: string;
   priority?: string;
+  category?: string;
   trigger?: string;
   source_directive?: string;
   context?: string;
@@ -16,76 +17,39 @@ interface BacklogItem {
 }
 
 /**
- * List backlog items by reading backlog.json directly from each goal directory.
- * Optionally filtered by goal and/or priority.
+ * List backlog items from .context/backlog.json.
+ * Optionally filtered by category and/or priority.
  */
-export function listBacklog(goalId?: string, priority?: string): string {
+export function listBacklog(category?: string, priority?: string): string {
   const projectPath = getProjectPath();
-  const goalsDir = path.join(projectPath, '.context', 'goals');
+  const backlogPath = path.join(projectPath, '.context', 'backlog.json');
 
-  if (!fs.existsSync(goalsDir)) {
-    return 'No goals directory found. Ensure .context/goals/ exists.';
+  if (!fs.existsSync(backlogPath)) {
+    return 'No backlog file found. The backlog is empty.';
   }
 
-  // Collect all backlog items across goals
-  interface EnrichedItem {
-    id: string;
-    title: string;
-    status: string;
-    goalId: string;
-    priority?: string;
-    trigger?: string;
-    sourceDirective?: string;
-    sourceContext?: string;
+  const raw = readJsonSafe<BacklogItem[]>(backlogPath);
+  if (!Array.isArray(raw) || raw.length === 0) {
+    return 'Backlog is empty.';
   }
 
-  const allItems: EnrichedItem[] = [];
-  const goalDirs = listDirs(goalsDir);
+  let items = raw;
 
-  for (const gId of goalDirs) {
-    if (goalId && gId !== goalId) continue;
-
-    const backlogPath = path.join(goalsDir, gId, 'backlog.json');
-    const raw = readJsonSafe<BacklogItem[]>(backlogPath);
-    if (!Array.isArray(raw)) continue;
-
-    for (const item of raw) {
-      allItems.push({
-        id: `${gId}/${item.id ?? 'unknown'}`,
-        title: item.title ?? '',
-        status: item.status ?? 'pending',
-        goalId: gId,
-        priority: item.priority,
-        trigger: item.trigger,
-        sourceDirective: item.source_directive,
-        sourceContext: item.context ?? item.description,
-      });
-    }
+  if (category) {
+    items = items.filter(i => i.category === category);
   }
-
-  if (goalId && allItems.length === 0) {
-    return `No backlog items found for goal "${goalId}". Available goals: ${goalDirs.join(', ')}`;
-  }
-
-  let items = allItems;
 
   if (priority) {
     const normalizedPriority = priority.toUpperCase();
-    items = items.filter(
-      (i) => i.priority?.toUpperCase() === normalizedPriority
-    );
+    items = items.filter(i => i.priority?.toUpperCase() === normalizedPriority);
   }
 
   // Exclude done items by default
-  const pending = items.filter(
-    (i) => i.status !== 'done' && !i.title.includes('Done')
-  );
-  const done = items.filter(
-    (i) => i.status === 'done' || i.title.includes('Done')
-  );
+  const pending = items.filter(i => i.status !== 'done');
+  const done = items.filter(i => i.status === 'done');
 
   const lines: string[] = [];
-  lines.push(`## Backlog${goalId ? ` for ${goalId}` : ''}${priority ? ` (${priority})` : ''}`);
+  lines.push(`## Backlog${category ? ` (${category})` : ''}${priority ? ` [${priority}]` : ''}`);
   lines.push(`${pending.length} pending, ${done.length} done`);
   lines.push('');
 
@@ -94,7 +58,7 @@ export function listBacklog(goalId?: string, priority?: string): string {
     for (const item of pending) {
       const parts: string[] = [`- **${item.title}**`];
       if (item.priority) parts.push(`[${item.priority}]`);
-      if (!goalId) parts.push(`(${item.goalId})`);
+      if (item.category && !category) parts.push(`(${item.category})`);
       lines.push(parts.join(' '));
       if (item.trigger) {
         lines.push(`  - Trigger: ${item.trigger}`);
@@ -117,22 +81,17 @@ export function listBacklog(goalId?: string, priority?: string): string {
 }
 
 /**
- * Add a new item to a goal's backlog.json file.
+ * Add a new item to .context/backlog.json.
  */
 export function addBacklogItem(
-  goalId: string,
+  category: string,
   title: string,
   priorityLevel: string,
   description: string,
   triggerCondition?: string
 ): string {
-  const goalDir = goalsPath(goalId);
-
-  if (!fs.existsSync(goalDir)) {
-    return `Goal "${goalId}" not found. No directory at ${goalDir}`;
-  }
-
-  const backlogPath = path.join(goalDir, 'backlog.json');
+  const projectPath = getProjectPath();
+  const backlogPath = path.join(projectPath, '.context', 'backlog.json');
 
   // Read existing backlog or create empty array
   let items: BacklogItem[] = [];
@@ -157,6 +116,7 @@ export function addBacklogItem(
     title,
     status: 'pending',
     priority: priorityLevel.toUpperCase(),
+    category,
     description,
     created: now,
     updated: now,
@@ -170,18 +130,5 @@ export function addBacklogItem(
 
   fs.writeFileSync(backlogPath, JSON.stringify(items, null, 2), 'utf-8');
 
-  return `Added "${title}" (${priorityLevel}) to ${goalId}/backlog.json${triggerCondition ? ` with trigger: "${triggerCondition}"` : ''}`;
-}
-
-// --- Helpers ---
-
-function listDirs(dirPath: string): string[] {
-  try {
-    return fs.readdirSync(dirPath).filter(name => {
-      if (name.startsWith('.') || name.startsWith('_')) return false;
-      try { return fs.statSync(path.join(dirPath, name)).isDirectory(); } catch { return false; }
-    });
-  } catch {
-    return [];
-  }
+  return `Added "${title}" (${priorityLevel}) [${category}] to backlog.json${triggerCondition ? ` with trigger: "${triggerCondition}"` : ''}`;
 }

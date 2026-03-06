@@ -47,9 +47,9 @@ export function statePath(file: string): string {
   return path.join(getProjectPath(), '.context', 'state', file);
 }
 
-/** Path to .context/goals/ directory */
-export function goalsPath(...segments: string[]): string {
-  return path.join(getProjectPath(), '.context', 'goals', ...segments);
+/** Path to .context/directives/ directory */
+export function directivesPath(...segments: string[]): string {
+  return path.join(getProjectPath(), '.context', 'directives', ...segments);
 }
 
 /** Path to .context/ conductor directory */

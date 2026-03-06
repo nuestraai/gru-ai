@@ -8,7 +8,7 @@
     {
       "id": "define-gate-config",
       "title": "Define gate configuration data structure",
-      "status": "pending",
+      "status": "done",
       "agent": ["jordan"],
       "dod": [
         { "criterion": "Gate config covers all pipeline steps from brainstorm artifact table", "met": false },
@@ -20,7 +20,7 @@
     {
       "id": "implement-validate-gate",
       "title": "Implement validate-gate.sh core logic",
-      "status": "pending",
+      "status": "done",
       "agent": ["jordan"],
       "dod": [
         { "criterion": "Script accepts (directive-dir, target-step) and reads directive.json for weight", "met": false },
@@ -34,7 +34,7 @@
     {
       "id": "gate-writes-directive-json",
       "title": "Gate script writes to directive.json on pass",
-      "status": "pending",
+      "status": "done",
       "agent": ["jordan"],
       "dod": [
         { "criterion": "On valid result, writes gates.{step} = {passed_at, validated_artifacts} into directive.json", "met": false },
@@ -46,7 +46,7 @@
     {
       "id": "update-validate-cast",
       "title": "Update validate-cast.sh for projects terminology",
-      "status": "pending",
+      "status": "done",
       "agent": ["jordan"],
       "dod": [
         { "criterion": "validate-cast.sh jq queries use .projects[] instead of .initiatives[]", "met": false },
@@ -58,7 +58,7 @@
     {
       "id": "gate-script-tests",
       "title": "Test validate-gate.sh with fixture directories",
-      "status": "pending",
+      "status": "done",
       "agent": ["jordan"],
       "dod": [
         { "criterion": "At least 6 test fixture directories covering different weight classes and failure modes", "met": false },

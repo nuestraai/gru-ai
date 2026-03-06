@@ -6,7 +6,7 @@ import { STATUS_ICON_SPRITES } from '../sprites/statusIcons'
 import { getCharacterSprite } from './characters'
 import { renderMatrixEffect } from './matrixEffect'
 import { getColorizedFloorSprite, hasFloorSprites, WALL_COLOR } from '../floorTiles'
-import { hasWallSprites, getWallInstances, wallColorToHex } from '../wallTiles'
+import { wallColorToHex } from '../wallTiles'
 import { hasTilesetCache, getScaledTileCanvas } from '../tilesetCache'
 import { renderBitmapText, measureBitmapText } from '../sprites/bitmapFont'
 import type { AgentStatus } from '../types'
@@ -1030,20 +1030,11 @@ export function renderFrame(
     ctx.restore()
   }
 
-  // Build wall instances for z-sorting with furniture and characters
-  // Skip wall auto-tile sprites when using direct GID rendering (walls are already drawn as tiles)
-  const wallInstances = (!useGidMode && hasWallSprites())
-    ? getWallInstances(tileMap, tileColors, layoutCols)
-    : []
-  const allFurniture = wallInstances.length > 0
-    ? [...wallInstances, ...furniture]
-    : furniture
-
-  // Draw walls + furniture + characters (z-sorted)
+  // Draw furniture + characters (z-sorted)
   const selectedId = selection?.selectedAgentId ?? null
   const hoveredId = selection?.hoveredAgentId ?? null
   const sceneTime = identity?.time
-  renderScene(ctx, allFurniture, characters, offsetX, offsetY, zoom, selectedId, hoveredId, sceneTime)
+  renderScene(ctx, furniture, characters, offsetX, offsetY, zoom, selectedId, hoveredId, sceneTime)
 
   // GID overlay layers (laptop, deco, top) — drawn above characters so
   // surface items like laptops aren't covered by typing characters

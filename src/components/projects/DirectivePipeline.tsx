@@ -47,7 +47,7 @@ function DirectiveCard({
 }) {
   const isPending = directive.status !== 'completed';
   const hasReport = !!(directive.report || directive.reportPath);
-  const goalIds = directive.goalIds ?? [];
+  const category = directive.category;
   const producedFeatures = directive.producedFeatures ?? [];
 
   return (
@@ -75,13 +75,11 @@ function DirectiveCard({
             </button>
           )}
         </div>
-        {goalIds.length > 0 && (
+        {category && (
           <div className="flex items-center gap-1 mt-0.5 flex-wrap">
-            {goalIds.map(gid => (
-              <span key={gid} className="text-[9px] text-muted-foreground bg-secondary px-1 py-0 rounded">
-                {gid}
-              </span>
-            ))}
+            <span className="text-[9px] text-muted-foreground bg-secondary px-1 py-0 rounded">
+              {category}
+            </span>
           </div>
         )}
         {producedFeatures.length > 0 && (
@@ -139,7 +137,7 @@ export default function DirectivePipeline({
   directives: DirectiveRecord[];
   onReportClick?: (reportPath: string) => void;
 }) {
-  const pending = [...directives.filter(d => d.status !== 'completed')].sort(
+  const pending = [...directives.filter(d => d.status !== 'completed' && d.status !== 'cancelled' && d.status !== 'abandoned')].sort(
     (a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? '')
   );
   const done = [...directives.filter(d => d.status === 'completed')].sort(

@@ -9,10 +9,8 @@
   "completed": null,
   "triage": {
     "action": "update_existing",
-    "goal_id": "workflow-orchestration",
     "project_id": null,
     "task_ids": [],
-    "secondary_goal_ids": [],
     "rationale": null,
     "requires_ceo_approval": false
   },
@@ -21,5 +19,6 @@
   "cast": null,
   "dod": null,
   "report_summary": "Superseded: specialist agents completed via functional-specialist-agents directive; org teams covered by team-org-dashboard directive.",
-  "telemetry": null
+  "telemetry": null,
+  "category": "pipeline"
 }

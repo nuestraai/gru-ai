@@ -9,23 +9,9 @@ An autonomous AI company framework. See `.context/vision.md` for the full vision
 .context/
 |-- vision.md                           # System vision (read first)
 |
-|-- goals/                              # Three-tier hierarchy: Goal > Project > Task
-|   |-- {goal-id}/
-|   |   |-- goal.json                   # REQUIRED: id, title, status, category, description
-|   |   |-- context.md                  # OPTIONAL: domain knowledge, narrative
-|   |   |-- backlog.json                # OPTIONAL: per-goal backlog items
-|   |   +-- projects/
-|   |       |-- {project-id}/
-|   |       |   |-- project.json        # REQUIRED: entity + embedded tasks[]
-|   |       |   |-- context.md          # OPTIONAL: spec, design notes
-|   |       |   |-- report.md           # OPTIONAL: completion report
-|   |       |   +-- *.md                # OPTIONAL: brainstorm, design docs
-|   |       +-- ...
-|   +-- ...
-|
-|-- directives/                         # Directive containers with nested projects
+|-- directives/                         # ALL work lives here: Directive > Project > Task
 |   |-- {id}/
-|   |   |-- directive.json              # Pipeline state, weight, references
+|   |   |-- directive.json              # Pipeline state, weight, category, references
 |   |   |-- directive.md                # CEO brief
 |   |   |-- brainstorm.md              # OPTIONAL: pre-planning (strategic/heavyweight)
 |   |   |-- audit.md                   # OPTIONAL: technical audit
@@ -54,28 +40,30 @@ An autonomous AI company framework. See `.context/vision.md` for the full vision
 
 ## How to Read the Context Tree
 
-- **"What should we do now?"** -> Read `goals/*/goal.json` for active goals, then `goals/*/backlog.json` for pending work, check `goals/*/projects/*/project.json` for active projects
-- **Planning a feature:** -> Read `vision.md` + relevant `goals/{goal}/goal.json` + `lessons/` + relevant project context.md files
-- **Building a feature:** -> Read project.json for tasks (at `goals/{goal}/projects/{project}/project.json` or `directives/{id}/projects/{project}/project.json`), relevant `lessons/` files
+- **"What should we do now?"** -> Read `directives/*/directive.json` for active directives, check `directives/*/projects/*/project.json` for active projects
+- **Planning a feature:** -> Read `vision.md` + relevant directive context + `lessons/` + relevant project context.md files
+- **Building a feature:** -> Read project.json for tasks (at `directives/{id}/projects/{project}/project.json`), relevant `lessons/` files
 - **After completing work:** -> Update project.json tasks, create report.md in project dir, update `lessons/` if new patterns discovered
 
 ## Key Conventions
 
-- Directory names = entity IDs. `goals/data-model/` means `goal.id = "data-model"`
+- Directory names = entity IDs. `directives/pipeline-v2/` means `directive.id = "pipeline-v2"`
 - project.json is THE source of truth for a project including all its tasks
 - Tasks are embedded in project.json -- no separate task files
 - Directives are directories in `directives/{id}/` -- each contains directive.json, directive.md, and optional projects/
-- Goals discovered via glob: `goals/*/goal.json`
-- Projects discovered via glob: `goals/*/projects/*/project.json` or `directives/*/projects/*/project.json`
+- Directives discovered via glob: `directives/*/directive.json`
+- Projects discovered via glob: `directives/*/projects/*/project.json`
 - No indexer or computed state files -- read source files directly
 
-## Four Goals
+## Categories
 
-| Goal | Domain |
-|------|--------|
-| `data-model` | Context tree structure, entity schemas, relationships |
-| `workflow-orchestration` | Directive pipeline, skills, agent casting, checkpoint/resume, telemetry, review quality |
-| `ui` | Dashboard app, watchers, visualizations, CEO experience |
+Every directive has a `category` field in directive.json. Categories are flat labels for domain grouping:
+
+| Category | Domain |
+|----------|--------|
+| `framework` | Context tree structure, entity schemas, relationships |
+| `pipeline` | Directive pipeline, skills, agent casting, checkpoint/resume, telemetry, review quality |
+| `dashboard` | Dashboard app, watchers, visualizations, CEO experience |
 | `game` | Office simulation game — pixel-art CEO interface, React + Canvas 2D, separate from dashboard |
 
 ## Lessons Routing

@@ -151,7 +151,7 @@ export async function loadLimeZuSprites(): Promise<LimeZuSprites | null> {
     console.log(`✓ Loaded ${entries.length} LimeZu furniture sprites`)
     return cached
   } catch (e) {
-    console.warn('Failed to load LimeZu sprites:', e)
+    console.warn('LimeZu furniture sprites not found. Using fallback rendering. Run scripts/setup-assets.sh to install premium assets.')
     return null
   }
 }

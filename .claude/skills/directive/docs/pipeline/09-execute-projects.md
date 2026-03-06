@@ -15,7 +15,7 @@
 **Before any task executes**, validate that project.json exists and has required fields (output of project-brainstorm step):
 
 ```bash
-echo '{"goal_folder":"'"$GOAL_FOLDER"'","directive_name":"'"$DIRECTIVE_NAME"'"}' | .claude/hooks/validate-project-json.sh
+echo '{"directive_dir":"'"$DIRECTIVE_DIR"'","directive_name":"'"$DIRECTIVE_NAME"'"}' | .claude/hooks/validate-project-json.sh
 ```
 
 If `valid: false`, **STOP**. Do not proceed to execution. Fix the violations first -- either create the project.json (approve step should have done this) or fill in missing fields. This is a hard gate, not a warning.
@@ -428,9 +428,9 @@ Use these clarifications to guide your implementation. If the answers revealed s
 
 **If UX verification fails:** Fix the issues immediately (spawn another engineer if needed), then re-verify. Do NOT skip to the next task with broken UI.
 
-**Visual feedback loop (MANDATORY for game goal):** When the task is under the `game` goal AND touches visual rendering (sprites, tiles, furniture, Canvas drawing), the standard UX verification is NOT sufficient. Instead:
+**Visual feedback loop (MANDATORY for game category):** When the directive's category is `game` AND the task touches visual rendering (sprites, tiles, furniture, Canvas drawing), the standard UX verification is NOT sufficient. Instead:
 1. After the build phase, take screenshots of the game at multiple zoom levels (1x, 2x, 4x)
-2. Compare visually against the quality bar in `.context/goals/game/context.md`
+2. Compare visually against the quality bar in `.context/directives/game-visual-quality-overhaul/` context
 3. If the visual quality doesn't match the reference repos (pixel-agents, claw-empire), spawn the builder again with the screenshot and specific feedback ("the desk needs wood grain texture", "the character needs more detail in the hair", etc.)
 4. Iterate until the visual quality matches. There is no maximum iteration count -- keep going until it looks right.
 5. This applies to every visual change, not just the first build.
@@ -648,9 +648,9 @@ Collect `proposed_improvements` from the engineer's build report. These are idea
 
 The project.json was created in the approve step (after CEO approval) with tasks in `pending` status. Now finalize it with execution results.
 
-**For multi-project plans:** Repeat this finalization for EACH project's project.json. Multi-project plans create separate project directories at `.context/goals/{goal_folder}/projects/{project-id}/` -- finalize each one independently.
+**For multi-project plans:** Repeat this finalization for EACH project's project.json. Multi-project plans create separate project directories at `.context/directives/{directive-id}/projects/{project-id}/` -- finalize each one independently.
 
-1. **Read the existing project.json** -- for single-project plans: `.context/goals/{goal_folder}/projects/{directive-name}/project.json`. For multi-project plans: `.context/goals/{goal_folder}/projects/{project-id}/project.json` (one per project)
+1. **Read the existing project.json** -- for single-project plans: `.context/directives/{directive-id}/projects/{directive-name}/project.json`. For multi-project plans: `.context/directives/{directive-id}/projects/{project-id}/project.json` (one per project)
 
 2. **Update each task** with execution results:
    - `status`: `"completed"` | `"failed"` | `"partial"` | `"skipped"` | `"blocked"` based on task outcome
@@ -685,7 +685,7 @@ This ensures bidirectional links: project -> directive (via `source_directive`) 
 **Post-execution hard gate -- run BEFORE finalizing project.json:**
 
 ```bash
-echo '{"goal_folder":"'"$GOAL_FOLDER"'","directive_name":"'"$DIRECTIVE_NAME"'"}' | .claude/hooks/validate-reviews.sh
+echo '{"directive_dir":"'"$DIRECTIVE_DIR"'","directive_name":"'"$DIRECTIVE_NAME"'"}' | .claude/hooks/validate-reviews.sh
 ```
 
 If `valid: false`, **STOP**. Do not finalize. Run the missing reviews first.

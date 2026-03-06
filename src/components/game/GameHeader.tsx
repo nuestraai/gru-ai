@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Users, Zap, Activity, GitBranch, ScrollText, Maximize2, Minimize2 } from 'lucide-react';
+import { Users, Zap, Activity, ScrollText, Maximize2, Minimize2 } from 'lucide-react';
 import { useBadgeCounts } from './hooks/useBadgeCounts';
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 
-export type HudPanel = 'team' | 'action' | 'ops' | 'directive' | 'log';
+export type HudPanel = 'team' | 'tasks' | 'ops' | 'log';
 
 interface GameHeaderProps {
   onPanelRequest?: (panel: HudPanel) => void;
@@ -134,7 +134,7 @@ export default function GameHeader({ onPanelRequest, gameContainerRef, activePan
   }, []);
 
   // Total badge for header = Team + Action + Directive
-  const totalBadge = badges.team + badges.action + badges.directive;
+  const totalBadge = badges.team + badges.tasks;
 
   const dateStr = formatGameDate(now);
   const timeStr = formatGameTime(now);
@@ -189,11 +189,11 @@ export default function GameHeader({ onPanelRequest, gameContainerRef, activePan
         />
         <HudButton
           icon={<Zap className="h-3.5 w-3.5" />}
-          label="Action"
-          onClick={() => onPanelRequest?.('action')}
-          active={activePanel === 'action'}
-          ariaLabel="Action items"
-          badge={badges.action > 0 ? badges.action : undefined}
+          label="Tasks"
+          onClick={() => onPanelRequest?.('tasks')}
+          active={activePanel === 'tasks'}
+          ariaLabel="Tasks and directives"
+          badge={badges.tasks > 0 ? badges.tasks : undefined}
         />
         <HudButton
           icon={<Activity className="h-3.5 w-3.5" />}
@@ -202,14 +202,6 @@ export default function GameHeader({ onPanelRequest, gameContainerRef, activePan
           active={activePanel === 'ops'}
           ariaLabel="Operations overview"
           badge={badges.ops > 0 ? badges.ops : undefined}
-        />
-        <HudButton
-          icon={<GitBranch className="h-3.5 w-3.5" />}
-          label="Directive"
-          onClick={() => onPanelRequest?.('directive')}
-          active={activePanel === 'directive'}
-          ariaLabel="Active directives"
-          badge={badges.directive > 0 ? badges.directive : undefined}
         />
         <HudButton
           icon={<ScrollText className="h-3.5 w-3.5" />}

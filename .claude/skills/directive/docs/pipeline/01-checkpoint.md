@@ -20,7 +20,7 @@ Resume or restart fresh?
 
 Ask the CEO using AskUserQuestion: **Resume** or **Restart**.
 
-**If Restart:** Remove the pipeline/execution fields from directive.json (keep metadata). Delete project artifacts (`rm -rf .context/goals/{goal}/projects/{id}/`). Proceed to the read step.
+**If Restart:** Remove the pipeline/execution fields from directive.json (keep metadata). Delete project artifacts (`rm -rf .context/directives/{id}/projects/`). Proceed to the read step.
 
 **If Resume:** Load directive.json data and skip to the appropriate step:
 - `current_step` is `plan` or `audit` → Load `planning.morgan_plan`, skip to approve (CEO approval)

@@ -132,6 +132,7 @@ export const COLOR_NAME_TO_HEX: Record<string, string> = {
   cyan: '#06B6D4',
   lime: '#84CC16',
   indigo: '#6366F1',
+  rose: '#F43F5E',
 }
 
 // ── Game Logic ───────────────────────────────────────────────

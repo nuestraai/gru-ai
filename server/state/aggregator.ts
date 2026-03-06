@@ -17,6 +17,7 @@ import {
   type DiscoveredFile,
 } from '../parsers/session-state.js';
 import type { LastEntryType } from '../parsers/session-scanner.js';
+import { projectDirFromPath } from '../parsers/session-scanner.js';
 import { discoverClaudePanes } from '../parsers/process-discovery.js';
 import type { ClaudePaneMapping } from '../parsers/process-discovery.js';
 import { getRecentEvents } from '../db.js';
@@ -24,14 +25,13 @@ import type {
   ConductorConfig,
   DashboardState,
   DirectiveState,
-  GoalInventory,
   ProjectGroup,
   Session,
   SessionActivity,
   HookEvent,
   WsMessageType,
 } from '../types.js';
-import type { FullWorkState, WorkItemFilter, WorkItem, GoalRecord, FeatureRecord, BacklogRecord } from './work-item-types.js';
+import type { FullWorkState, WorkItemFilter, WorkItem, FeatureRecord, BacklogRecord } from './work-item-types.js';
 
 const execFileAsync = promisify(execFile);
 
@@ -149,11 +149,13 @@ export class Aggregator extends EventEmitter {
   private discoveryTimer: ReturnType<typeof setInterval> | null = null;
   private paneMapping: ClaudePaneMapping = { byTasksDir: new Map(), byPid: new Map(), bySessionId: new Map(), byPaneTitle: new Map(), panePrompts: new Map(), byItermSession: new Map(), orphanItermSessions: [] };
   private discoveredFiles = new Map<string, DiscoveredFile>();
-  private workState: FullWorkState = { goals: null, features: null, backlogs: null, conductor: null, index: null };
+  private workState: FullWorkState = { features: null, backlogs: null, conductor: null, index: null };
+  readonly projectFilter: string;
 
   constructor(config: ConductorConfig) {
     super();
     this.config = config;
+    this.projectFilter = projectDirFromPath(process.cwd());
     this.state = {
       teams: [],
       sessions: [],
@@ -164,7 +166,7 @@ export class Aggregator extends EventEmitter {
       sessionActivities: {},
       directiveState: null,
       directiveHistory: [],
-      goalInventory: null,
+      activeDirectives: [],
       lastUpdated: new Date().toISOString(),
     };
   }
@@ -188,8 +190,9 @@ export class Aggregator extends EventEmitter {
     const { byTeam: tasksByTeam, bySession: tasksBySession } = parseAllTasks(this.config.claudeHome, teamNameSet);
     const events = getRecentEvents(200);
 
-    // Bootstrap all session file states (incremental parser)
-    this.discoveredFiles = initializeAllFileStates(this.config.claudeHome);
+    // Bootstrap all session file states (incremental parser) — scoped to this project
+    console.log(`[aggregator] Session scope: ${this.projectFilter}`);
+    this.discoveredFiles = initializeAllFileStates(this.config.claudeHome, this.projectFilter);
 
     // Build sessions from file states + hook events
     const { sessions, projects } = this.buildSessionsFromFileStates(events);
@@ -215,7 +218,7 @@ export class Aggregator extends EventEmitter {
       sessionActivities,
       directiveState: null,
       directiveHistory: [],
-      goalInventory: null,
+      activeDirectives: [],
       lastUpdated: new Date().toISOString(),
     };
 
@@ -258,19 +261,16 @@ export class Aggregator extends EventEmitter {
     this.refreshSessions();
   }
 
-  updateDirectiveState(directiveState: DirectiveState | null, directiveHistory?: DirectiveState[]): void {
+  updateDirectiveState(directiveState: DirectiveState | null, directiveHistory?: DirectiveState[], activeDirectives?: DirectiveState[]): void {
     this.state.directiveState = directiveState;
     if (directiveHistory !== undefined) {
       this.state.directiveHistory = directiveHistory;
     }
+    if (activeDirectives !== undefined) {
+      this.state.activeDirectives = activeDirectives;
+    }
     this.state.lastUpdated = new Date().toISOString();
     this.emitChange('directive_updated');
-  }
-
-  updateGoalInventory(goalInventory: GoalInventory | null): void {
-    this.state.goalInventory = goalInventory;
-    this.state.lastUpdated = new Date().toISOString();
-    this.emitChange('goals_updated');
   }
 
   updateWorkState(workState: FullWorkState): void {
@@ -287,9 +287,6 @@ export class Aggregator extends EventEmitter {
     const items: WorkItem[] = [];
 
     // Collect all items
-    if (this.workState.goals) {
-      items.push(...this.workState.goals.goals as unknown as WorkItem[]);
-    }
     if (this.workState.features) {
       items.push(...this.workState.features.features as unknown as WorkItem[]);
     }
@@ -310,10 +307,10 @@ export class Aggregator extends EventEmitter {
     return items.filter(item => {
       if (filters.type && item.type !== filters.type) return false;
       if (filters.status && item.status !== filters.status) return false;
-      if (filters.goalId && item.goalId !== filters.goalId) return false;
+      if (filters.category && item.category !== filters.category) return false;
       if (filters.q) {
         const q = filters.q.toLowerCase();
-        const searchable = `${item.title} ${item.id} ${item.goalId ?? ''}`.toLowerCase();
+        const searchable = `${item.title} ${item.id} ${item.category ?? ''}`.toLowerCase();
         if (!searchable.includes(q)) return false;
       }
       return true;
@@ -321,7 +318,7 @@ export class Aggregator extends EventEmitter {
   }
 
   refreshSessions(): void {
-    const newDiscovered = discoverSessionFiles(this.config.claudeHome);
+    const newDiscovered = discoverSessionFiles(this.config.claudeHome, this.projectFilter);
 
     for (const [filePath] of newDiscovered) {
       if (!this.discoveredFiles.has(filePath)) {
@@ -377,6 +374,18 @@ export class Aggregator extends EventEmitter {
       sessionToFilePath.set(discovered.sessionId, fp);
     }
 
+    // Build set of session IDs with live processes (from pane mapping)
+    const liveSessionIds = new Set<string>();
+    for (const [sessionId] of this.paneMapping.bySessionId) {
+      liveSessionIds.add(sessionId);
+    }
+    // Also check byTasksDir which maps tasksId → paneId
+    for (const session of this.state.sessions) {
+      if (session.tasksId && this.paneMapping.byTasksDir.has(session.tasksId)) {
+        liveSessionIds.add(session.id);
+      }
+    }
+
     for (const session of this.state.sessions) {
       const fp = sessionToFilePath.get(session.id);
       const fileState = fp ? fileStates.get(fp) : undefined;
@@ -389,7 +398,13 @@ export class Aggregator extends EventEmitter {
         ? Date.now() - fileState.mtimeMs
         : Date.now() - new Date(session.lastActivity).getTime();
       const eventInfo = this.getLatestEventInfo(session.id);
-      const newStatus = deriveSessionStatus(ageMs, lastEntryType, eventInfo);
+      let newStatus = deriveSessionStatus(ageMs, lastEntryType, eventInfo);
+
+      // Process-aware override: if a live claude process exists for this session,
+      // it shouldn't be idle — upgrade to at least 'paused' (running but quiet)
+      if (liveSessionIds.has(session.id) && (newStatus === 'idle')) {
+        newStatus = 'paused';
+      }
 
       if (newStatus !== session.status) {
         session.status = newStatus;

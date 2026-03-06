@@ -22,7 +22,7 @@ import {
   ArrowRight,
   Zap,
 } from 'lucide-react';
-import type { WorkItem, SearchResult, FeatureRecord, GoalRecord } from '@/stores/types';
+import type { WorkItem, SearchResult, FeatureRecord } from '@/stores/types';
 import { API_BASE } from '@/lib/api';
 
 // ---------------------------------------------------------------------------
@@ -116,14 +116,9 @@ export default function SearchCommandPalette() {
     };
   }, []);
 
-  // Build goalId → display name map
-  const goalNameMap = useMemo(() => {
-    const map: Record<string, string> = {};
-    for (const goal of workState?.goals?.goals ?? []) {
-      map[goal.id] = goal.title;
-    }
-    return map;
-  }, [workState?.goals]);
+  // Category display helper
+  const categoryDisplayName = (category?: string) =>
+    category ? category.replace(/-/g, ' ') : 'uncategorized';
 
   // Get active features for default state
   const activeFeatures = useMemo(() => {
@@ -187,11 +182,9 @@ export default function SearchCommandPalette() {
 
     // Deep-link: navigate to the right page AND highlight the specific item
     if (item.type === 'backlog-item') {
-      navigate(`/directives?expand=${item.goalId}&tab=backlog&highlight=${item.id}`);
+      navigate(`/directives?tab=backlog&highlight=${item.id}`);
     } else if (item.type === 'feature') {
-      navigate(`/directives?expand=${item.goalId}&highlight=${item.id}`);
-    } else if (item.type === 'goal') {
-      navigate(`/directives?expand=${item.id}`);
+      navigate(`/directives?highlight=${item.id}`);
     } else if (item.type === 'directive') {
       navigate(`/directives?highlight=${item.id}`);
     } else {
@@ -199,9 +192,6 @@ export default function SearchCommandPalette() {
     }
   }
 
-  function goalDisplayName(goalId: string): string {
-    return goalNameMap[goalId] ?? goalId.replace(/-/g, ' ');
-  }
 
   // Feature-specific detail line
   function featureDetail(item: WorkItem) {
@@ -243,7 +233,7 @@ export default function SearchCommandPalette() {
                     <div className="flex-1 min-w-0">
                       <div className="text-sm truncate">{f.title}</div>
                       <div className="text-[10px] text-muted-foreground truncate">
-                        {goalDisplayName(f.goalId)} · {f.completedTaskCount}/{f.taskCount} tasks
+                        {categoryDisplayName(f.category)} · {f.completedTaskCount}/{f.taskCount} tasks
                       </div>
                     </div>
                     {statusBadge(f.status)}
@@ -291,9 +281,9 @@ export default function SearchCommandPalette() {
                         {item.title}
                         {featureDetail(item)}
                       </div>
-                      {item.goalId && item.type !== 'goal' && (
+                      {item.category && (
                         <div className="text-[10px] text-muted-foreground truncate">
-                          {goalDisplayName(item.goalId)}
+                          {categoryDisplayName(item.category)}
                         </div>
                       )}
                     </div>

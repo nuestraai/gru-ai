@@ -14,7 +14,7 @@ directive.json is the ONLY state file for a directive. It stores metadata, pipel
   "created": "{today's date YYYY-MM-DD}",
   "completed": null,
   "weight": "{classification from triage step}",
-  "goal_ids": ["{goal IDs}"],
+  "category": "framework | pipeline | dashboard | game",
   "produced_features": [],
   "report": null,
   "backlog_sources": [],
@@ -126,10 +126,11 @@ The `projects[]` array contains lightweight references. Each entry has `id` (mat
 ### Write protocol
 Use the Write tool to overwrite the entire directive.json. Always update `updated_at` to the current ISO timestamp. Update `pipeline.{step}.status` and `pipeline.{step}.output` after each step completes.
 
-### Extracting `goal_ids`
-- Look for `**Goal alignment**: {goal-id}` in the directive text
-- If not found, infer from the directive name
-- If uncertain, leave as empty array — populated during wrapup
+### Extracting `category`
+- Look for `**Category**: {category}` in the directive text
+- Valid categories: `framework`, `pipeline`, `ui`, `game`
+- If not found, infer from the directive name/scope
+- If uncertain, set to the best-fit category — every directive MUST have a category
 
 ### On completion (wrapup + completion gate)
 - Set `status` to `"awaiting_completion"` (CEO must approve)

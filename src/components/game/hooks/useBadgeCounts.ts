@@ -7,9 +7,8 @@ import { useDashboardStore } from '@/stores/dashboard-store';
 
 export interface BadgeCounts {
   team: number;
-  action: number;
+  tasks: number;
   ops: number;
-  directive: number;
   log: number;
 }
 
@@ -25,14 +24,14 @@ function isRecent(dateStr: string | undefined): boolean {
  *
  * Badge rules:
  * - Team: agents in waiting-approval, waiting-input, or error state
- * - Action: Tier 1+2 items (errors, waiting-approval sessions, awaiting_completion directives)
+ * - Tasks: errors + waiting-approval sessions + awaiting_completion directives + pipeline steps needing action
  * - Ops: blocked/failing projects
- * - Directive: 1 if pipeline step needs CEO action or directive awaiting_completion, else 0
  * - Log: never shows a badge
  */
 export function useBadgeCounts(): BadgeCounts {
   const sessions = useDashboardStore((s) => s.sessions);
   const directiveState = useDashboardStore((s) => s.directiveState);
+  const activeDirectives = useDashboardStore((s) => s.activeDirectives);
   const workState = useDashboardStore((s) => s.workState);
 
   return useMemo(() => {
@@ -48,19 +47,31 @@ export function useBadgeCounts(): BadgeCounts {
       }
     }
 
-    // -- Action badge: Tier 1 (errors) + Tier 2 (waiting-approval sessions, awaiting_completion directives) --
-    let action = 0;
+    // -- Tasks badge: session items + directive items --
+    let tasks = 0;
     for (const s of sessions) {
       if (s.isSubagent || s.status === 'done') continue;
       if (s.status === 'error' && isRecent(s.lastActivity)) {
-        action++; // Tier 1: errors
+        tasks++;
       } else if (s.status === 'waiting-approval' && isRecent(s.lastActivity)) {
-        action++; // Tier 2: waiting for approval
+        tasks++;
       }
     }
-    // Tier 2: awaiting_completion directives
-    if (directiveState?.status === 'awaiting_completion') {
-      action++;
+    // Count from activeDirectives if available, otherwise fall back to singular
+    const directives = activeDirectives && activeDirectives.length > 0
+      ? activeDirectives
+      : directiveState ? [directiveState] : [];
+    for (const d of directives) {
+      if (d.status === 'awaiting_completion') {
+        tasks++;
+      } else if (d.pipelineSteps) {
+        for (const step of d.pipelineSteps) {
+          if (step.needsAction) {
+            tasks++;
+            break;
+          }
+        }
+      }
     }
 
     // -- Ops badge: blocked or failing projects --
@@ -73,33 +84,10 @@ export function useBadgeCounts(): BadgeCounts {
         }
       }
     }
-    const goals = workState?.goals?.goals;
-    if (goals) {
-      for (const g of goals) {
-        if (g.status === 'blocked' as string) {
-          ops++;
-        }
-      }
-    }
-
-    // -- Directive badge: 1 if pipeline step needs CEO action or directive awaiting_completion --
-    let directive = 0;
-    if (directiveState) {
-      if (directiveState.status === 'awaiting_completion') {
-        directive = 1;
-      } else if (directiveState.pipelineSteps) {
-        for (const step of directiveState.pipelineSteps) {
-          if (step.needsAction) {
-            directive = 1;
-            break;
-          }
-        }
-      }
-    }
 
     // -- Log badge: never shows --
     const log = 0;
 
-    return { team, action, ops, directive, log };
-  }, [sessions, directiveState, workState]);
+    return { team, tasks, ops, log };
+  }, [sessions, directiveState, activeDirectives, workState]);
 }

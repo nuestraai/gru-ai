@@ -13,7 +13,6 @@ import { z } from 'zod';
 // ---------------------------------------------------------------------------
 
 export const WorkItemType = z.enum([
-  'goal',
   'feature',
   'task',
   'backlog-item',
@@ -47,7 +46,7 @@ export const BaseWorkItem = z.object({
   title: z.string(),
   status: LifecycleState,
   parentId: z.string().optional(),
-  goalId: z.string().optional(),
+  category: z.string().optional(),
   createdAt: z.string(),   // ISO date
   updatedAt: z.string(),   // ISO date
   tags: z.array(z.string()).optional(),
@@ -58,26 +57,10 @@ export type BaseWorkItem = z.infer<typeof BaseWorkItem>;
 // Extended types (discriminated on `type`)
 // ---------------------------------------------------------------------------
 
-export const GoalRecord = BaseWorkItem.extend({
-  type: z.literal('goal'),
-  description: z.string().optional(),
-  category: z.string().optional(),
-  activeFeatures: z.array(z.string()),      // project IDs (legacy name kept for compat)
-  doneFeatures: z.array(z.string()),        // project IDs (legacy name kept for compat)
-  backlogCount: z.number(),
-  hasOkrs: z.boolean(),
-  hasGoalMd: z.boolean(),
-  hasGoalJson: z.boolean(),
-  hasBacklog: z.boolean(),
-  issues: z.array(z.string()).optional(),
-  repoId: z.string().optional(),            // project/repo identifier (e.g. "wisely", "agent-conductor")
-  repoName: z.string().optional(),          // display name (e.g. "Wisely", "Agent Conductor")
-});
-export type GoalRecord = z.infer<typeof GoalRecord>;
 
 export const FeatureRecord = BaseWorkItem.extend({
   type: z.literal('feature'),
-  goalId: z.string(),
+  category: z.string().optional(),
   taskCount: z.number(),
   completedTaskCount: z.number(),
   hasSpec: z.boolean(),
@@ -99,7 +82,7 @@ export type TaskRecord = z.infer<typeof TaskRecord>;
 
 export const BacklogRecord = BaseWorkItem.extend({
   type: z.literal('backlog-item'),
-  goalId: z.string(),
+  category: z.string().optional(),
   priority: Priority.optional(),
   description: z.string().optional(),
   trigger: z.string().optional(),
@@ -117,7 +100,7 @@ export const DirectiveRecord = BaseWorkItem.extend({
   reportPath: z.string().optional(),
   // Structured fields from directive.json
   weight: z.string().optional(),
-  goalIds: z.array(z.string()).optional(),
+  category: z.string().optional(),
   producedFeatures: z.array(z.string()).optional(),
   report: z.string().nullable().optional(),
   backlogSources: z.array(z.string()).optional(),
@@ -149,7 +132,6 @@ export type ArtifactRecord = z.infer<typeof ArtifactRecord>;
 // ---------------------------------------------------------------------------
 
 export const WorkItem = z.discriminatedUnion('type', [
-  GoalRecord,
   FeatureRecord,
   TaskRecord,
   BacklogRecord,
@@ -184,11 +166,6 @@ export type WorkItem = z.infer<typeof WorkItem>;
 // State file schemas (what the JSON files contain)
 // ---------------------------------------------------------------------------
 
-export const GoalsState = z.object({
-  generated: z.string(),
-  goals: z.array(GoalRecord),
-});
-export type GoalsState = z.infer<typeof GoalsState>;
 
 export const FeaturesState = z.object({
   generated: z.string(),
@@ -215,7 +192,6 @@ export type ConductorState = z.infer<typeof ConductorState>;
 export const IndexState = z.object({
   generated: z.string(),
   counts: z.object({
-    goals: z.number(),
     activeFeatures: z.number(),
     doneFeatures: z.number(),
     pendingTasks: z.number(),
@@ -236,13 +212,12 @@ export type IndexState = z.infer<typeof IndexState>;
 export interface WorkItemFilter {
   type?: WorkItemType;
   status?: LifecycleState;
-  goalId?: string;
+  category?: string;
   q?: string;  // text search
 }
 
 /** All state loaded from .context/state/ */
 export interface FullWorkState {
-  goals: GoalsState | null;
   features: FeaturesState | null;
   backlogs: BacklogsState | null;
   conductor: ConductorState | null;

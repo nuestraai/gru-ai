@@ -18,19 +18,16 @@ export default function DashboardPage() {
 
   // Ensure work state is loaded for CEO Brief and attention counts
   useEffect(() => {
-    if (workState?.goals || fetchedWorkState) return;
+    if (workState?.features || fetchedWorkState) return;
     setFetchedWorkState(true);
     Promise.all([
-      fetch( `${API_BASE}/api/state/goals`).then(r => r.json()),
       fetch( `${API_BASE}/api/state/features`).then(r => r.json()),
       fetch( `${API_BASE}/api/state/backlogs`).then(r => r.json()),
       fetch( `${API_BASE}/api/state/conductor`).then(r => r.json()),
-    ]).then(([goals, features, backlogs, conductor]) => {
-      if (goals?.goals) {
-        useDashboardStore.getState().setWorkState({ goals, features, backlogs, conductor, index: null });
-      }
+    ]).then(([features, backlogs, conductor]) => {
+      useDashboardStore.getState().setWorkState({ features, backlogs, conductor, index: null });
     }).catch(() => {});
-  }, [workState?.goals, fetchedWorkState]);
+  }, [workState?.features, fetchedWorkState]);
 
   const activeTeams = teams.filter((t) => !t.stale);
   const staleTeams = teams.filter((t) => t.stale);
@@ -47,25 +44,12 @@ export default function DashboardPage() {
       (!s.isSubagent && s.subagentAttention)
   );
 
-  // Count goals with issues and blocked features for the attention stat
-  const goals = workState?.goals?.goals ?? [];
+  // Count blocked features for the attention stat
   const features = workState?.features?.features ?? [];
-  const backlogs = workState?.backlogs?.items ?? [];
-
-  const goalsWithIssues = goals.filter(
-    (g) => (g.issues?.length ?? 0) > 0
-  ).length;
   const blockedFeatures = features.filter(
     (f) => f.status === 'blocked'
   ).length;
-  // Goals marked in-progress but with no features or backlogs (orphan goals)
-  const orphanGoals = goals.filter(
-    (g) => g.status === 'in_progress' &&
-      features.filter(f => f.goalId === g.id).length === 0 &&
-      backlogs.filter(b => b.goalId === g.id).length === 0 &&
-      (g.issues?.length ?? 0) === 0 // avoid double-counting goals already in goalsWithIssues
-  ).length;
-  const totalAttention = attentionSessions.length + goalsWithIssues + blockedFeatures + orphanGoals;
+  const totalAttention = attentionSessions.length + blockedFeatures;
 
   const sessionPaneMap = useMemo(() => {
     const map = new Map<string, string>();

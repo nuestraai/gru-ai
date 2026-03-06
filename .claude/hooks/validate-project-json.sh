@@ -6,9 +6,8 @@
 #
 # Usage: echo "$JSON" | ./validate-project-json.sh
 #
-# Reads JSON from stdin with either:
+# Reads JSON from stdin with:
 #   { "directive_dir": "path/to/directive", "project_id": "project-slug" }
-#   { "goal_folder": "goal-id", "directive_name": "directive-id" }
 # and checks that the corresponding project.json exists and has required fields.
 #
 # Exit 0, no output = valid
@@ -23,20 +22,19 @@ command -v jq >/dev/null 2>&1 || { echo "Error: jq is required" >&2; exit 1; }
 # Read Morgan plan or directive info from stdin
 INPUT=$(cat)
 
-# Determine project.json path — supports both directive-based and goal-based paths
+# Determine project.json path from directive_dir + project_id
 DIRECTIVE_DIR=$(echo "$INPUT" | jq -r '.directive_dir // empty')
 PROJECT_ID=$(echo "$INPUT" | jq -r '.project_id // empty')
-GOAL_FOLDER=$(echo "$INPUT" | jq -r '.goal_folder // empty')
 DIRECTIVE_NAME=$(echo "$INPUT" | jq -r '.directive_name // .id // empty')
 
 if [[ -n "$DIRECTIVE_DIR" && -n "$PROJECT_ID" ]]; then
-  # New path: .context/directives/{id}/projects/{project-id}/project.json
+  # Path: .context/directives/{id}/projects/{project-id}/project.json
   PROJECT_PATH="${DIRECTIVE_DIR}/projects/${PROJECT_ID}/project.json"
-elif [[ -n "$GOAL_FOLDER" && -n "$DIRECTIVE_NAME" ]]; then
-  # Legacy path: .context/goals/{goal}/projects/{directive}/project.json
-  PROJECT_PATH=".context/goals/${GOAL_FOLDER}/projects/${DIRECTIVE_NAME}/project.json"
+elif [[ -n "$DIRECTIVE_DIR" && -n "$DIRECTIVE_NAME" ]]; then
+  # Fallback: use directive_name as project_id
+  PROJECT_PATH="${DIRECTIVE_DIR}/projects/${DIRECTIVE_NAME}/project.json"
 else
-  echo '{"valid": false, "violations": ["Pass JSON with directive_dir+project_id or goal_folder+directive_name fields."]}'
+  echo '{"valid": false, "violations": ["Pass JSON with directive_dir+project_id fields."]}'
   exit 0
 fi
 
@@ -50,7 +48,7 @@ if [[ ! -f "$PROJECT_PATH" ]]; then
 fi
 
 # Validate required fields
-REQUIRED_FIELDS=("id" "title" "goal_id" "status" "description" "scope" "dod" "tasks")
+REQUIRED_FIELDS=("id" "title" "category" "status" "description" "scope" "dod" "tasks")
 
 for field in "${REQUIRED_FIELDS[@]}"; do
   val=$(jq -r ".${field} // empty" "$PROJECT_PATH" 2>/dev/null)

@@ -5,8 +5,8 @@
   "created": "2026-03-03",
   "completed": "2026-03-03T19:50:00Z",
   "weight": "strategic",
-  "goal_ids": ["workflow-orchestration"],
   "produced_projects": [],
   "report": null,
-  "backlog_sources": []
+  "backlog_sources": [],
+  "category": "pipeline"
 }

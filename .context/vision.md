@@ -30,8 +30,7 @@ Skills (the interface):
 
 Context (the state):
   .context/                      — all conductor state
-  .context/goals/                — goal > project > task hierarchy (goal.json, project.json)
-  .context/directives/           — flat directive files (status in JSON, not directory)
+  .context/directives/           — directive > project > task hierarchy (directive.json, project.json)
   .context/intel/                — scout outputs (latest/ + archive/)
   .context/reports/              — CEO dashboard reports (daily/weekly/walkthrough)
   .context/lessons/              — topic-specific lesson files
@@ -85,7 +84,7 @@ Agent-conductor is an **organizational harness** — OpenAI's harness engineerin
 
 | Harness Engineering Pillar | Our Implementation |
 |---|---|
-| **Context engineering** | `.context/` tree — goals, systems, lessons, intel. Domain-scoped, continuously updated by /scout and /healthcheck. |
+| **Context engineering** | `.context/` tree — directives, lessons, intel. Domain-scoped, continuously updated by /scout and /healthcheck. |
 | **Architectural constraints** | SKILL.md typed pipelines, JSON schemas between agents, risk taxonomy, Morgan's casting rules. Organizational constraints via C-suite domain ownership. |
 | **Entropy management** | /healthcheck (internal decay), /scout (external drift), lessons/ (institutional memory). Broader than code-only — covers organizational entropy. |
 

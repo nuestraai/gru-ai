@@ -9,10 +9,8 @@
   "completed": "2026-03-02T00:00:00Z",
   "triage": {
     "action": "update_existing",
-    "goal_id": "workflow-orchestration",
     "project_id": null,
     "task_ids": [],
-    "secondary_goal_ids": [],
     "rationale": null,
     "requires_ceo_approval": false
   },
@@ -21,5 +19,6 @@
   "cast": null,
   "dod": null,
   "report_summary": null,
-  "telemetry": null
+  "telemetry": null,
+  "category": "pipeline"
 }

@@ -1,10 +1,8 @@
 <!-- Pipeline doc: 10-wrapup.md | Source: SKILL.md restructure -->
 
-## Step 6: Update Goal OKRs (if applicable)
+## Step 6: Category Context (if applicable)
 
-If `.context/goals/{goal_folder}/goal.json` has `okrs`, assess any existing KR statuses based on task outcomes. Do NOT create new KRs from directive work — goal-level OKRs are managed separately at the quarterly level.
-
-If goal.json has no `okrs` or it is empty, skip this step.
+The directive's category (from directive.json `category` field) provides domain context. No OKR updates needed -- categories are flat labels, not goals with OKRs.
 
 ## Step 6b: Process Follow-Up Actions
 
@@ -40,7 +38,7 @@ The revert commands are included in the digest (see "Revert Commands" section in
 
 ### High Risk — Write to Backlog
 
-For each high-risk follow-up, write it to `.context/goals/{goal_folder}/backlog.json` as a new item with structured fields:
+For each high-risk follow-up, create a new directive in `.context/directives/{follow-up-id}/directive.json` as a pending directive:
 
 ```json
 {
@@ -125,7 +123,7 @@ Replace the contents between `## Learned Patterns` and the next `##` heading. Ke
 
 ## Step 6f: Re-index State
 
-The dashboard reads source files directly via glob + chokidar. No indexer step needed. Changes to goal.json, project.json, directive.json, and backlog.json are picked up automatically.
+The dashboard reads source files directly via glob + chokidar. No indexer step needed. Changes to project.json, directive.json are picked up automatically.
 
 **Update directive.json:** Set `wrapup.digest_path` to the report path. Set `current_step: "wrapup"`. Update `pipeline.wrapup.status` to `"completed"` with output summary.
 

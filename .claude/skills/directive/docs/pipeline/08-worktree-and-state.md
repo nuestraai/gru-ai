@@ -41,7 +41,7 @@ The dashboard watches `directive.json` via chokidar for real-time pipeline progr
 directive.json is THE single source of truth. It stores both checkpoint/resume state and pipeline progress for the dashboard.
 
 **File:** `.context/directives/{directive-name}/directive.json`
-**Artifact files:** Write to the project directory: `.context/goals/{goal}/projects/{project}/{phase}.md`
+**Artifact files:** Write to the directive directory: `.context/directives/{directive-id}/projects/{project-id}/{phase}.md`
 
 > See [docs/reference/schemas/directive-json.md](../reference/schemas/directive-json.md) for the full schema.
 

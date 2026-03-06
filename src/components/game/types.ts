@@ -21,6 +21,7 @@ export type TileType =
   | 'door'
   | 'bookshelf'
   | 'hud-team'
+  | 'hud-tasks'
   | 'hud-action'
   | 'hud-ops'
   | 'hud-directive'

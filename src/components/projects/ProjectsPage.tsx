@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useDashboardStore } from '@/stores/dashboard-store';
-import type { GoalRecord, FeatureRecord, BacklogRecord } from '@/stores/types';
+import type { FeatureRecord, BacklogRecord } from '@/stores/types';
 import { cn } from '@/lib/utils';
 import { API_BASE } from '@/lib/api';
 import {
@@ -23,7 +23,6 @@ import {
   GitBranch,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import DirectivePipeline from './DirectivePipeline';
 import ReportViewer from './ReportViewer';
 import ReportsSection from './ReportsSection';
@@ -318,144 +317,6 @@ function BacklogSection({
 // Goal Card (flat list -- no group wrapper)
 // ---------------------------------------------------------------------------
 
-function GoalCard({
-  goal,
-  features,
-  backlogs,
-  initialOpen = false,
-  highlightId,
-}: {
-  goal: GoalRecord;
-  features: FeatureRecord[];
-  backlogs: BacklogRecord[];
-  initialOpen?: boolean;
-  highlightId?: string;
-}) {
-  const [open, setOpen] = useState(initialOpen);
-  const backlogOnly = features.length === 0 && backlogs.length > 0;
-  const [showBacklog, setShowBacklog] = useState(
-    backlogOnly || backlogs.some(b => b.id === highlightId)
-  );
-  const activeFeatures = features.filter(f => f.status === 'in_progress');
-  const doneFeatures = features.filter(f => f.status === 'completed');
-  const deferredFeatures = features.filter(f => f.status === 'deferred');
-  const otherFeatures = features.filter(f => f.status !== 'in_progress' && f.status !== 'completed' && f.status !== 'deferred');
-  const hasIssues = (goal.issues?.length ?? 0) > 0;
-
-  const displayStatus = (features.length === 0 && backlogs.length === 0 && goal.status === 'in_progress')
-    ? 'pending'
-    : goal.status;
-
-  return (
-    <Card>
-      <CardContent className="p-0">
-        <Collapsible open={open} onOpenChange={setOpen}>
-          <CollapsibleTrigger className="w-full text-left p-3">
-            <div className="flex items-center gap-2">
-              <ChevronRight
-                className={cn(
-                  "h-3.5 w-3.5 text-muted-foreground shrink-0 transition-transform duration-200",
-                  open && "rotate-90"
-                )}
-              />
-              <span className="text-sm font-medium truncate flex-1">{goal.title}</span>
-              <div className="flex items-center gap-2 shrink-0">
-                {hasIssues && <AlertTriangle className="h-3 w-3 text-status-yellow" />}
-                {goal.hasOkrs && (
-                  <Badge variant="outline" className="text-[9px] px-1 py-0 border-primary/30 text-primary">OKR</Badge>
-                )}
-                {lifecycleBadge(displayStatus)}
-              </div>
-            </div>
-            <div className="flex items-center gap-3 ml-7 text-[10px] text-muted-foreground">
-              <span>{activeFeatures.length + otherFeatures.length} open</span>
-              {deferredFeatures.length > 0 && (<><span className="text-border">|</span><span>{deferredFeatures.length} deferred</span></>)}
-              <span className="text-border">|</span>
-              <span>{doneFeatures.length} done</span>
-              <span className="text-border">|</span>
-              <span>{backlogs.length} backlog</span>
-            </div>
-          </CollapsibleTrigger>
-
-          <CollapsibleContent>
-            <div className="mx-3 mb-3 pl-4 border-l border-border space-y-0.5">
-              {activeFeatures.length > 0 && (
-                <div className="space-y-0.5">
-                  {features.length > 3 && (
-                    <div className="text-[9px] uppercase tracking-wider text-status-yellow/70 font-medium px-2 pt-1">
-                      In Progress ({activeFeatures.length})
-                    </div>
-                  )}
-                  {activeFeatures.map(f => (
-                    <FeatureRow key={f.id} feature={f} highlighted={f.id === highlightId} />
-                  ))}
-                </div>
-              )}
-              {otherFeatures.length > 0 && (
-                <div className="space-y-0.5">
-                  {features.length > 3 && (
-                    <div className="text-[9px] uppercase tracking-wider text-muted-foreground/70 font-medium px-2 pt-1">
-                      Pending ({otherFeatures.length})
-                    </div>
-                  )}
-                  {otherFeatures.map(f => (
-                    <FeatureRow key={f.id} feature={f} highlighted={f.id === highlightId} />
-                  ))}
-                </div>
-              )}
-              {doneFeatures.length > 0 && (
-                <div className="space-y-0.5">
-                  {features.length > 3 && (
-                    <div className="text-[9px] uppercase tracking-wider text-status-green/70 font-medium px-2 pt-1">
-                      Done ({doneFeatures.length})
-                    </div>
-                  )}
-                  {doneFeatures.map(f => (
-                    <FeatureRow key={f.id} feature={f} highlighted={f.id === highlightId} />
-                  ))}
-                </div>
-              )}
-              {deferredFeatures.length > 0 && (
-                <div className="space-y-0.5">
-                  <div className="text-[9px] uppercase tracking-wider text-muted-foreground/50 font-medium px-2 pt-1">
-                    Deferred ({deferredFeatures.length})
-                  </div>
-                  {deferredFeatures.map(f => (
-                    <FeatureRow key={f.id} feature={f} highlighted={f.id === highlightId} />
-                  ))}
-                </div>
-              )}
-              {features.length === 0 && backlogs.length === 0 && (
-                <div className="text-xs text-muted-foreground py-2 px-2">No features yet</div>
-              )}
-
-              {backlogs.length > 0 && (
-                <BacklogSection
-                  backlogs={backlogs}
-                  showBacklog={showBacklog}
-                  setShowBacklog={setShowBacklog}
-                  highlightId={highlightId}
-                />
-              )}
-
-              {hasIssues && (
-                <div className="pt-2 space-y-0.5">
-                  {goal.issues!.map((issue, i) => (
-                    <div key={i} className="flex items-center gap-2 text-[10px] text-status-yellow py-0.5 px-2">
-                      <AlertTriangle className="h-3 w-3 shrink-0" />
-                      <span>{issue}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </CollapsibleContent>
-        </Collapsible>
-      </CardContent>
-    </Card>
-  );
-}
-
 // ---------------------------------------------------------------------------
 // Loading skeleton
 // ---------------------------------------------------------------------------
@@ -504,7 +365,6 @@ function stalenessText(generated: string): string {
 
 export default function ProjectsPage() {
   const workState = useDashboardStore((s) => s.workState);
-  const goalInventory = useDashboardStore((s) => s.goalInventory);
   const [loading, setLoading] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [fetchAttempted, setFetchAttempted] = useState(false);
@@ -513,7 +373,6 @@ export default function ProjectsPage() {
   const [statusFilter, setStatusFilter] = useState<'all' | 'in_progress' | 'blocked' | 'completed'>('all');
   const [repoFilter, setRepoFilter] = useState<string>('all');
   const [searchParams] = useSearchParams();
-  const expandGoalId = searchParams.get('expand') ?? undefined;
   const highlightId = searchParams.get('highlight') ?? undefined;
 
   // Fetch work state on mount
@@ -522,27 +381,23 @@ export default function ProjectsPage() {
     setLoading(true);
     setFetchError(null);
     Promise.all([
-      fetch( `${API_BASE}/api/state/goals`).then(r => { if (!r.ok) throw new Error(`Goals: ${r.status}`); return r.json(); }),
       fetch( `${API_BASE}/api/state/features`).then(r => { if (!r.ok) throw new Error(`Features: ${r.status}`); return r.json(); }),
       fetch( `${API_BASE}/api/state/backlogs`).then(r => { if (!r.ok) throw new Error(`Backlogs: ${r.status}`); return r.json(); }),
       fetch( `${API_BASE}/api/state/conductor`).then(r => { if (!r.ok) throw new Error(`Conductor: ${r.status}`); return r.json(); }),
-    ]).then(([goals, features, backlogs, conductor]) => {
-      if (goals?.goals) {
-        useDashboardStore.getState().setWorkState({ goals, features, backlogs, conductor, index: null });
-      }
+    ]).then(([features, backlogs, conductor]) => {
+      useDashboardStore.getState().setWorkState({ features, backlogs, conductor, index: null });
     }).catch((err) => {
       setFetchError(err.message ?? 'Failed to fetch project data');
     }).finally(() => setLoading(false));
   };
 
   useEffect(() => {
-    if (workState?.goals || fetchAttempted) return;
+    if (workState?.features || fetchAttempted) return;
     fetchData();
-  }, [workState?.goals, fetchAttempted]);
+  }, [workState?.features, fetchAttempted]);
 
   // Compute data
-  const { goals, allFeatures, allBacklogs, activeFeatures, directives, reports, discussions, lessons, generated, totalGoals, totalActiveFeatures, totalBacklog, totalDirectives, blockedCount } = useMemo(() => {
-    const goals = workState?.goals?.goals ?? [];
+  const { allFeatures, activeFeatures, directives, reports, discussions, lessons, generated, totalActiveFeatures, totalBacklog, totalDirectives, blockedCount } = useMemo(() => {
     const features = workState?.features?.features ?? [];
     const backlogs = workState?.backlogs?.items ?? [];
     const directives = workState?.conductor?.directives ?? [];
@@ -553,47 +408,33 @@ export default function ProjectsPage() {
     const activeFeatures = features.filter(f => f.status === 'in_progress' || f.status === 'blocked');
 
     return {
-      goals,
       allFeatures: features,
-      allBacklogs: backlogs,
       activeFeatures,
       directives,
       reports,
       discussions,
       lessons,
-      generated: workState?.goals?.generated ?? '',
-      totalGoals: goals.length,
+      generated: workState?.features?.generated ?? '',
       totalActiveFeatures: features.filter(f => f.status !== 'completed' && f.status !== 'deferred').length,
       totalBacklog: backlogs.length,
-      totalDirectives: directives.length,
+      totalDirectives: directives.filter(d => d.status !== 'cancelled' && d.status !== 'abandoned').length,
       blockedCount: features.filter(f => f.status === 'blocked').length,
     };
   }, [workState]);
 
-  // Unique repos for filter + goal-to-repo mapping
-  const { repos, goalRepoMap } = useMemo(() => {
+  // Unique repos for filter
+  const repos = useMemo(() => {
     const map = new Map<string, string>();
-    const grMap: Record<string, string> = {};
-    for (const g of goals) {
-      const rid = g.repoId ?? 'unknown';
-      const rname = g.repoName ?? 'Unknown';
+    for (const f of allFeatures) {
+      const rid = f.repoId ?? 'unknown';
+      const rname = f.repoName ?? 'Unknown';
       if (!map.has(rid)) map.set(rid, rname);
-      grMap[g.id] = rid;
     }
-    return { repos: Array.from(map.entries()), goalRepoMap: grMap };
-  }, [goals]);
-
-  // Goal name map for active work section
-  const goalNameMap = useMemo(() => {
-    const map: Record<string, string> = {};
-    for (const g of workState?.goals?.goals ?? []) {
-      map[g.id] = g.title;
-    }
-    return map;
-  }, [workState?.goals]);
+    return Array.from(map.entries());
+  }, [allFeatures]);
 
   // Filtered data
-  const { filteredGoals, filteredDirectives, filteredReports, filteredLessons, filteredDiscussions, filteredActiveFeatures } = useMemo(() => {
+  const { filteredDirectives, filteredReports, filteredLessons, filteredDiscussions, filteredActiveFeatures } = useMemo(() => {
     const q = searchQuery.toLowerCase().trim();
 
     const matchesSearch = (title: string) => !q || title.toLowerCase().includes(q);
@@ -607,35 +448,10 @@ export default function ProjectsPage() {
     };
 
     const filteredDirectives = directives.filter(d => {
+      if (d.status === 'cancelled' || d.status === 'abandoned') return false;
       if (!matchesSearch(d.title)) return false;
       if (statusFilter !== 'all' && !matchesStatus(d.status)) return false;
-      // Repo filter: match if any of the directive's goalIds belong to the selected repo
-      if (repoFilter !== 'all') {
-        const dGoalIds = d.goalIds ?? [];
-        if (dGoalIds.length === 0) return false;
-        if (!dGoalIds.some(gid => goalRepoMap[gid] === repoFilter)) return false;
-      }
       return true;
-    });
-
-    const filteredGoals = goals.filter(goal => {
-      // Repo filter
-      if (repoFilter !== 'all' && (goal.repoId ?? 'unknown') !== repoFilter) return false;
-
-      const goalFeatures = allFeatures.filter(f => f.goalId === goal.id);
-      const goalBacklogs = allBacklogs.filter(b => b.goalId === goal.id);
-
-      const goalMatchesSearch = matchesSearch(goal.title);
-      const hasMatchingFeatures = goalFeatures.some(f => matchesSearch(f.title));
-      const hasMatchingBacklogs = goalBacklogs.some(b => matchesSearch(b.title));
-
-      const textMatch = goalMatchesSearch || hasMatchingFeatures || hasMatchingBacklogs;
-      if (!textMatch) return false;
-
-      if (statusFilter === 'all') return true;
-      const goalStatusMatch = matchesStatus(goal.status);
-      const hasStatusFeatures = goalFeatures.some(f => matchesStatus(f.status));
-      return goalStatusMatch || hasStatusFeatures;
     });
 
     const filteredReports = reports.filter(r => matchesSearch(r.title));
@@ -648,11 +464,11 @@ export default function ProjectsPage() {
       return true;
     });
 
-    return { filteredGoals, filteredDirectives, filteredReports, filteredLessons, filteredDiscussions, filteredActiveFeatures };
-  }, [searchQuery, statusFilter, repoFilter, goalRepoMap, goals, allFeatures, allBacklogs, directives, reports, lessons, discussions, activeFeatures]);
+    return { filteredDirectives, filteredReports, filteredLessons, filteredDiscussions, filteredActiveFeatures };
+  }, [searchQuery, statusFilter, directives, reports, lessons, discussions, activeFeatures]);
 
   // Error state
-  if (fetchError && !workState?.goals) {
+  if (fetchError && !workState?.features) {
     return (
       <div className="space-y-4">
         <h1 className="text-lg font-semibold">Projects</h1>
@@ -677,8 +493,8 @@ export default function ProjectsPage() {
   }
 
   // Fallback when no data at all
-  if (!workState?.goals && !loading) {
-    return <FallbackProjectsPage goalInventory={goalInventory} onRetry={fetchData} />;
+  if (!workState?.features && !loading) {
+    return <FallbackProjectsPage onRetry={fetchData} />;
   }
 
   if (loading) {
@@ -691,8 +507,6 @@ export default function ProjectsPage() {
       <div className="flex items-center justify-between">
         <h1 className="text-lg font-semibold">Projects</h1>
         <div className="flex items-center gap-3 text-xs text-muted-foreground">
-          <span>{totalGoals} goals</span>
-          <span className="text-border">|</span>
           <span>{totalActiveFeatures} open features</span>
           <span className="text-border">|</span>
           <span>{totalBacklog} backlog</span>
@@ -728,7 +542,7 @@ export default function ProjectsPage() {
           <Input
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search directives, goals, features..."
+            placeholder="Search directives, features..."
             className="h-8 text-xs pl-8"
           />
         </div>
@@ -817,7 +631,7 @@ export default function ProjectsPage() {
                         <Loader2 className="h-3.5 w-3.5 text-status-yellow shrink-0 animate-spin" />
                         <div className="flex-1 min-w-0">
                           <span className="text-xs truncate block">{f.title}</span>
-                          <span className="text-[10px] text-muted-foreground">{goalNameMap[f.goalId] ?? f.goalId}</span>
+                          <span className="text-[10px] text-muted-foreground">{f.category ?? 'uncategorized'}</span>
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
                           <span className="text-[10px] text-muted-foreground tabular-nums">
@@ -845,7 +659,7 @@ export default function ProjectsPage() {
                         <AlertTriangle className="h-3.5 w-3.5 text-status-red shrink-0" />
                         <div className="flex-1 min-w-0">
                           <span className="text-xs truncate block">{f.title}</span>
-                          <span className="text-[10px] text-muted-foreground">{goalNameMap[f.goalId] ?? f.goalId}</span>
+                          <span className="text-[10px] text-muted-foreground">{f.category ?? 'uncategorized'}</span>
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
                           <span className="text-[10px] text-muted-foreground tabular-nums">
@@ -866,68 +680,6 @@ export default function ProjectsPage() {
         );
       })()}
 
-      {/* Goals -- grouped by repo */}
-      {(() => {
-        // Group goals by repoId (fall back to 'unknown' if missing)
-        const repoGroups = new Map<string, { repoName: string; goals: typeof filteredGoals }>();
-        for (const goal of filteredGoals) {
-          const rid = goal.repoId ?? 'unknown';
-          const rname = goal.repoName ?? 'Unknown';
-          if (!repoGroups.has(rid)) {
-            repoGroups.set(rid, { repoName: rname, goals: [] });
-          }
-          repoGroups.get(rid)!.goals.push(goal);
-        }
-
-        const groups = Array.from(repoGroups.entries());
-        const showHeaders = groups.length > 1;
-
-        return (
-          <div className="space-y-6">
-            {groups.map(([rid, { repoName, goals: groupGoals }]) => (
-              <div key={rid} className="space-y-3">
-                {showHeaders && (
-                  <div className="flex items-center gap-2 pt-2">
-                    <GitBranch className="h-4 w-4 text-muted-foreground" />
-                    <h2 className="text-sm font-semibold">{repoName}</h2>
-                    <span className="text-[10px] text-muted-foreground">
-                      {groupGoals.length} goal{groupGoals.length !== 1 ? 's' : ''}
-                    </span>
-                  </div>
-                )}
-                {groupGoals.map(goal => {
-                  let goalFeatures = allFeatures.filter(f => f.goalId === goal.id);
-                  if (searchQuery) {
-                    const q = searchQuery.toLowerCase();
-                    const goalTitleMatch = goal.title.toLowerCase().includes(q);
-                    if (!goalTitleMatch) {
-                      goalFeatures = goalFeatures.filter(f => f.title.toLowerCase().includes(q));
-                    }
-                  }
-                  if (statusFilter !== 'all') {
-                    const statusMatch = (s: string) => statusFilter === 'in_progress' ? s === 'in_progress' : statusFilter === 'blocked' ? s === 'blocked' : statusFilter === 'completed' ? s === 'completed' : true;
-                    if (!statusMatch(goal.status)) {
-                      goalFeatures = goalFeatures.filter(f => statusMatch(f.status));
-                    }
-                  }
-                  const goalBacklogs = allBacklogs.filter(b => b.goalId === goal.id);
-                  return (
-                    <GoalCard
-                      key={goal.id}
-                      goal={goal}
-                      features={goalFeatures}
-                      backlogs={goalBacklogs}
-                      initialOpen={goal.id === expandGoalId}
-                      highlightId={highlightId}
-                    />
-                  );
-                })}
-              </div>
-            ))}
-          </div>
-        );
-      })()}
-
       {/* Reports */}
       <ReportsSection reports={filteredReports} />
 
@@ -945,67 +697,28 @@ export default function ProjectsPage() {
 // ---------------------------------------------------------------------------
 
 function FallbackProjectsPage({
-  goalInventory,
   onRetry,
 }: {
-  goalInventory: ReturnType<typeof useDashboardStore.getState>['goalInventory'];
   onRetry: () => void;
 }) {
-  if (!goalInventory) {
-    return (
-      <div className="space-y-4">
-        <h1 className="text-lg font-semibold">Projects</h1>
-        <Card>
-          <CardContent className="p-8 text-center">
-            <FolderKanban className="h-8 w-8 text-muted-foreground mx-auto mb-3" />
-            <p className="text-sm text-muted-foreground">
-              No project data available yet.
-            </p>
-            <p className="text-xs text-muted-foreground/60 mt-1 mb-4">
-              Run the state indexer to generate project data, or ensure the conductor server is running on port 4444.
-            </p>
-            <button
-              onClick={onRetry}
-              className="inline-flex items-center gap-2 text-xs text-primary hover:underline cursor-pointer"
-            >
-              <RefreshCw className="h-3.5 w-3.5" />
-              Retry
-            </button>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
-  const { goals, generated } = goalInventory;
-  const totalActiveFeatures = goals.reduce((sum, g) => sum + g.active_features.length, 0);
-
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-lg font-semibold">Projects</h1>
-        <div className="flex items-center gap-3 text-xs text-muted-foreground">
-          <span>{goals.length} goals</span>
-          <span className="text-border">|</span>
-          <span>{totalActiveFeatures} open features</span>
-          <span className="text-border">|</span>
-          <span>Updated {stalenessText(generated)}</span>
-        </div>
-      </div>
+      <h1 className="text-lg font-semibold">Projects</h1>
       <Card>
-        <CardContent className="p-4">
+        <CardContent className="p-8 text-center">
+          <FolderKanban className="h-8 w-8 text-muted-foreground mx-auto mb-3" />
           <p className="text-sm text-muted-foreground">
-            Showing legacy inventory view. The full structured state data is not available yet.
+            No project data available yet.
           </p>
-          <p className="text-xs text-muted-foreground/60 mt-1">
-            Run <code className="font-mono bg-secondary px-1 rounded">npx tsx scripts/index-state.ts</code> to generate structured project data with directives, reports, lessons, and discussions.
+          <p className="text-xs text-muted-foreground/60 mt-1 mb-4">
+            Ensure the conductor server is running on port 4444.
           </p>
           <button
             onClick={onRetry}
-            className="inline-flex items-center gap-2 text-xs text-primary hover:underline mt-3 cursor-pointer"
+            className="inline-flex items-center gap-2 text-xs text-primary hover:underline cursor-pointer"
           >
             <RefreshCw className="h-3.5 w-3.5" />
-            Retry loading structured data
+            Retry
           </button>
         </CardContent>
       </Card>

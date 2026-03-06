@@ -6,7 +6,7 @@
 
 **If no directive file exists (ad-hoc request):** The CEO gave an ad-hoc description instead of a directive name. Generate a kebab-case ID from the description (e.g., "run these 3 projects" → `run-3-projects`, "comprehensive system review" → `system-review-2026-03-04`). Create a directive directory `mkdir -p .context/directives/{id}/` with both `directive.md` and `directive.json`. The `.md` should contain the CEO's original request as the directive brief.
 
-**If $ARGUMENTS looks like a project path** (contains `/`): Read the project.json at `.context/goals/{goal}/projects/{project}/project.json`. Generate a directive ID from the project name. Create the directive files.
+**If $ARGUMENTS looks like a project path** (contains `/`): Read the project.json at `.context/directives/{directive}/projects/{project}/project.json`. Generate a directive ID from the project name. Create the directive files.
 
 **Naming convention:** Directive filenames must be kebab-case (e.g., `improve-security.md`). The name is used in git branch names (`directive/$ARGUMENTS`) and file paths.
 
@@ -24,14 +24,15 @@ Create `.context/directives/$ARGUMENTS/directive.json` if it doesn't already exi
   "created": "{today's date YYYY-MM-DD}",
   "completed": null,
   "weight": "{classification from triage: lightweight | medium | heavyweight | strategic}",
-  "goal_ids": ["{goal IDs from directive content — parse 'Goal alignment:' or infer from directive name}"],
+  "category": "{one of: framework, pipeline, dashboard, game — infer from directive name/scope}",
   "produced_features": [],
   "report": null,
   "backlog_sources": []
 }
 ```
 
-Extract `goal_ids` from the directive .md content:
-- Look for `**Goal alignment**: {goal-id}` in the directive text
-- If not found, infer from the directive name (e.g., `sellwisely-*` -> `sellwisely-revenue`, `conductor-*` -> `agent-conductor`)
-- If uncertain, leave as empty array — it will be populated during wrapup
+Extract `category` from the directive .md content:
+- Look for `**Category**: {category}` in the directive text
+- If not found, infer from the directive name/scope (e.g., `game-*` -> `game`, `pipeline-*` -> `pipeline`, `dashboard-*` -> `dashboard`)
+- Valid categories: `framework`, `pipeline`, `dashboard`, `game`
+- Every directive MUST have a category

@@ -1,0 +1,138 @@
+{
+  "id": "game-open-source-prep",
+  "title": "Game Open Source Preparation \u2014 Asset License Compliance",
+  "status": "in_progress",
+  "created": "2026-03-06",
+  "completed": null,
+  "weight": "medium",
+  "produced_features": [],
+  "report": null,
+  "backlog_sources": [],
+  "started_at": "2026-03-06T12:00:00Z",
+  "updated_at": "2026-03-06T12:15:00Z",
+  "current_step": "execute",
+  "pipeline": {
+    "triage": {
+      "status": "completed",
+      "agent": "CEO",
+      "output": {
+        "weight": "medium",
+        "rationale": "Clear scope, 4 related tasks within asset pipeline domain"
+      }
+    },
+    "read": {
+      "status": "completed",
+      "agent": "CEO",
+      "output": {
+        "summary": "Asset audit completed: LimeZu paid (no redistribution), free (non-commercial), characters CC0, walls.png MIT."
+      }
+    },
+    "context": {
+      "status": "completed",
+      "agent": "CEO",
+      "output": {
+        "summary": "Vision, game goal, game context, agent-behavior lessons read."
+      }
+    },
+    "challenge": {
+      "status": "skipped",
+      "agent": "C-suite",
+      "output": {
+        "summary": "Skipped for medium weight"
+      }
+    },
+    "brainstorm": {
+      "status": "skipped",
+      "agent": "C-suite",
+      "output": {
+        "summary": "Skipped for medium weight"
+      }
+    },
+    "plan": {
+      "status": "completed",
+      "agent": "CEO (inline)",
+      "output": {
+        "summary": "Single project: asset-license-compliance. Devon builds, Sarah reviews."
+      },
+      "artifacts": [
+        ".context/directives/game-open-source-prep/morgan-plan.json"
+      ]
+    },
+    "audit": {
+      "status": "completed",
+      "agent": "Sarah",
+      "output": {
+        "summary": "11 files audited. Fallback rendering already works \u2014 no crashes on missing assets. Main gaps: .gitignore, free pack removal, setup script, console messages, credits.",
+        "findings": 11
+      },
+      "artifacts": [
+        ".context/directives/game-open-source-prep/projects/asset-license-compliance/project.json"
+      ]
+    },
+    "approve": {
+      "status": "completed",
+      "agent": "CEO",
+      "output": {
+        "status": "auto-approved",
+        "modifications": []
+      }
+    },
+    "project-brainstorm": {
+      "status": "completed",
+      "agent": "Sarah",
+      "output": {
+        "summary": "4 tasks decomposed: gitignore-and-untrack, setup-script, improve-fallback-messages, readme-and-credits"
+      },
+      "artifacts": [
+        ".context/directives/game-open-source-prep/projects/asset-license-compliance/project.json"
+      ]
+    },
+    "setup": {
+      "status": "completed",
+      "agent": "CEO",
+      "output": {
+        "mode": "branch",
+        "branch": "game (existing)"
+      }
+    },
+    "execute": {
+      "status": "active",
+      "agent": "Devon",
+      "reviewers": [
+        "Sarah"
+      ]
+    },
+    "review-gate": {
+      "status": "pending"
+    },
+    "wrapup": {
+      "status": "pending",
+      "agent": "CEO"
+    },
+    "completion": {
+      "status": "pending",
+      "agent": "CEO"
+    }
+  },
+  "projects": [
+    {
+      "id": "asset-license-compliance",
+      "status": "in_progress"
+    }
+  ],
+  "planning": {
+    "morgan_plan": {},
+    "ceo_approval": {
+      "status": "auto-approved",
+      "modifications": []
+    },
+    "worktree_path": null
+  },
+  "wrapup": {
+    "okrs_persisted": false,
+    "follow_ups_processed": false,
+    "digest_path": null,
+    "lessons_updated": false
+  },
+  "category": "game"
+}

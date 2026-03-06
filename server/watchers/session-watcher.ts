@@ -8,17 +8,22 @@ export class SessionWatcher {
   private watcher: FSWatcher | null = null;
   private aggregator: Aggregator;
   private claudeHome: string;
+  private projectFilter?: string;
   private activityTimers = new Map<string, ReturnType<typeof setTimeout>>();
   private sessionRefreshTimer: ReturnType<typeof setTimeout> | null = null;
   private _ready = false;
 
-  constructor(aggregator: Aggregator, claudeHome: string) {
+  constructor(aggregator: Aggregator, claudeHome: string, projectFilter?: string) {
     this.aggregator = aggregator;
     this.claudeHome = claudeHome;
+    this.projectFilter = projectFilter;
   }
 
   start(): void {
-    const projectsDir = path.join(this.claudeHome, 'projects');
+    // When a project filter is set, watch only that specific project directory
+    const projectsDir = this.projectFilter
+      ? path.join(this.claudeHome, 'projects', this.projectFilter)
+      : path.join(this.claudeHome, 'projects');
 
     if (!fs.existsSync(projectsDir)) {
       console.log(`[session-watcher] Projects directory not found: ${projectsDir}, skipping watch`);
