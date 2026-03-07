@@ -1,4 +1,26 @@
-import type { FloorColor } from './pixel-types'
+import type { FloorColor, InteractionPoint } from './pixel-types'
+
+// Direction and FurnitureActivityType defined here (not in pixel-types) to avoid circular imports.
+// pixel-types re-exports them from this file.
+export const Direction = {
+  DOWN: 0,
+  LEFT: 1,
+  RIGHT: 2,
+  UP: 3,
+} as const
+export type Direction = (typeof Direction)[keyof typeof Direction]
+
+export const FurnitureActivityType = {
+  WATCHING_TV: 'watching_tv',
+  READING: 'reading',
+  LOUNGING: 'lounging',
+  VENDING: 'vending',
+  ARCADE: 'arcade',
+  EXERCISING: 'exercising',
+  PLAYING_POOL: 'playing_pool',
+  PLAYING_PINGPONG: 'playing_pingpong',
+} as const
+export type FurnitureActivityType = (typeof FurnitureActivityType)[keyof typeof FurnitureActivityType]
 
 // ── Grid & Layout ────────────────────────────────────────────
 export const TILE_SIZE = 16
@@ -172,3 +194,211 @@ export const PROXIMITY_RADIUS_TILES = 2
 export const PROXIMITY_HIGHLIGHT_BASE_ALPHA = 0.15
 export const PROXIMITY_HIGHLIGHT_PULSE_AMPLITUDE = 0.1
 export const PROXIMITY_HIGHLIGHT_PULSE_SPEED = 3
+
+// ── Activity Duration Ranges (seconds) ─────────────────────
+export const ACTIVITY_DURATION_SHORT: [number, number] = [5, 15]
+export const ACTIVITY_DURATION_MEDIUM: [number, number] = [20, 60]
+export const ACTIVITY_DURATION_LONG: [number, number] = [30, 90]
+
+// ── Interaction Points Registry ─────────────────────────────
+// Hand-mapped use-tiles adjacent to furniture in the 32x32 office grid.
+// Each entry is a walkable tile where an agent stands to interact with
+// a nearby piece of furniture. Coordinates are 0-indexed (col, row).
+
+export const INTERACTION_POINTS: InteractionPoint[] = [
+  // --- CEO Office (ceo-office zone) ---
+  {
+    id: 'tv-ceo-office',
+    furnitureType: FurnitureActivityType.WATCHING_TV,
+    tileX: 14,
+    tileY: 5,
+    facing: Direction.RIGHT,
+    capacity: 1,
+    zoneId: 'ceo-office',
+    activityDurationMin: ACTIVITY_DURATION_MEDIUM[0],
+    activityDurationMax: ACTIVITY_DURATION_MEDIUM[1],
+  },
+  {
+    id: 'bookshelf-ceo-office',
+    furnitureType: FurnitureActivityType.READING,
+    tileX: 2,
+    tileY: 3,
+    facing: Direction.UP,
+    capacity: 1,
+    zoneId: 'ceo-office',
+    activityDurationMin: ACTIVITY_DURATION_MEDIUM[0],
+    activityDurationMax: ACTIVITY_DURATION_MEDIUM[1],
+  },
+
+  // --- Conference Room (meeting zone) ---
+  {
+    id: 'bookshelf-conference',
+    furnitureType: FurnitureActivityType.READING,
+    tileX: 18,
+    tileY: 4,
+    facing: Direction.LEFT,
+    capacity: 1,
+    zoneId: 'meeting',
+    activityDurationMin: ACTIVITY_DURATION_MEDIUM[0],
+    activityDurationMax: ACTIVITY_DURATION_MEDIUM[1],
+  },
+
+  // --- Workspace (workspace zone) ---
+  {
+    id: 'sofa-lounge',
+    furnitureType: FurnitureActivityType.LOUNGING,
+    tileX: 27,
+    tileY: 13,
+    facing: Direction.RIGHT,
+    capacity: 1,
+    zoneId: 'workspace',
+    activityDurationMin: ACTIVITY_DURATION_LONG[0],
+    activityDurationMax: ACTIVITY_DURATION_LONG[1],
+  },
+
+  // --- Lobby (lobby zone) ---
+  {
+    id: 'vending-lobby',
+    furnitureType: FurnitureActivityType.VENDING,
+    tileX: 12,
+    tileY: 26,
+    facing: Direction.UP,
+    capacity: 1,
+    zoneId: 'lobby',
+    activityDurationMin: ACTIVITY_DURATION_SHORT[0],
+    activityDurationMax: ACTIVITY_DURATION_SHORT[1],
+  },
+  {
+    id: 'arcade-lobby',
+    furnitureType: FurnitureActivityType.ARCADE,
+    tileX: 20,
+    tileY: 25,
+    facing: Direction.UP,
+    capacity: 1,
+    zoneId: 'lobby',
+    activityDurationMin: ACTIVITY_DURATION_MEDIUM[0],
+    activityDurationMax: ACTIVITY_DURATION_MEDIUM[1],
+  },
+  {
+    id: 'kitchen-lobby',
+    furnitureType: FurnitureActivityType.VENDING,
+    tileX: 9,
+    tileY: 27,
+    facing: Direction.UP,
+    capacity: 1,
+    zoneId: 'lobby',
+    activityDurationMin: ACTIVITY_DURATION_SHORT[0],
+    activityDurationMax: ACTIVITY_DURATION_SHORT[1],
+  },
+  {
+    id: 'fountain-lobby',
+    furnitureType: FurnitureActivityType.LOUNGING,
+    tileX: 10,
+    tileY: 29,
+    facing: Direction.RIGHT,
+    capacity: 1,
+    zoneId: 'lobby',
+    activityDurationMin: ACTIVITY_DURATION_LONG[0],
+    activityDurationMax: ACTIVITY_DURATION_LONG[1],
+  },
+
+  // --- Server Room (server-room zone) ---
+  {
+    id: 'gym-left',
+    furnitureType: FurnitureActivityType.EXERCISING,
+    tileX: 3,
+    tileY: 28,
+    facing: Direction.DOWN,
+    capacity: 1,
+    zoneId: 'server-room',
+    activityDurationMin: ACTIVITY_DURATION_LONG[0],
+    activityDurationMax: ACTIVITY_DURATION_LONG[1],
+  },
+  {
+    id: 'gym-right',
+    furnitureType: FurnitureActivityType.EXERCISING,
+    tileX: 6,
+    tileY: 28,
+    facing: Direction.DOWN,
+    capacity: 1,
+    zoneId: 'server-room',
+    activityDurationMin: ACTIVITY_DURATION_LONG[0],
+    activityDurationMax: ACTIVITY_DURATION_LONG[1],
+  },
+
+  // --- Break Room (break-room zone) ---
+  {
+    id: 'pool-table-primary',
+    furnitureType: FurnitureActivityType.PLAYING_POOL,
+    tileX: 18,
+    tileY: 28,
+    facing: Direction.UP,
+    capacity: 2,
+    tileX2: 18,
+    tileY2: 30,
+    facing2: Direction.DOWN,
+    zoneId: 'lobby',
+    activityDurationMin: ACTIVITY_DURATION_LONG[0],
+    activityDurationMax: ACTIVITY_DURATION_LONG[1],
+  },
+  {
+    id: 'pool-table-secondary',
+    furnitureType: FurnitureActivityType.PLAYING_PINGPONG,
+    tileX: 20,
+    tileY: 28,
+    facing: Direction.UP,
+    capacity: 2,
+    tileX2: 20,
+    tileY2: 30,
+    facing2: Direction.DOWN,
+    zoneId: 'lobby',
+    activityDurationMin: ACTIVITY_DURATION_LONG[0],
+    activityDurationMax: ACTIVITY_DURATION_LONG[1],
+  },
+]
+
+// ── Interaction Point Helpers ───────────────────────────────
+
+/**
+ * Filter interaction points that belong to a specific room zone.
+ */
+export function getInteractionPointsForZone(zoneId: string): InteractionPoint[] {
+  return INTERACTION_POINTS.filter((p) => p.zoneId === zoneId)
+}
+
+/** Occupancy info for a single interaction point */
+export interface OccupancyInfo {
+  count: number
+  agentIds: number[]
+}
+
+/**
+ * Find an available (unoccupied or partially occupied) interaction point.
+ * A capacity-1 point is available only when unoccupied.
+ * A capacity-2 point is available when count < 2.
+ * Returns the point and whether the agent would be the secondary (joining) user.
+ *
+ * @param occupiedPoints - Map of interaction point ID to occupancy info
+ * @param zoneId - Optional zone filter; when provided, only points in that zone are considered
+ */
+export function getAvailableInteractionPoint(
+  occupiedPoints: Map<string, OccupancyInfo>,
+  zoneId?: string,
+): { point: InteractionPoint; isSecondary: boolean } | null {
+  const candidates: Array<{ point: InteractionPoint; isSecondary: boolean }> = []
+
+  for (const p of INTERACTION_POINTS) {
+    if (zoneId && p.zoneId !== zoneId) continue
+    const occ = occupiedPoints.get(p.id)
+    if (!occ) {
+      // Unoccupied — available as primary
+      candidates.push({ point: p, isSecondary: false })
+    } else if (p.capacity === 2 && occ.count < 2) {
+      // Partially occupied capacity-2 — available as secondary
+      candidates.push({ point: p, isSecondary: true })
+    }
+  }
+
+  if (candidates.length === 0) return null
+  return candidates[Math.floor(Math.random() * candidates.length)]
+}

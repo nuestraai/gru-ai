@@ -3,7 +3,7 @@
 // Zones are tile-coordinate rectangles carved from the 32x32 office layout.
 // ---------------------------------------------------------------------------
 
-import type { Character, AgentStatus, SessionInfo } from '../pixel-types'
+import type { Character, Seat, AgentStatus, SessionInfo } from '../pixel-types'
 
 // ---------------------------------------------------------------------------
 // Zone types
@@ -15,6 +15,8 @@ export interface RoomZone {
   bounds: { minCol: number; maxCol: number; minRow: number; maxRow: number }
   /** Walkable tiles agents can target within this zone */
   waypoints: Array<{ col: number; row: number }>
+  /** When true, only agents whose seat is inside this zone may wander here */
+  restricted?: boolean
 }
 
 export type RoomZoneId =
@@ -41,6 +43,7 @@ export const ROOM_ZONES: Record<RoomZoneId, RoomZone> = {
       { col: 3, row: 9 },
       { col: 7, row: 9 },
     ],
+    restricted: true,
   },
   meeting: {
     id: 'meeting',
@@ -135,6 +138,37 @@ function isAgentTool(toolName: string | undefined): boolean {
 }
 
 // ---------------------------------------------------------------------------
+// Zone access helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Check whether an agent is allowed to wander into a zone.
+ * Unrestricted zones allow everyone. Restricted zones only allow agents
+ * whose assigned seat is physically inside the zone bounds.
+ */
+export function isAgentAllowedInZone(
+  ch: Character,
+  zoneId: RoomZoneId,
+  seats: Map<string, Seat>,
+): boolean {
+  const zone = ROOM_ZONES[zoneId]
+  if (!zone.restricted) return true
+  // Player-controlled characters are always allowed (CEO exemption)
+  if (ch.isPlayerControlled) return true
+  // Check if the agent's seat is inside the restricted zone
+  if (!ch.seatId) return false
+  const seat = seats.get(ch.seatId)
+  if (!seat) return false
+  const b = zone.bounds
+  return (
+    seat.seatCol >= b.minCol &&
+    seat.seatCol <= b.maxCol &&
+    seat.seatRow >= b.minRow &&
+    seat.seatRow <= b.maxRow
+  )
+}
+
+// ---------------------------------------------------------------------------
 // Routing logic
 // ---------------------------------------------------------------------------
 
@@ -153,6 +187,7 @@ export function chooseDestination(
   ch: Character,
   status: AgentStatus,
   sessionInfo: SessionInfo,
+  seats?: Map<string, Seat>,
 ): RoutingResult | null {
   switch (status) {
     case 'working': {
@@ -169,8 +204,12 @@ export function chooseDestination(
     }
 
     case 'idle': {
-      // Idle — wander around (break room, lobby, CEO office)
-      const zones: RoomZoneId[] = ['break-room', 'lobby', 'ceo-office']
+      // Idle — wander around (break room, lobby, ceo-office if allowed)
+      const allZones: RoomZoneId[] = ['break-room', 'lobby', 'ceo-office']
+      const zones = seats
+        ? allZones.filter((z) => isAgentAllowedInZone(ch, z, seats))
+        : allZones.filter((z) => !ROOM_ZONES[z].restricted)
+      if (zones.length === 0) return null
       return pickWaypoint(zones[Math.floor(Math.random() * zones.length)])
     }
 

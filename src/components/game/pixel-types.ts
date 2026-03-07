@@ -5,6 +5,8 @@ export {
   MAX_COLS,
   MAX_ROWS,
   MATRIX_EFFECT_DURATION_SEC as MATRIX_EFFECT_DURATION,
+  Direction,
+  FurnitureActivityType,
 } from './constants'
 
 export const TileType = {
@@ -38,16 +40,36 @@ export const CharacterState = {
   IDLE: 'idle',
   WALK: 'walk',
   TYPE: 'type',
+  ACTIVITY: 'activity',
 } as const
 export type CharacterState = (typeof CharacterState)[keyof typeof CharacterState]
 
-export const Direction = {
-  DOWN: 0,
-  LEFT: 1,
-  RIGHT: 2,
-  UP: 3,
-} as const
-export type Direction = (typeof Direction)[keyof typeof Direction]
+export interface InteractionPoint {
+  /** Unique identifier for this interaction point */
+  id: string
+  /** Which furniture type this point belongs to */
+  furnitureType: FurnitureActivityType
+  /** Tile column where the agent stands to interact */
+  tileX: number
+  /** Tile row where the agent stands to interact */
+  tileY: number
+  /** Direction the agent faces during the activity */
+  facing: Direction
+  /** How many agents can use this point simultaneously (1 or 2) */
+  capacity: 1 | 2
+  /** Secondary use-tile column for capacity-2 partner position */
+  tileX2?: number
+  /** Secondary use-tile row for capacity-2 partner position */
+  tileY2?: number
+  /** Direction the second agent faces during the activity */
+  facing2?: Direction
+  /** Which room zone this point belongs to */
+  zoneId: string
+  /** Minimum activity duration in seconds */
+  activityDurationMin: number
+  /** Maximum activity duration in seconds */
+  activityDurationMax: number
+}
 
 /** 2D array of hex color strings (or '' for transparent). [row][col] */
 export type SpriteData = string[][]
@@ -265,4 +287,12 @@ export interface Character {
   isNearPlayer: boolean
   /** Tile that blocked movement (set by updateCharacter, consumed by OfficeState) */
   blockedTile: { col: number; row: number } | null
+  /** Set by character FSM when wander timer expires; consumed by OfficeState to pick destination */
+  needsWanderDestination: boolean
+  /** Interaction point ID the agent is currently using, or null */
+  activityTarget: string | null
+  /** Timestamp (ms) when the current activity started */
+  activityStartTime: number
+  /** Type of activity the agent is performing, or null */
+  activityType: FurnitureActivityType | null
 }

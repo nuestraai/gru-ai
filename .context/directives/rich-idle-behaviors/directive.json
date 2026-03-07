@@ -1,0 +1,112 @@
+{
+  "id": "rich-idle-behaviors",
+  "title": "Rich Idle Agent Behaviors",
+  "weight": "medium",
+  "status": "completed",
+  "created_at": "2026-03-08T00:00:00Z",
+  "updated_at": "2026-03-07T15:47:21.817Z",
+  "current_step": "completion",
+  "planning": {
+    "coo_plan": "plan.json",
+    "ceo_approval": {
+      "status": "approved",
+      "modifications": []
+    }
+  },
+  "pipeline": {
+    "triage": {
+      "status": "completed",
+      "agent": "CEO",
+      "output": {
+        "summary": "Medium weight, single system."
+      }
+    },
+    "checkpoint": {
+      "status": "completed",
+      "agent": "CEO",
+      "output": {
+        "summary": "Fresh directive."
+      }
+    },
+    "read": {
+      "status": "completed",
+      "agent": "CEO",
+      "output": {
+        "summary": "Read directive.md."
+      }
+    },
+    "context": {
+      "status": "completed",
+      "agent": "CEO",
+      "output": {
+        "summary": "Read all context files."
+      }
+    },
+    "challenge": {
+      "status": "skipped",
+      "output": {
+        "summary": "Medium weight skip."
+      }
+    },
+    "plan": {
+      "status": "completed",
+      "agent": "COO",
+      "output": {
+        "summary": "Single project, simplify approach."
+      }
+    },
+    "audit": {
+      "status": "completed",
+      "agent": "QA Engineer, CTO",
+      "output": {
+        "summary": "10 active files. 4-layer architecture."
+      }
+    },
+    "approve": {
+      "status": "completed",
+      "agent": "CEO",
+      "output": {
+        "summary": "CEO approved plan as-is."
+      }
+    },
+    "project-brainstorm": {
+      "status": "completed",
+      "agent": "CTO",
+      "output": {
+        "summary": "7 sequential tasks decomposed from complex project."
+      }
+    },
+    "setup": {
+      "status": "completed",
+      "agent": "CEO",
+      "output": {
+        "summary": "Project directory and project.json created."
+      }
+    },
+    "execute": {
+      "status": "completed",
+      "agent": "Riley (FE)",
+      "output": {
+        "summary": "All 7 tasks completed. Type-check passes. Build succeeds. No runtime errors."
+      }
+    },
+    "review-gate": {
+      "status": "completed",
+      "agent": "CEO",
+      "output": {
+        "summary": "Visual verification via Chrome MCP — game renders, no activity-related errors. Build passes."
+      }
+    },
+    "wrapup": {
+      "status": "completed",
+      "agent": "CEO",
+      "output": {
+        "summary": "All implementation complete. Awaiting CEO completion approval."
+      }
+    },
+    "completion": {
+      "status": "completed"
+    }
+  },
+  "completed": "2026-03-07"
+}

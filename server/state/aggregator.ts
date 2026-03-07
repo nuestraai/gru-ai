@@ -477,8 +477,6 @@ export class Aggregator extends EventEmitter {
   }
 
   private applyPaneMappings(): void {
-    // teamPaneSessionIds was removed with the teams subsystem — use empty set
-    const teamPaneSessionIds = new Set<string>();
     const statusPriority: Record<string, number> = {
       'working': 0, 'waiting-approval': 0, 'waiting-input': 0, 'error': 0,
       'done': 1, 'paused': 1,
@@ -492,6 +490,7 @@ export class Aggregator extends EventEmitter {
     });
 
     const assignedPaneIds = new Set<string>();
+    const teamPaneSessionIds = new Set<string>();
 
     const validItermIds = new Set(
       [...this.paneMapping.byItermSession.values()].map((info) => `iterm:${info.itermId}`)

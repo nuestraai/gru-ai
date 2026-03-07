@@ -1,4 +1,4 @@
-import { TILE_SIZE, MATRIX_EFFECT_DURATION, CharacterState, Direction } from '../pixel-types'
+import { TILE_SIZE, MATRIX_EFFECT_DURATION, CharacterState, Direction, FurnitureActivityType } from '../pixel-types'
 import {
   PALETTE_COUNT,
   HUE_SHIFT_MIN_DEG,
@@ -18,12 +18,16 @@ import {
   COLLISION_FLASH_DURATION_SEC,
   PROXIMITY_RADIUS_TILES,
   MEETING_SUBAGENT_THRESHOLD,
+  INTERACTION_POINTS,
+  getAvailableInteractionPoint,
+  type OccupancyInfo,
 } from '../constants'
-import type { Character, Seat, FurnitureInstance, TileType as TileTypeVal, OfficeLayout, PlacedFurniture, AgentStatus, SessionInfo } from '../pixel-types'
+import type { Character, Seat, FurnitureInstance, TileType as TileTypeVal, OfficeLayout, PlacedFurniture, AgentStatus, SessionInfo, InteractionPoint } from '../pixel-types'
 import { createCharacter, updateCharacter } from './characters'
 import { matrixEffectSeeds } from './matrixEffect'
 import { isWalkable, getWalkableTiles, findPath } from '../layout/tileMap'
-import { chooseDestination, pickWaypoint } from './roomZones'
+import { chooseDestination, pickWaypoint, isAgentAllowedInZone, ROOM_ZONES } from './roomZones'
+import type { RoomZoneId } from './roomZones'
 import {
   createDefaultLayout,
   layoutToTileMap,
@@ -64,6 +68,8 @@ export class OfficeState {
   reviewPairs: Map<number, number> = new Map()
   /** Session-derived subagent counts: parentId → childIds (for meeting detection from props) */
   sessionSubagentsByParent: Map<number, number[]> = new Map()
+  /** Interaction point occupancy: pointId → { count, agentIds } */
+  occupiedPoints: Map<string, OccupancyInfo> = new Map()
   private nextSubagentId = -1
 
   constructor(layout?: OfficeLayout) {
@@ -414,17 +420,23 @@ export class OfficeState {
         if (visited.has(nk)) continue
         visited.add(nk)
         if (isWalkable(nc, nr, this.tileMap, this.blockedTiles)) {
-          // Found a walkable tile — teleport there
-          ch.tileCol = nc
-          ch.tileRow = nr
-          ch.x = nc * TILE_SIZE + TILE_SIZE / 2
-          ch.y = nr * TILE_SIZE + TILE_SIZE / 2
-          ch.path = []
-          ch.moveProgress = 0
-          ch.state = CharacterState.IDLE
-          ch.frame = 0
-          ch.frameTimer = 0
-          return true
+          // Only accept if the tile is connected (has at least one walkable neighbor)
+          // to avoid teleporting to isolated walkable islands
+          const hasNeighbor = dirs.some(d2 =>
+            isWalkable(nc + d2.dc, nr + d2.dr, this.tileMap, this.blockedTiles)
+          )
+          if (hasNeighbor) {
+            ch.tileCol = nc
+            ch.tileRow = nr
+            ch.x = nc * TILE_SIZE + TILE_SIZE / 2
+            ch.y = nr * TILE_SIZE + TILE_SIZE / 2
+            ch.path = []
+            ch.moveProgress = 0
+            ch.state = CharacterState.IDLE
+            ch.frame = 0
+            ch.frameTimer = 0
+            return true
+          }
         }
         // Continue BFS through blocked tiles to find walkable ones
         const rows = this.tileMap.length
@@ -742,7 +754,7 @@ export class OfficeState {
       }
     }
 
-    const result = chooseDestination(ch, status, ch.sessionInfo)
+    const result = chooseDestination(ch, status, ch.sessionInfo, this.seats)
 
     if (!result) {
       // null means stay put or go to desk
@@ -761,6 +773,37 @@ export class OfficeState {
 
     ch.routingZone = result.zoneId
     this.walkToTile(ch.id, result.waypoint.col, result.waypoint.row)
+  }
+
+  /**
+   * Pick a wander destination for an idle character.
+   * 60% chance: walk to an available interaction point (furniture activity).
+   * 40% chance: walk to a random walkable tile.
+   * Returns the destination info, or null if no destination is available.
+   */
+  pickWanderDestination(ch: Character): { col: number; row: number; interactionPoint?: InteractionPoint; isSecondary?: boolean } | null {
+    const roll = Math.random()
+    if (roll < 0.6) {
+      // Try to pick an available interaction point, filtering out restricted zones
+      const result = getAvailableInteractionPoint(this.occupiedPoints)
+      if (result) {
+        const { point, isSecondary } = result
+        // Check if the interaction point is in a restricted zone the agent can't enter
+        const pointZoneId = point.zoneId as RoomZoneId
+        if (pointZoneId in ROOM_ZONES && !isAgentAllowedInZone(ch, pointZoneId, this.seats)) {
+          // Skip this point — fall through to random tile
+        } else {
+          // For secondary position on capacity-2 points, use the secondary tile
+          const col = isSecondary && point.tileX2 != null ? point.tileX2 : point.tileX
+          const row = isSecondary && point.tileY2 != null ? point.tileY2 : point.tileY
+          return { col, row, interactionPoint: point, isSecondary }
+        }
+      }
+    }
+    // 40% random tile, or fallback when no interaction points available
+    if (this.walkableTiles.length === 0) return null
+    const target = this.walkableTiles[Math.floor(Math.random() * this.walkableTiles.length)]
+    return { col: target.col, row: target.row }
   }
 
   /** Set the busy flag on an agent (multiple concurrent sessions) */
@@ -1159,6 +1202,63 @@ export class OfficeState {
         ch.blockedTile = null
       }
 
+      // ── Unified wander destination picking ──────────────────
+      // When character FSM signals it needs a wander destination, officeState
+      // picks one (60% furniture interaction point, 40% random walkable tile).
+      if (ch.needsWanderDestination && !ch.isPlayerControlled) {
+        ch.needsWanderDestination = false
+        const dest = this.pickWanderDestination(ch)
+        if (dest) {
+          const path = this.withOwnSeatUnblocked(ch, () =>
+            findPath(ch.tileCol, ch.tileRow, dest.col, dest.row, this.tileMap, this.blockedTiles)
+          )
+          if (path.length > 0) {
+            ch.path = path
+            ch.moveProgress = 0
+            ch.state = CharacterState.WALK
+            ch.frame = 0
+            ch.frameTimer = 0
+            ch.wanderCount++
+            if (dest.interactionPoint) {
+              // Store the target interaction point so WALK→ACTIVITY transition works
+              ch.activityTarget = dest.interactionPoint.id
+            }
+          }
+        }
+      }
+
+      // ── ACTIVITY state entry: set facing, type, duration, track occupancy ──
+      // characters.ts transitions to ACTIVITY when path exhausts with activityTarget set.
+      // officeState completes the setup using the interaction point data.
+      if (ch.state === CharacterState.ACTIVITY && ch.activityTarget && ch.activityStartTime === 0) {
+        const point = INTERACTION_POINTS.find((p) => p.id === ch.activityTarget)
+        if (point) {
+          // Determine if this agent is the secondary user (at secondary tile)
+          const isSecondary = point.capacity === 2 &&
+            point.tileX2 != null && point.tileY2 != null &&
+            ch.tileCol === point.tileX2 && ch.tileRow === point.tileY2
+          ch.dir = isSecondary && point.facing2 != null ? point.facing2 : point.facing
+          ch.activityType = point.furnitureType
+          ch.activityStartTime = point.activityDurationMin +
+            Math.random() * (point.activityDurationMax - point.activityDurationMin)
+          // Track occupancy in the map
+          const occ = this.occupiedPoints.get(point.id)
+          if (occ) {
+            occ.count++
+            occ.agentIds.push(ch.id)
+          } else {
+            this.occupiedPoints.set(point.id, { count: 1, agentIds: [ch.id] })
+          }
+        } else {
+          // Invalid point — revert to idle
+          ch.state = CharacterState.IDLE
+          ch.activityTarget = null
+          ch.activityType = null
+          ch.activityStartTime = 0
+        }
+      }
+
+
       // Tick bubble timer for waiting bubbles
       if (ch.bubbleType === 'waiting') {
         ch.bubbleTimer -= dt
@@ -1171,6 +1271,50 @@ export class OfficeState {
     // Remove characters that finished despawn
     for (const id of toDelete) {
       this.characters.delete(id)
+    }
+
+    // ── Paired activity exit ──────────────────────────────────
+    // For capacity-2 points: when one agent exits ACTIVITY, force the partner out too.
+    // Collect all currently active point IDs and their agents.
+    const activeByPoint = new Map<string, number[]>()
+    for (const ch of this.characters.values()) {
+      if (ch.state === CharacterState.ACTIVITY && ch.activityTarget) {
+        const arr = activeByPoint.get(ch.activityTarget)
+        if (arr) arr.push(ch.id)
+        else activeByPoint.set(ch.activityTarget, [ch.id])
+      }
+    }
+    // For each capacity-2 point that previously had 2 agents but now has only 1,
+    // force the remaining agent out (partner left).
+    for (const [pointId, prevOcc] of this.occupiedPoints) {
+      if (prevOcc.count < 2) continue // only care about previously-paired
+      const currentAgents = activeByPoint.get(pointId)
+      if (!currentAgents || currentAgents.length < 2) {
+        // Partner left — force remaining agent(s) to exit
+        if (currentAgents) {
+          for (const agentId of currentAgents) {
+            const partner = this.characters.get(agentId)
+            if (partner && partner.state === CharacterState.ACTIVITY) {
+              partner.activityStartTime = 0 // will exit next frame via characters.ts
+            }
+          }
+        }
+      }
+    }
+
+    // Rebuild occupiedPoints from all ACTIVITY-state characters each frame.
+    // This is simpler and more robust than tracking add/remove individually.
+    this.occupiedPoints.clear()
+    for (const ch of this.characters.values()) {
+      if (ch.state === CharacterState.ACTIVITY && ch.activityTarget) {
+        const occ = this.occupiedPoints.get(ch.activityTarget)
+        if (occ) {
+          occ.count++
+          occ.agentIds.push(ch.id)
+        } else {
+          this.occupiedPoints.set(ch.activityTarget, { count: 1, agentIds: [ch.id] })
+        }
+      }
     }
 
     // Compute proximity to player-controlled character
@@ -1303,6 +1447,11 @@ export class OfficeState {
       }
     }
     return result
+  }
+
+  /** Check if a tile is walkable (for click-to-move vs furniture interception) */
+  isTileWalkable(col: number, row: number): boolean {
+    return isWalkable(col, row, this.tileMap, this.blockedTiles)
   }
 
   /** Get character at pixel position (for hit testing). Returns id or null. */

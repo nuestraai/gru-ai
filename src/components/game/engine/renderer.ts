@@ -2,7 +2,7 @@ import { TileType, TILE_SIZE, CharacterState } from '../pixel-types'
 import type { TileType as TileTypeVal, FurnitureInstance, Character, SpriteData, Seat, FloorColor } from '../pixel-types'
 import { getCachedSprite, getOutlineSprite } from '../sprites/spriteCache'
 import { getCharacterSprites, BUBBLE_PERMISSION_SPRITE, BUBBLE_WAITING_SPRITE, BUBBLE_CHAT_SPRITE } from '../sprites/spriteData'
-import { STATUS_ICON_SPRITES } from '../sprites/statusIcons'
+import { STATUS_ICON_SPRITES, ACTIVITY_ICON_SPRITES } from '../sprites/statusIcons'
 import { INTERACTION_SPRITES, INTERACTION_DOT_COLORS } from '../sprites/interactionIcons'
 import { getCharacterSprite } from './characters'
 import { renderMatrixEffect } from './matrixEffect'
@@ -839,18 +839,26 @@ export function renderStatusIcons(
     }
 
     // ── Zoom >= 2: sprite-based status icon ──
-    const frames = STATUS_ICON_SPRITES[status]
+    // Activity-state characters get an activity icon instead of the status icon
+    let frames: SpriteData[] | undefined
+    let frameIndex: number
+
+    if (ch.state === CharacterState.ACTIVITY && ch.activityType) {
+      frames = ACTIVITY_ICON_SPRITES[ch.activityType]
+      frameIndex = frames ? Math.floor(identity.time * 1.5) % frames.length : 0
+    } else {
+      frames = STATUS_ICON_SPRITES[status]
+      // Determine animation frame from identity.time
+      switch (status) {
+        case 'working': frameIndex = Math.floor(identity.time * 3) % 4; break
+        case 'idle':    frameIndex = Math.floor(identity.time * 1) % 2; break
+        case 'error':   frameIndex = Math.floor(identity.time * 6) % 4; break
+        case 'waiting': frameIndex = Math.floor(identity.time * 1) % 2; break
+        default:        frameIndex = 0
+      }
+    }
     if (!frames || frames.length === 0) continue
 
-    // Determine animation frame from identity.time
-    let frameIndex: number
-    switch (status) {
-      case 'working': frameIndex = Math.floor(identity.time * 3) % 4; break
-      case 'idle':    frameIndex = Math.floor(identity.time * 1) % 2; break
-      case 'error':   frameIndex = Math.floor(identity.time * 6) % 4; break
-      case 'waiting': frameIndex = Math.floor(identity.time * 1) % 2; break
-      default:        frameIndex = 0
-    }
     const sprite = frames[frameIndex]
 
     // Cap effective zoom at 6 so icons don't dominate the character sprite

@@ -1,13 +1,25 @@
 // ---------------------------------------------------------------------------
-// Tileset Cache — pre-renders tiles from tileset PNGs
-// for direct TMX GID rendering (bypasses auto-tile + colorize systems)
+// Tileset Cache — lazy tile extraction from tileset PNGs
+// Only extracts tiles that are actually used in the layout (not all 17k+)
 // ---------------------------------------------------------------------------
 
 import { TILE_SIZE } from './pixel-types'
+import { OFFICE_LAYOUT } from './office-layout'
 
 /** Pre-rendered tile canvases indexed by GID (1-based, matching TMX convention) */
 const tileCanvases: Map<number, HTMLCanvasElement> = new Map()
 let loaded = false
+
+/** Source tileset data for lazy extraction */
+interface TilesetSource {
+  canvas: HTMLCanvasElement
+  ctx: CanvasRenderingContext2D
+  firstGid: number
+  cols: number
+  rows: number
+  tileCount: number
+}
+const tilesetSources: TilesetSource[] = []
 
 /** Check if tileset is loaded */
 export function hasTilesetCache(): boolean {
@@ -28,35 +40,57 @@ function loadImage(src: string): Promise<HTMLImageElement> {
   })
 }
 
-/** Extract all tiles from a tileset image and store with GID offset */
-function extractTiles(img: HTMLImageElement, firstGid: number): number {
+/** Register a tileset source for lazy extraction */
+function registerTileset(img: HTMLImageElement, firstGid: number): TilesetSource {
   const cols = Math.floor(img.width / TILE_SIZE)
   const rows = Math.floor(img.height / TILE_SIZE)
 
-  const srcCanvas = document.createElement('canvas')
-  srcCanvas.width = img.width
-  srcCanvas.height = img.height
-  const srcCtx = srcCanvas.getContext('2d')!
-  srcCtx.drawImage(img, 0, 0)
+  const canvas = document.createElement('canvas')
+  canvas.width = img.width
+  canvas.height = img.height
+  const ctx = canvas.getContext('2d')!
+  ctx.drawImage(img, 0, 0)
 
-  let count = 0
-  for (let r = 0; r < rows; r++) {
-    for (let c = 0; c < cols; c++) {
-      const gid = firstGid + r * cols + c
-      const tile = document.createElement('canvas')
-      tile.width = TILE_SIZE
-      tile.height = TILE_SIZE
-      const ctx = tile.getContext('2d')!
-      ctx.drawImage(srcCanvas, c * TILE_SIZE, r * TILE_SIZE, TILE_SIZE, TILE_SIZE, 0, 0, TILE_SIZE, TILE_SIZE)
-      tileCanvases.set(gid, tile)
-      count++
+  const src: TilesetSource = { canvas, ctx, firstGid, cols, rows, tileCount: cols * rows }
+  tilesetSources.push(src)
+  return src
+}
+
+/** Extract a single tile from its source tileset */
+function extractTile(gid: number): HTMLCanvasElement | null {
+  for (const src of tilesetSources) {
+    const localId = gid - src.firstGid
+    if (localId < 0 || localId >= src.tileCount) continue
+
+    const r = Math.floor(localId / src.cols)
+    const c = localId % src.cols
+
+    const tile = document.createElement('canvas')
+    tile.width = TILE_SIZE
+    tile.height = TILE_SIZE
+    const ctx = tile.getContext('2d')!
+    ctx.drawImage(src.canvas, c * TILE_SIZE, r * TILE_SIZE, TILE_SIZE, TILE_SIZE, 0, 0, TILE_SIZE, TILE_SIZE)
+    tileCanvases.set(gid, tile)
+    return tile
+  }
+  return null
+}
+
+/** Collect all unique GIDs used in the layout */
+function collectUsedGids(): Set<number> {
+  const used = new Set<number>()
+  const layers = OFFICE_LAYOUT.gidLayers
+  if (!layers) return used
+  for (const layer of layers) {
+    for (const gid of layer) {
+      if (gid !== 0) used.add(gid)
     }
   }
-  return count
+  return used
 }
 
 /**
- * Load all tileset PNGs. GIDs match the TMX convention used by Tiled.
+ * Load all tileset PNGs and pre-extract only the tiles used in the layout.
  *
  * Tileset GID ranges:
  *   room-builder.png  : firstgid=1,    GIDs 1-224      (16x14 = 224 tiles)
@@ -72,14 +106,18 @@ export async function loadTilesetCache(): Promise<void> {
       loadImage('/assets/office/Interiors.png'),
     ])
 
-    const rbCount = extractTiles(rbImg, 1)         // room-builder: GIDs 1-224
-    const fnCount = extractTiles(furnImg, 225)      // furniture: GIDs 225-1072
-    const intCount = extractTiles(intImg, 1073)     // Interiors: GIDs 1073-18096
+    registerTileset(rbImg, 1)       // room-builder: GIDs 1-224
+    registerTileset(furnImg, 225)    // furniture: GIDs 225-1072
+    registerTileset(intImg, 1073)    // Interiors: GIDs 1073-18096
+
+    // Pre-extract only tiles used in the layout
+    const usedGids = collectUsedGids()
+    for (const gid of usedGids) {
+      extractTile(gid)
+    }
 
     loaded = true
-    console.log(
-      `✓ Tileset cache: ${rbCount} room-builder + ${fnCount} furniture + ${intCount} Interiors = ${tileCanvases.size} tiles`
-    )
+    console.log(`✓ Tileset cache: ${tileCanvases.size} tiles extracted (${usedGids.size} unique GIDs from layout)`)
   } catch (e) {
     console.warn('Tileset cache not available. Using fallback rendering.', e)
   }
@@ -90,8 +128,12 @@ const scaledCache = new Map<number, Map<number, HTMLCanvasElement>>()
 
 /** Get a tile canvas scaled to the current zoom level */
 export function getScaledTileCanvas(gid: number, zoom: number): HTMLCanvasElement | null {
-  const base = tileCanvases.get(gid)
-  if (!base) return null
+  let base = tileCanvases.get(gid)
+  if (!base) {
+    // Lazy extract if not pre-cached
+    base = extractTile(gid) ?? undefined
+    if (!base) return null
+  }
 
   if (zoom === 1) return base
 

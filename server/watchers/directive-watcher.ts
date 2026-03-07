@@ -149,7 +149,7 @@ export class DirectiveWatcher {
 
   constructor(aggregator: Aggregator, _claudeHome: string) {
     this.aggregator = aggregator;
-    this.directivesDir = resolveDirectivesDir();
+    this.directivesDir = path.join(process.cwd(), '.context', 'directives');
   }
 
   start(): void {
@@ -256,7 +256,7 @@ export class DirectiveWatcher {
    */
   readActiveDirectives(): DirectiveState[] {
     const all = this.readAllDirectiveStates();
-    const activeStatuses = new Set(['in_progress', 'awaiting_completion']);
+    const activeStatuses = new Set(['in_progress', 'awaiting_completion', 'reopened']);
     return all.filter((d) => activeStatuses.has(d.status));
   }
 
@@ -515,7 +515,7 @@ export class DirectiveWatcher {
   private readAndUpdate(): void {
     // Single pass: read all directives once, derive active + best from the result
     const history = this.readAllDirectiveStates();
-    const activeStatuses = new Set(['in_progress', 'awaiting_completion']);
+    const activeStatuses = new Set(['in_progress', 'awaiting_completion', 'reopened']);
     const activeDirectives = history.filter((d) => activeStatuses.has(d.status));
 
     // Pick the most recently updated active directive as the singular state (backward compat)

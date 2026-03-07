@@ -1,4 +1,4 @@
-import { CharacterState, Direction, TILE_SIZE } from '../pixel-types'
+import { CharacterState, Direction, FurnitureActivityType, TILE_SIZE } from '../pixel-types'
 import type { Character, Seat, SpriteData, TileType as TileTypeVal } from '../pixel-types'
 import type { CharacterSprites } from '../sprites/spriteData'
 import { findPath, isWalkable } from '../layout/tileMap'
@@ -111,6 +111,10 @@ export function createCharacter(
     personalityThreshold: 8 + Math.random() * 7,
     isNearPlayer: false,
     blockedTile: null,
+    needsWanderDestination: false,
+    activityTarget: null,
+    activityStartTime: 0,
+    activityType: null,
   }
 }
 
@@ -378,18 +382,10 @@ export function updateCharacter(
             }
           }
         }
-        if (walkableTiles.length > 0) {
-          const target = walkableTiles[Math.floor(Math.random() * walkableTiles.length)]
-          const path = findPath(ch.tileCol, ch.tileRow, target.col, target.row, tileMap, blockedTiles)
-          if (path.length > 0) {
-            ch.path = path
-            ch.moveProgress = 0
-            ch.state = CharacterState.WALK
-            ch.frame = 0
-            ch.frameTimer = 0
-            ch.wanderCount++
-          }
-        }
+        // Signal to officeState that this character needs a wander destination.
+        // officeState.update() will pick a destination (furniture or random tile)
+        // and set the path + transition to WALK.
+        ch.needsWanderDestination = true
         ch.wanderTimer = randomRange(WANDER_PAUSE_MIN_SEC, WANDER_PAUSE_MAX_SEC)
       }
       break
@@ -424,6 +420,12 @@ export function updateCharacter(
               ch.state = CharacterState.IDLE
             }
           }
+        } else if (ch.activityTarget) {
+          // Arrived at an interaction point — transition to ACTIVITY.
+          // officeState will handle occupiedPoints tracking via its update loop.
+          ch.state = CharacterState.ACTIVITY
+          ch.frame = 0
+          ch.frameTimer = 0
         } else {
           // Check if arrived at assigned seat
           if (ch.seatId) {
@@ -497,7 +499,53 @@ export function updateCharacter(
       }
       break
     }
+
+    case CharacterState.ACTIVITY: {
+      // Reset personality state on entry
+      if (ch.personalityFrame >= 0) resetPersonality(ch)
+
+      // If agent became active (got work), immediately exit activity and go to desk
+      if (ch.isActive) {
+        exitActivity(ch)
+        break
+      }
+
+      // Advance animation for activity types that animate
+      const actType = ch.activityType
+      if (
+        actType === FurnitureActivityType.WATCHING_TV ||
+        actType === FurnitureActivityType.ARCADE ||
+        actType === FurnitureActivityType.READING
+      ) {
+        // 2-frame animation using typing/reading frame timing
+        if (ch.frameTimer >= TYPE_FRAME_DURATION_SEC) {
+          ch.frameTimer -= TYPE_FRAME_DURATION_SEC
+          ch.frame = (ch.frame + 1) % 2
+        }
+      }
+      // Other activity types hold a static idle pose — no frame cycling needed
+
+      // Count down activity duration
+      ch.activityStartTime -= dt
+      if (ch.activityStartTime <= 0) {
+        exitActivity(ch)
+      }
+      break
+    }
   }
+}
+
+/** Exit ACTIVITY state — reset to IDLE with fresh wander timer */
+function exitActivity(ch: Character): void {
+  ch.state = CharacterState.IDLE
+  ch.frame = 0
+  ch.frameTimer = 0
+  ch.wanderTimer = randomRange(WANDER_PAUSE_MIN_SEC, WANDER_PAUSE_MAX_SEC)
+  ch.wanderCount = 0
+  ch.wanderLimit = randomInt(WANDER_MOVES_BEFORE_REST_MIN, WANDER_MOVES_BEFORE_REST_MAX)
+  ch.activityTarget = null
+  ch.activityType = null
+  ch.activityStartTime = 0
 }
 
 /** Get the correct sprite frame for a character's current state and direction */
@@ -510,6 +558,17 @@ export function getCharacterSprite(ch: Character, sprites: CharacterSprites): Sp
       return sprites.typing[ch.dir][ch.frame % 2]
     case CharacterState.WALK:
       return sprites.walk[ch.dir][ch.frame % 4]
+    case CharacterState.ACTIVITY: {
+      const actType = ch.activityType
+      if (actType === FurnitureActivityType.WATCHING_TV || actType === FurnitureActivityType.ARCADE) {
+        return sprites.typing[ch.dir][ch.frame % 2]
+      }
+      if (actType === FurnitureActivityType.READING) {
+        return sprites.reading[ch.dir][ch.frame % 2]
+      }
+      // LOUNGING, EXERCISING, PLAYING_POOL, PLAYING_PINGPONG, VENDING — static idle pose
+      return sprites.walk[ch.dir][1]
+    }
     case CharacterState.IDLE: {
       // Check for personality idle animation override
       if (ch.personalityFrame >= 0) {
