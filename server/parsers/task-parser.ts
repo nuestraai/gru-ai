@@ -36,8 +36,8 @@ function parseRawTask(raw: RawTask): TeamTask {
   };
 }
 
-export function parseTeamTasks(claudeHome: string, teamName: string): TeamTask[] {
-  const tasksDir = path.join(claudeHome, 'tasks', teamName);
+function parseTasksDir(claudeHome: string, dirName: string): TeamTask[] {
+  const tasksDir = path.join(claudeHome, 'tasks', dirName);
 
   try {
     if (!fs.existsSync(tasksDir)) return [];
@@ -65,25 +65,13 @@ export function parseTeamTasks(claudeHome: string, teamName: string): TeamTask[]
   }
 }
 
-export function parseAllTeamTasks(claudeHome: string, teamNames: string[]): Record<string, TeamTask[]> {
-  const result: Record<string, TeamTask[]> = {};
-
-  for (const teamName of teamNames) {
-    result[teamName] = parseTeamTasks(claudeHome, teamName);
-  }
-
-  return result;
-}
-
 /**
- * Parse all task directories, splitting into team-named and UUID-named (session) dirs.
+ * Parse all task directories, returning UUID-named (session) dirs only.
  */
-export function parseAllTasks(claudeHome: string, knownTeamNames: Set<string>): {
-  byTeam: Record<string, TeamTask[]>;
+export function parseAllTasks(claudeHome: string, _knownTeamNames: Set<string>): {
   bySession: Record<string, TeamTask[]>;
 } {
   const tasksRoot = path.join(claudeHome, 'tasks');
-  const byTeam: Record<string, TeamTask[]> = {};
   const bySession: Record<string, TeamTask[]> = {};
 
   let dirs: string[];
@@ -96,22 +84,17 @@ export function parseAllTasks(claudeHome: string, knownTeamNames: Set<string>): 
       }
     });
   } catch {
-    return { byTeam, bySession };
+    return { bySession };
   }
 
   for (const dirName of dirs) {
-    const tasks = parseTeamTasks(claudeHome, dirName);
+    if (!UUID_DIR_REGEX.test(dirName)) continue;
+
+    const tasks = parseTasksDir(claudeHome, dirName);
     if (tasks.length === 0) continue;
 
-    if (knownTeamNames.has(dirName)) {
-      byTeam[dirName] = tasks;
-    } else if (UUID_DIR_REGEX.test(dirName)) {
-      bySession[dirName] = tasks;
-    } else {
-      // Unknown non-UUID dir — include in byTeam as a fallback
-      byTeam[dirName] = tasks;
-    }
+    bySession[dirName] = tasks;
   }
 
-  return { byTeam, bySession };
+  return { bySession };
 }

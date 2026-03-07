@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { DashboardState, DirectiveState, Session, HookEvent, Team, TeamTask, SessionActivity, ProjectGroup, FullWorkState } from './types';
+import type { DashboardState, DirectiveState, Session, HookEvent, SessionActivity, ProjectGroup, FullWorkState } from './types';
 
 interface DashboardStore extends DashboardState {
   connected: boolean;
@@ -7,8 +7,6 @@ interface DashboardStore extends DashboardState {
   setFullState: (state: DashboardState) => void;
   updateSessions: (sessions: Session[]) => void;
   updateProjects: (projects: ProjectGroup[]) => void;
-  updateTeams: (teams: Team[]) => void;
-  updateTasks: (tasksBySession: Record<string, TeamTask[]>) => void;
   addEvent: (event: HookEvent) => void;
   updateEvents: (events: HookEvent[]) => void;
   setConnected: (connected: boolean) => void;
@@ -18,7 +16,6 @@ interface DashboardStore extends DashboardState {
 }
 
 export const useDashboardStore = create<DashboardStore>((set) => ({
-  teams: [],
   sessions: [],
   projects: [],
   tasksBySession: {},
@@ -33,7 +30,6 @@ export const useDashboardStore = create<DashboardStore>((set) => ({
 
   setFullState: (state) =>
     set({
-      teams: state.teams ?? [],
       sessions: state.sessions ?? [],
       projects: state.projects ?? [],
       tasksBySession: state.tasksBySession ?? {},
@@ -49,15 +45,6 @@ export const useDashboardStore = create<DashboardStore>((set) => ({
 
   updateProjects: (projects) =>
     set({ projects, lastUpdated: new Date().toISOString() }),
-
-  updateTeams: (teams) =>
-    set({ teams, lastUpdated: new Date().toISOString() }),
-
-  updateTasks: (tasksBySession) =>
-    set({
-      tasksBySession,
-      lastUpdated: new Date().toISOString(),
-    }),
 
   addEvent: (event) =>
     set((state) => ({

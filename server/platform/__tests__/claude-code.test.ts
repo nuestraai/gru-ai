@@ -66,8 +66,6 @@ function stubAggregator(): AggregatorHandle {
   return {
     refreshSessions() { /* no-op */ },
     updateSessionFromFileState() { /* no-op */ },
-    refreshTeams() { /* no-op */ },
-    refreshTasks() { /* no-op */ },
   };
 }
 

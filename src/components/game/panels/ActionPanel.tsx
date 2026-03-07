@@ -918,7 +918,7 @@ function DirectiveHistoryList({
   return (
     <div className="space-y-1.5">
       <SectionHeader icon={<History className="h-3 w-3" />}>
-        Recent
+        Completed
       </SectionHeader>
 
       {recentDirectives.map((d) => (

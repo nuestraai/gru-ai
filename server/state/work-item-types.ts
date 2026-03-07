@@ -2,8 +2,8 @@
  * Structured work item types for the conductor state system.
  *
  * These types replace free-form markdown as the queryable source of truth.
- * The indexer (scripts/index-state.ts) reads .context/ and produces JSON
- * arrays of these records. The dashboard watches and serves them.
+ * The aggregator reads .context/ and produces typed records in memory.
+ * The dashboard watches and serves them via WebSocket.
  */
 
 import { z } from 'zod';

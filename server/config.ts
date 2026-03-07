@@ -232,7 +232,3 @@ export function loadConfig(): ConductorConfig {
   }
 }
 
-export function saveConfig(config: ConductorConfig): void {
-  fs.mkdirSync(CONFIG_DIR, { recursive: true });
-  fs.writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 2), 'utf-8');
-}

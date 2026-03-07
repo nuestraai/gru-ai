@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { getProjectPath, directivesPath, readJsonSafe } from './paths.js';
+import { getProjectPath, readJsonSafe } from './paths.js';
 
 interface BacklogItem {
   id: string;

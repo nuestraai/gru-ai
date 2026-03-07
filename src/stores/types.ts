@@ -1,26 +1,3 @@
-export interface Team {
-  name: string;
-  description: string;
-  members: TeamMember[];
-  createdAt: string;
-  leadAgentId: string;
-  leadSessionId: string;
-  stale: boolean;
-}
-
-export interface TeamMember {
-  name: string;
-  agentId: string;
-  agentType: string;
-  model: string;
-  tmuxPaneId: string;
-  cwd: string;
-  color: string;
-  isActive: boolean;
-  backendType: string;
-  joinedAt: string;
-}
-
 export interface TeamTask {
   id: string;
   subject: string;
@@ -153,7 +130,6 @@ export interface DirectiveState {
 }
 
 export interface DashboardState {
-  teams: Team[];
   sessions: Session[];
   projects: ProjectGroup[];
   tasksBySession: Record<string, TeamTask[]>;
@@ -169,8 +145,6 @@ export type WsMessageType =
   | 'full_state'
   | 'sessions_updated'
   | 'projects_updated'
-  | 'teams_updated'
-  | 'tasks_updated'
   | 'event_added'
   | 'events_updated'
   | 'session_activities_updated'

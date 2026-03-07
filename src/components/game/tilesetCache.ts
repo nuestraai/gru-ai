@@ -1,5 +1,5 @@
 // ---------------------------------------------------------------------------
-// Tileset Cache — pre-renders tiles from room-builder.png + furniture.png
+// Tileset Cache — pre-renders tiles from tileset PNGs
 // for direct TMX GID rendering (bypasses auto-tile + colorize systems)
 // ---------------------------------------------------------------------------
 
@@ -61,42 +61,27 @@ function extractTiles(img: HTMLImageElement, firstGid: number): number {
  * Tileset GID ranges:
  *   room-builder.png  : firstgid=1,    GIDs 1-224      (16x14 = 224 tiles)
  *   furniture.png     : firstgid=225,  GIDs 225-1072   (16x53 = 848 tiles)
- *   generic.png       : firstgid=1073, GIDs 1073-2320  (16x78 = 1248 tiles)
- *   livingroom.png    : firstgid=2321, GIDs 2321-3040  (16x45 = 720 tiles)
- *   kitchen.png       : firstgid=3041, GIDs 3041-3824  (16x49 = 784 tiles)
- *   conference.png    : firstgid=3825, GIDs 3825-4016  (16x12 = 192 tiles)
- *   classroom.png     : firstgid=4017, GIDs 4017-4560  (16x34 = 544 tiles)
- *   music-sport.png   : firstgid=4561, GIDs 4561-5328  (16x48 = 768 tiles)
+ *   Interiors.png     : firstgid=1073, GIDs 1073-18096 (16x1064 = 17024 tiles)
  */
 export async function loadTilesetCache(): Promise<void> {
   if (loaded) return
   try {
-    const [rbImg, furnImg, genImg, livImg, kitImg, confImg, classImg, musicImg] = await Promise.all([
+    const [rbImg, furnImg, intImg] = await Promise.all([
       loadImage('/assets/office/room-builder.png'),
       loadImage('/assets/office/furniture.png'),
-      loadImage('/assets/office/generic.png'),
-      loadImage('/assets/office/livingroom.png'),
-      loadImage('/assets/office/kitchen.png'),
-      loadImage('/assets/office/conference.png'),
-      loadImage('/assets/office/classroom.png'),
-      loadImage('/assets/office/music-sport.png'),
+      loadImage('/assets/office/Interiors.png'),
     ])
 
     const rbCount = extractTiles(rbImg, 1)         // room-builder: GIDs 1-224
     const fnCount = extractTiles(furnImg, 225)      // furniture: GIDs 225-1072
-    const genCount = extractTiles(genImg, 1073)     // generic: GIDs 1073-2320
-    const livCount = extractTiles(livImg, 2321)     // livingroom: GIDs 2321-3040
-    const kitCount = extractTiles(kitImg, 3041)     // kitchen: GIDs 3041-3824
-    const confCount = extractTiles(confImg, 3825)   // conference: GIDs 3825-4016
-    const classCount = extractTiles(classImg, 4017) // classroom: GIDs 4017-4560
-    const musicCount = extractTiles(musicImg, 4561) // music-sport: GIDs 4561-5328
+    const intCount = extractTiles(intImg, 1073)     // Interiors: GIDs 1073-18096
 
     loaded = true
     console.log(
-      `✓ Tileset cache: ${rbCount} room-builder + ${fnCount} furniture + ${genCount} generic + ${livCount} livingroom + ${kitCount} kitchen + ${confCount} conference + ${classCount} classroom + ${musicCount} music-sport = ${tileCanvases.size} tiles`
+      `✓ Tileset cache: ${rbCount} room-builder + ${fnCount} furniture + ${intCount} Interiors = ${tileCanvases.size} tiles`
     )
   } catch (e) {
-    console.warn('Tileset cache not available. Using fallback rendering. Run scripts/setup-assets.sh to install premium assets.')
+    console.warn('Tileset cache not available. Using fallback rendering.', e)
   }
 }
 

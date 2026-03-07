@@ -80,7 +80,7 @@ export class OfficeState {
     const seatTileKeys = getSeatTiles(this.seats)
     if (this.layout.gidLayers && this.layout.gidLayers.length > 0) {
       // Layers 1 (Furniture) and 2 (Tables) block movement; seats excluded
-      this.blockedTiles = getBlockedTilesFromGids(this.layout.gidLayers, this.layout.cols, [1, 2], seatTileKeys)
+      this.blockedTiles = getBlockedTilesFromGids(this.layout.gidLayers, this.layout.cols, [1, 2, 3], seatTileKeys)
     } else {
       this.blockedTiles = getBlockedTiles(this.layout.furniture, seatTileKeys)
     }
@@ -103,7 +103,7 @@ export class OfficeState {
 
     const seatTileKeys = getSeatTiles(this.seats)
     if (layout.gidLayers && layout.gidLayers.length > 0) {
-      this.blockedTiles = getBlockedTilesFromGids(layout.gidLayers, layout.cols, [1, 2], seatTileKeys)
+      this.blockedTiles = getBlockedTilesFromGids(layout.gidLayers, layout.cols, [1, 2, 3], seatTileKeys)
     } else {
       this.blockedTiles = getBlockedTiles(layout.furniture, seatTileKeys)
     }
@@ -1246,12 +1246,13 @@ export class OfficeState {
     const WALL_GIDS = new Set([12, 24, 26, 28, 40, 42, 56, 57, 58, 146, 162, 177, 178, 185, 193, 194, 201])
     if (WALL_GIDS.has(floorGid)) return { type: 'wall', col, row }
 
-    // Check furniture/tables/laptop layers (indices 1-3) for non-zero GIDs
+    // Check furniture/chair/tables/laptop layers (indices 1-4) for non-zero GIDs
     const furnitureGid = gidLayers[1]?.[idx] ?? 0
-    const tablesGid = gidLayers[2]?.[idx] ?? 0
-    const laptopGid = gidLayers[3]?.[idx] ?? 0
+    const chairGid = gidLayers[2]?.[idx] ?? 0
+    const tablesGid = gidLayers[3]?.[idx] ?? 0
+    const laptopGid = gidLayers[4]?.[idx] ?? 0
 
-    const hasFurniture = furnitureGid !== 0 || tablesGid !== 0 || laptopGid !== 0
+    const hasFurniture = furnitureGid !== 0 || chairGid !== 0 || tablesGid !== 0 || laptopGid !== 0
 
     if (!hasFurniture) return null
 

@@ -28,7 +28,6 @@ import {
 } from '../parsers/session-state.js';
 import { discoverProjects, loadConfig } from '../config.js';
 import { SessionWatcher } from '../watchers/session-watcher.js';
-import { ClaudeWatcher } from '../watchers/claude-watcher.js';
 
 export class ClaudeCodeAdapter implements PlatformAdapter {
   /** Instance-level session file state map (replaces module-level singleton). */
@@ -103,8 +102,8 @@ export class ClaudeCodeAdapter implements PlatformAdapter {
     return new SessionWatcher(aggregator, this.claudeHome, projectFilter, this);
   }
 
-  createMetadataWatcher(aggregator: AggregatorHandle): MetadataWatcherInterface | null {
-    return new ClaudeWatcher(aggregator, this.claudeHome);
+  createMetadataWatcher(_aggregator: AggregatorHandle): MetadataWatcherInterface | null {
+    return null;
   }
 
   // -------------------------------------------------------------------------

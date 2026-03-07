@@ -1,9 +1,9 @@
 {
   "id": "codebase-cleanup",
   "title": "Codebase Cleanup",
-  "status": "awaiting_completion",
+  "status": "completed",
   "created": "2026-03-08",
-  "completed": null,
+  "completed": "2026-03-08",
   "weight": "heavyweight",
   "produced_features": [],
   "report": null,
@@ -87,9 +87,9 @@
       "output": { "summary": "Cleanup complete. Follow-ups flagged: MCP directive.ts bug, tasksByTeam dead consumer path, MCP backlog.ts stale path." }
     },
     "completion": {
-      "status": "active",
+      "status": "completed",
       "agent": "CEO",
-      "output": { "summary": "Awaiting CEO approval to complete." }
+      "output": { "summary": "CEO approved completion. Committed as 7d0191c." }
     }
   },
 

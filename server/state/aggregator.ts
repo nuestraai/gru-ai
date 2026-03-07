@@ -3,8 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import { parseAllTeams } from '../parsers/team-parser.js';
-import { parseAllTeamTasks, parseAllTasks } from '../parsers/task-parser.js';
+import { parseAllTasks } from '../parsers/task-parser.js';
 import {
   initializeAllFileStates as initializeAllFileStatesRaw,
   discoverSessionFiles as discoverSessionFilesRaw,
@@ -163,10 +162,8 @@ export class Aggregator extends EventEmitter {
     this.adapter = adapter ?? null;
     this.projectFilter = projectDirFromPath(process.cwd());
     this.state = {
-      teams: [],
       sessions: [],
       projects: [],
-      tasksByTeam: {},
       tasksBySession: {},
       events: [],
       sessionActivities: {},
@@ -191,9 +188,7 @@ export class Aggregator extends EventEmitter {
   initialize(): void {
     console.log('[aggregator] Initializing state from filesystem...');
 
-    const teams = parseAllTeams(this.config.claudeHome);
-    const teamNameSet = new Set(teams.map((t) => t.name));
-    const { byTeam: tasksByTeam, bySession: tasksBySession } = parseAllTasks(this.config.claudeHome, teamNameSet);
+    const { bySession: tasksBySession } = parseAllTasks(this.config.claudeHome, new Set());
     const events = getRecentEvents(200);
 
     // Bootstrap all session file states (incremental parser) — scoped to this project
@@ -205,22 +200,11 @@ export class Aggregator extends EventEmitter {
     // Build sessions from file states + hook events
     const { sessions, projects } = this.buildSessionsFromFileStates(events);
 
-    for (const team of teams) {
-      if (team.leadSessionId) {
-        const session = sessions.find((s) => s.id === team.leadSessionId);
-        if (session) {
-          session.feature = `lead:${team.name}`;
-        }
-      }
-    }
-
     const sessionActivities = this.buildSessionActivities();
 
     this.state = {
-      teams,
       sessions,
       projects,
-      tasksByTeam,
       tasksBySession,
       events,
       sessionActivities,
@@ -230,10 +214,9 @@ export class Aggregator extends EventEmitter {
       lastUpdated: new Date().toISOString(),
     };
 
-    const totalTasks = Object.values(tasksByTeam).reduce((sum, t) => sum + t.length, 0);
     const activeSessions = sessions.filter((s) => s.status === 'working').length;
     console.log(
-      `[aggregator] Initialized: ${teams.length} teams, ${totalTasks} tasks, ${events.length} events, ${sessions.length} sessions (${activeSessions} active), ${projects.length} projects`
+      `[aggregator] Initialized: ${events.length} events, ${sessions.length} sessions (${activeSessions} active), ${projects.length} projects`
     );
 
     this.refreshProcessDiscovery();
@@ -243,29 +226,7 @@ export class Aggregator extends EventEmitter {
     this.staleTimer = setInterval(() => this.detectStaleness(), 60_000);
   }
 
-  refreshTeams(): void {
-    this.state.teams = parseAllTeams(this.config.claudeHome);
-    this.state.lastUpdated = new Date().toISOString();
-    this.emitChange('teams_updated');
-  }
-
-  refreshTasks(teamName?: string): void {
-    if (teamName) {
-      const tasks = parseAllTeamTasks(this.config.claudeHome, [teamName]);
-      this.state.tasksByTeam[teamName] = tasks[teamName] ?? [];
-    } else {
-      const teamNameSet = new Set(this.state.teams.map((t) => t.name));
-      const { byTeam, bySession } = parseAllTasks(this.config.claudeHome, teamNameSet);
-      this.state.tasksByTeam = byTeam;
-      this.state.tasksBySession = bySession;
-    }
-    this.state.lastUpdated = new Date().toISOString();
-    this.emitChange('tasks_updated');
-  }
-
   refreshAll(): void {
-    this.refreshTeams();
-    this.refreshTasks();
     this.refreshSessions();
   }
 
@@ -350,15 +311,6 @@ export class Aggregator extends EventEmitter {
     this.discoveredFiles = newDiscovered;
 
     const { sessions, projects } = this.buildSessionsFromFileStates(this.state.events);
-
-    for (const team of this.state.teams) {
-      if (team.leadSessionId) {
-        const session = sessions.find((s) => s.id === team.leadSessionId);
-        if (session) {
-          session.feature = `lead:${team.name}`;
-        }
-      }
-    }
 
     // Carry over paneIds from previous sessions to preserve stable assignments
     const prevPaneIds = new Map<string, string>();
@@ -524,20 +476,6 @@ export class Aggregator extends EventEmitter {
   }
 
   private applyPaneMappings(): void {
-    const teamPaneSessionIds = new Set<string>();
-    for (const team of this.state.teams) {
-      for (const member of team.members) {
-        if (member.agentId && member.tmuxPaneId) {
-          teamPaneSessionIds.add(member.agentId);
-        }
-      }
-    }
-
-    const sessionToTasksDir = new Map<string, string>();
-    for (const [dirName] of Object.entries(this.state.tasksBySession)) {
-      sessionToTasksDir.set(dirName, dirName);
-    }
-
     const statusPriority: Record<string, number> = {
       'working': 0, 'waiting-approval': 0, 'waiting-input': 0, 'error': 0,
       'done': 1, 'paused': 1,
@@ -962,56 +900,6 @@ export class Aggregator extends EventEmitter {
   detectStaleness(): void {
     // Re-derive session statuses based on current time tiers
     this.rederiveSessionStatuses();
-
-    this.getLivePaneIds().then((livePanes) => {
-      let changed = false;
-
-      for (const team of this.state.teams) {
-        const allInactive = team.members.length > 0 && team.members.every((m) => !m.isActive);
-
-        const configPath = path.join(this.config.claudeHome, 'teams', team.name, 'config.json');
-        let configStale = false;
-        try {
-          const stat = fs.statSync(configPath);
-          configStale = Date.now() - stat.mtimeMs > 2 * 60 * 60 * 1000;
-        } catch {
-          configStale = true;
-        }
-
-        const memberSessionIds = new Set<string>();
-        if (team.leadSessionId) {
-          memberSessionIds.add(team.leadSessionId);
-          const leadSession = this.state.sessions.find((s) => s.id === team.leadSessionId);
-          if (leadSession) {
-            for (const subId of leadSession.subagentIds) {
-              memberSessionIds.add(subId);
-            }
-          }
-        }
-
-        const twoHoursAgo = Date.now() - 2 * 60 * 60 * 1000;
-        const hasRecentEvents = this.state.events.some(
-          (e) => memberSessionIds.has(e.sessionId) && new Date(e.timestamp).getTime() > twoHoursAgo
-        );
-
-        const allPanesGone = team.members.length > 0 && team.members.every(
-          (m) => !m.tmuxPaneId || !livePanes.has(m.tmuxPaneId)
-        );
-
-        const stale = (allInactive || allPanesGone) && configStale && !hasRecentEvents;
-
-        if (team.stale !== stale) {
-          team.stale = stale;
-          changed = true;
-        }
-      }
-
-      if (changed) {
-        this.emitChange('teams_updated');
-      }
-    }).catch((err) => {
-      console.error('[aggregator] Error in stale detection:', err);
-    });
   }
 
   destroy(): void {

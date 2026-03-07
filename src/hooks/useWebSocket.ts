@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { useDashboardStore } from '@/stores/dashboard-store';
-import type { WsMessage, DashboardState, DirectiveState, Session, HookEvent, Team, TeamTask, SessionActivity, ProjectGroup, FullWorkState } from '@/stores/types';
+import type { WsMessage, DashboardState, DirectiveState, Session, HookEvent, SessionActivity, ProjectGroup, FullWorkState } from '@/stores/types';
 import { API_BASE, WS_URL } from '@/lib/api';
 const MAX_RECONNECT_DELAY = 30000;
 
@@ -13,8 +13,6 @@ export function useWebSocket() {
     setFullState,
     updateSessions,
     updateProjects,
-    updateTeams,
-    updateTasks,
     addEvent,
     updateEvents,
     setConnected,
@@ -60,14 +58,6 @@ export function useWebSocket() {
               break;
             case 'projects_updated':
               updateProjects(payload.projects as ProjectGroup[]);
-              break;
-            case 'teams_updated':
-              updateTeams(payload.teams as Team[]);
-              break;
-            case 'tasks_updated':
-              updateTasks(
-                payload.tasksBySession as Record<string, TeamTask[]>
-              );
               break;
             case 'event_added': {
               const events = payload.events as HookEvent[];
@@ -132,5 +122,5 @@ export function useWebSocket() {
         wsRef.current = null;
       }
     };
-  }, [setFullState, updateSessions, updateProjects, updateTeams, updateTasks, addEvent, updateEvents, setConnected, updateSessionActivities, updateDirectiveState, setWorkState]);
+  }, [setFullState, updateSessions, updateProjects, addEvent, updateEvents, setConnected, updateSessionActivities, updateDirectiveState, setWorkState]);
 }

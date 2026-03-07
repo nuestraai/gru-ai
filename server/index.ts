@@ -46,9 +46,6 @@ notifier.on('notification_fired', (payload: { sessionId: string; suppressBrowser
 });
 
 // Start file watchers (created via adapter factory methods)
-const claudeWatcher = adapter.createMetadataWatcher(aggregator)!;
-claudeWatcher.start();
-
 const sessionWatcher = adapter.createSessionWatcher(aggregator, aggregator.projectFilter);
 sessionWatcher.start();
 
@@ -191,12 +188,6 @@ aggregator.on('change', (type: WsMessageType) => {
     case 'projects_updated':
       payload = { projects: state.projects };
       break;
-    case 'teams_updated':
-      payload = { teams: state.teams };
-      break;
-    case 'tasks_updated':
-      payload = { tasksByTeam: state.tasksByTeam, tasksBySession: state.tasksBySession };
-      break;
     case 'event_added':
       payload = { events: state.events.slice(0, 1) }; // Just the newest event
       break;
@@ -278,7 +269,6 @@ function handleHealth(res: http.ServerResponse): void {
     uptime: process.uptime(),
     startedAt: serverStartTime,
     watchers: {
-      claude: claudeWatcher.ready,
       session: sessionWatcher.ready,
       directive: directiveWatcher.ready,
       state: stateWatcher.ready,
@@ -591,7 +581,6 @@ function shutdown(): void {
   notifier.stop();
 
   // Close watchers
-  claudeWatcher.stop().catch(console.error);
   sessionWatcher.stop().catch(console.error);
   directiveWatcher.stop().catch(console.error);
   stateWatcher.stop().catch(console.error);

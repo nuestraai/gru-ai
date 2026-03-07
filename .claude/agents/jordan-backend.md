@@ -33,7 +33,7 @@ Express, no Hono routing -- just a manual URL dispatch in `server/index.ts`.
 - **Session parsing:** `server/parsers/session-state.ts` -- incremental JSONL parser with state machine (states: `working`, `needs_input`, `done`)
 - **Session scanner:** `server/parsers/session-scanner.ts` -- prompt extraction, agent identity detection from `KNOWN_AGENTS` map
 - **Process discovery:** `server/parsers/process-discovery.ts` -- maps tmux/iTerm2 panes to sessions
-- **Watchers:** `server/watchers/` -- file system watchers using chokidar: `claude-watcher.ts` (JSONL changes), `session-watcher.ts` (new sessions), `directive-watcher.ts`, `goal-watcher.ts`, `state-watcher.ts`, `context-watcher.ts`
+- **Watchers:** `server/watchers/` -- file system watchers using chokidar: `claude-watcher.ts` (JSONL changes), `session-watcher.ts` (new sessions), `directive-watcher.ts`, `state-watcher.ts`
 - **Types:** `server/types.ts` -- all server-side type definitions (Session, Team, HookEvent, DashboardState, WsMessage, etc.)
 - **Work state types:** `server/state/work-item-types.ts` -- GoalRecord, FeatureRecord, BacklogRecord, etc.
 - **Config:** `server/config.ts` -- loads `~/.conductor/config.json` with project paths and server port

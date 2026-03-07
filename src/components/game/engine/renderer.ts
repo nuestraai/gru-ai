@@ -111,9 +111,9 @@ function getGoldOutlineSprite(sprite: SpriteData): SpriteData {
 // ── Render functions ────────────────────────────────────────────
 
 /** GID layer split:
- *  - Layers 0-2 (FLOORS, FURNITURE, TABLES): flat, always below characters
- *  - Layers 3+ (LAPTOP, DECO, TOP): overlay, always above characters */
-const GID_BASE_LAYER_COUNT = 3
+ *  - Layers 0-3 (FLOORS, FURNITURE, CHAIR, TABLES): flat, always below characters
+ *  - Layers 4+ (LAPTOP, DECO, TOP): overlay, always above characters */
+const GID_BASE_LAYER_COUNT = 4
 
 export function renderTileGrid(
   ctx: CanvasRenderingContext2D,

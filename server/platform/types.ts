@@ -24,10 +24,6 @@ export interface AggregatorHandle {
   refreshSessions(): void;
   /** Update a single session from its parsed file state. */
   updateSessionFromFileState(filePath: string, state: SessionFileState): void;
-  /** Refresh team data (metadata watcher callback). */
-  refreshTeams(): void;
-  /** Refresh tasks for a specific team (metadata watcher callback). */
-  refreshTasks(teamName: string): void;
 }
 
 // ---------------------------------------------------------------------------

@@ -14,7 +14,7 @@ import {
   SectionHeader, PIXEL_CARD, PARCHMENT, ParchmentDivider, shortenModel,
 } from './panelUtils';
 import type {
-  HookEvent, Session, DirectiveState, SessionActivity, Team,
+  HookEvent, Session, DirectiveState, SessionActivity,
 } from '@/stores/types';
 
 // ---------------------------------------------------------------------------
@@ -38,7 +38,7 @@ interface FeedEvent {
   description: string;
   detail?: string;
   priority: EventPriority;
-  source: 'hook' | 'session' | 'directive' | 'pipeline' | 'activity' | 'subagent' | 'task' | 'team' | 'connection';
+  source: 'hook' | 'session' | 'directive' | 'pipeline' | 'activity' | 'subagent' | 'task' | 'connection';
   /** Structured metadata for expanded view */
   meta?: MetaItem[];
 }
@@ -445,52 +445,6 @@ function diffSubagentEvents(
   return items;
 }
 
-function buildTeamEvents(teams: Team[]): FeedEvent[] {
-  const items: FeedEvent[] = [];
-
-  for (const team of teams) {
-    const meta: MetaItem[] = [
-      { label: 'Team', value: team.name },
-      { label: 'Members', value: String(team.members.length) },
-      { label: 'Lead', value: team.leadAgentId },
-    ];
-    if (team.description) meta.push({ label: 'Description', value: team.description });
-    for (const m of team.members) {
-      meta.push({ label: m.name, value: `${m.agentType} (${m.model})` });
-    }
-
-    // Team creation event
-    items.push({
-      id: `team-create-${team.name}`,
-      timestamp: team.createdAt,
-      icon: <Users className="h-3 w-3" />,
-      iconColor: '#8B5CF6',
-      description: `Team created: ${team.name}`,
-      detail: `${team.members.length} members, lead: ${team.leadAgentId}`,
-      priority: 'medium',
-      source: 'team',
-      meta,
-    });
-
-    // Stale team warning
-    if (team.stale) {
-      items.push({
-        id: `team-stale-${team.name}`,
-        timestamp: team.createdAt,
-        icon: <AlertTriangle className="h-3 w-3" />,
-        iconColor: '#EAB308',
-        description: `Team stale: ${team.name}`,
-        detail: 'Team has gone inactive',
-        priority: 'medium',
-        source: 'team',
-        meta,
-      });
-    }
-  }
-
-  return items;
-}
-
 // ---------------------------------------------------------------------------
 // Date grouping helpers
 // ---------------------------------------------------------------------------
@@ -735,7 +689,6 @@ export default function LogPanel() {
   const directiveHistory = useDashboardStore((s) => s.directiveHistory);
   const sessionActivities = useDashboardStore((s) => s.sessionActivities);
   const connected = useDashboardStore((s) => s.connected);
-  const teams = useDashboardStore((s) => s.teams);
   const tasksBySession = useDashboardStore((s) => s.tasksBySession);
 
   const [filter, setFilter] = useState<FilterMode>('important');
@@ -965,7 +918,6 @@ export default function LogPanel() {
     const sess = buildSessionEvents(sessions);
     const dir = buildDirectiveEvents(activeDirectives, directiveHistory);
     const pipe = buildPipelineEvents(directiveState);
-    const teamEvts = buildTeamEvents(teams);
 
     // Accumulated ref-based events
     const activityEvts = activityBufferRef.current;
@@ -974,12 +926,12 @@ export default function LogPanel() {
     const taskEvts = taskBufferRef.current;
 
     return [
-      ...hook, ...sess, ...dir, ...pipe, ...teamEvts,
+      ...hook, ...sess, ...dir, ...pipe,
       ...activityEvts, ...connEvts, ...subEvts, ...taskEvts,
     ].sort(
       (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime(),
     );
-  }, [events, sessions, directiveState, activeDirectives, directiveHistory, teams,
+  }, [events, sessions, directiveState, activeDirectives, directiveHistory,
       sessionActivities, connected, tasksBySession]);
 
   // Apply filter
