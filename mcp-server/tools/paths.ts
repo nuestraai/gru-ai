@@ -41,12 +41,6 @@ export function getProjectPath(): string {
     'Cannot resolve project path. Set CONDUCTOR_PROJECT_PATH env var or configure ~/.conductor/config.json'
   );
 }
-
-/** Path to .context/state/ directory */
-export function statePath(file: string): string {
-  return path.join(getProjectPath(), '.context', 'state', file);
-}
-
 /** Path to .context/directives/ directory */
 export function directivesPath(...segments: string[]): string {
   return path.join(getProjectPath(), '.context', 'directives', ...segments);

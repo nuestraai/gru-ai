@@ -18,5 +18,5 @@
     "resolveJsonModule": true,
     "isolatedModules": true
   },
-  "include": ["./**/*", "../scripts/intelligence-trends.ts", "../scripts/spawn-agent.ts", "../scripts/personality-compiler.ts"]
+  "include": ["./**/*", "../scripts/spawn-agent.ts", "../scripts/personality-compiler.ts"]
 }

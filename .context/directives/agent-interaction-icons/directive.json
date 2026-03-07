@@ -1,16 +1,18 @@
 {
   "id": "agent-interaction-icons",
   "title": "Rich Interaction Icons",
-  "status": "awaiting_completion",
+  "status": "completed",
   "category": "game",
   "created": "2026-03-07",
-  "completed": null,
+  "completed": "2026-03-07",
   "weight": "medium",
-  "produced_features": ["interaction-type-icons"],
+  "produced_features": [
+    "interaction-type-icons"
+  ],
   "report": null,
   "backlog_sources": [],
   "started_at": "2026-03-07T22:00:00Z",
-  "updated_at": "2026-03-08T01:00:00Z",
+  "updated_at": "2026-03-07T13:33:29.247Z",
   "current_step": "completion",
   "pipeline": {
     "triage": {
@@ -38,16 +40,22 @@
     "challenge": {
       "status": "skipped",
       "agent": "C-suite",
-      "output": { "summary": "Skipped for medium weight" }
+      "output": {
+        "summary": "Skipped for medium weight"
+      }
     },
     "plan": {
       "status": "completed",
       "agent": "COO",
       "output": {
         "summary": "Single project: interaction-type-icons. Riley builds, Quinn+Sarah review, Sarah audits.",
-        "projects": ["interaction-type-icons"]
+        "projects": [
+          "interaction-type-icons"
+        ]
       },
-      "artifacts": [".context/directives/agent-interaction-icons/plan.json"]
+      "artifacts": [
+        ".context/directives/agent-interaction-icons/plan.json"
+      ]
     },
     "audit": {
       "status": "completed",
@@ -59,7 +67,9 @@
     "approve": {
       "status": "skipped",
       "agent": "CEO",
-      "output": { "summary": "Auto-approved for medium weight" }
+      "output": {
+        "summary": "Auto-approved for medium weight"
+      }
     },
     "project-brainstorm": {
       "status": "completed",
@@ -71,7 +81,9 @@
     "setup": {
       "status": "completed",
       "agent": "CEO",
-      "output": { "summary": "Working on game branch directly." }
+      "output": {
+        "summary": "Working on game branch directly."
+      }
     },
     "execute": {
       "status": "completed",
@@ -95,7 +107,7 @@
       }
     },
     "completion": {
-      "status": "active",
+      "status": "completed",
       "agent": "CEO"
     }
   },

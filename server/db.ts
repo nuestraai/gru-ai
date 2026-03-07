@@ -84,31 +84,6 @@ export function getRecentEvents(limit = 100): HookEvent[] {
   }));
 }
 
-export function getEventsBySession(sessionId: string, limit = 50): HookEvent[] {
-  const database = getDb();
-  const rows = database
-    .prepare(`SELECT * FROM events WHERE session_id = ? ORDER BY timestamp DESC LIMIT ?`)
-    .all(sessionId, limit) as Array<{
-    id: string;
-    type: string;
-    session_id: string;
-    timestamp: string;
-    message: string;
-    project: string | null;
-    metadata_json: string | null;
-  }>;
-
-  return rows.map((row) => ({
-    id: row.id,
-    type: row.type,
-    sessionId: row.session_id,
-    timestamp: row.timestamp,
-    message: row.message,
-    project: row.project ?? undefined,
-    metadata: row.metadata_json ? JSON.parse(row.metadata_json) : undefined,
-  }));
-}
-
 export function closeDb(): void {
   if (db) {
     db.close();
