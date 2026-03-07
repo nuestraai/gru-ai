@@ -22,6 +22,16 @@ import {
 const getPersonalityIdleFrame = (_p: number, _d: number, _f: number) => null
 const getPersonalityFrameCount = (_p: number) => PERSONALITY_FRAME_COUNT
 
+/** Idle agents only start wandering after this many ms without activity */
+const IDLE_WANDER_THRESHOLD_MS = 30 * 60 * 1000
+
+/** Check if an idle agent has been idle long enough to wander (≥30 min) */
+function shouldWander(ch: Character): boolean {
+  const lastMs = ch.sessionInfo.lastActivityMs
+  if (!lastMs) return true // no session data → wander freely
+  return Date.now() - lastMs >= IDLE_WANDER_THRESHOLD_MS
+}
+
 /** Tools that show reading animation instead of typing */
 const READING_TOOLS = new Set(['Read', 'Grep', 'Glob', 'WebFetch', 'WebSearch'])
 
@@ -60,7 +70,7 @@ export function createCharacter(
   const center = tileCenter(col, row)
   return {
     id,
-    state: CharacterState.TYPE,
+    state: CharacterState.IDLE,
     dir: seat ? seat.facingDir : Direction.DOWN,
     x: center.x,
     y: center.y,
@@ -76,7 +86,7 @@ export function createCharacter(
     wanderTimer: 0,
     wanderCount: 0,
     wanderLimit: randomInt(WANDER_MOVES_BEFORE_REST_MIN, WANDER_MOVES_BEFORE_REST_MAX),
-    isActive: true,
+    isActive: false,
     seatId,
     bubbleType: null,
     bubbleTimer: 0,
@@ -86,7 +96,7 @@ export function createCharacter(
     matrixEffect: null,
     matrixEffectTimer: 0,
     matrixEffectSeeds: [],
-    agentStatus: 'offline',
+    agentStatus: 'idle',
     sessionInfo: {},
     pendingStatus: null,
     statusChangeTimer: 0,
@@ -326,6 +336,30 @@ export function updateCharacter(
       }
       if (ch.routingZone) break
 
+      // Idle < 30 min: stay at desk (coffee break). Idle ≥ 30 min: wander.
+      if (!shouldWander(ch)) {
+        // Recently idle — go back to seat if not already there
+        if (ch.seatId) {
+          const seat = seats.get(ch.seatId)
+          if (seat) {
+            if (ch.tileCol !== seat.seatCol || ch.tileRow !== seat.seatRow) {
+              const path = findPath(ch.tileCol, ch.tileRow, seat.seatCol, seat.seatRow, tileMap, blockedTiles)
+              if (path.length > 0) {
+                ch.path = path
+                ch.moveProgress = 0
+                ch.state = CharacterState.WALK
+                ch.frame = 0
+                ch.frameTimer = 0
+              }
+            } else {
+              // At seat — face desk, stay still
+              ch.dir = seat.facingDir
+            }
+          }
+        }
+        break
+      }
+
       // Countdown wander timer
       ch.wanderTimer -= dt
       if (ch.wanderTimer <= 0) {
@@ -391,18 +425,24 @@ export function updateCharacter(
             }
           }
         } else {
-          // Check if arrived at assigned seat — sit down for a rest before wandering again
+          // Check if arrived at assigned seat
           if (ch.seatId) {
             const seat = seats.get(ch.seatId)
             if (seat && ch.tileCol === seat.seatCol && ch.tileRow === seat.seatRow) {
-              ch.state = CharacterState.TYPE
               ch.dir = seat.facingDir
-              // seatTimer < 0 is a sentinel from setAgentActive(false) meaning
-              // "turn just ended" — skip the long rest so idle transition is immediate
-              if (ch.seatTimer < 0) {
-                ch.seatTimer = 0
+              if (!shouldWander(ch)) {
+                // Idle < 30 min — stay seated quietly (no typing)
+                ch.state = CharacterState.IDLE
               } else {
-                ch.seatTimer = randomRange(SEAT_REST_MIN_SEC, SEAT_REST_MAX_SEC)
+                // Idle ≥ 30 min — brief rest at desk then wander again
+                ch.state = CharacterState.TYPE
+                // seatTimer < 0 is a sentinel from setAgentActive(false) meaning
+                // "turn just ended" — skip the long rest so idle transition is immediate
+                if (ch.seatTimer < 0) {
+                  ch.seatTimer = 0
+                } else {
+                  ch.seatTimer = randomRange(SEAT_REST_MIN_SEC, SEAT_REST_MAX_SEC)
+                }
               }
               ch.wanderCount = 0
               ch.wanderLimit = randomInt(WANDER_MOVES_BEFORE_REST_MIN, WANDER_MOVES_BEFORE_REST_MAX)

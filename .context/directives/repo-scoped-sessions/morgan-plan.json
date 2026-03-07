@@ -1,6 +1,5 @@
 {
   "goal": "Scope server to only track agent-conductor sessions and directives, remove multi-repo scanning",
-  "category": "ui",
   "challenges": {
     "risks": [
       "1. Hardcoding the project directory name (-Users-yangyang-Repos-agent-conductor) makes the server non-portable if the repo moves or another developer clones it elsewhere. Need to derive it from the actual repo path, not hardcode it.",
@@ -20,8 +19,12 @@
       "priority": "P0",
       "scope_summary": "Modify discoverSessionFiles() to only scan the project directory matching agent-conductor (derived from the repo root path, not hardcoded). Narrow session-watcher to watch only that subdirectory instead of all projects/. Remove any multi-repo config or scanning logic that is now dead code. The ProjectGroup type and frontend components stay as-is — they will naturally contain only one group. Verify startup bootstraps fewer sessions and dashboard shows only agent-conductor sessions.",
       "complexity": "simple",
-      "agent": ["devon"],
-      "reviewers": ["sarah"],
+      "agent": [
+        "devon"
+      ],
+      "reviewers": [
+        "sarah"
+      ],
       "auditor": "sarah",
       "depends_on": [],
       "touches_files_hint": [

@@ -1,49 +1,120 @@
 {
   "id": "game-productionize-and-publish",
   "title": "Productionize and Publish gruAI as Open Source",
-  "status": "in_progress",
+  "status": "completed",
   "created": "2026-03-06",
-  "completed": null,
+  "completed": "2026-03-07",
   "weight": "strategic",
-  "produced_features": [],
-  "report": null,
+  "produced_features": [
+    "gruai-package-rename",
+    "role-based-pipeline",
+    "gruai-init-cli",
+    "gruai-update-cli",
+    "dynamic-team-game",
+    "readme-rebrand",
+    "welcome-directive",
+    "structural-rename-plan-json"
+  ],
+  "report": "game-productionize-and-publish-2026-03-07",
   "backlog_sources": [],
   "started_at": "2026-03-06T13:00:00Z",
-  "updated_at": "2026-03-07T01:00:00Z",
-  "current_step": "execute",
+  "updated_at": "2026-03-07T10:48:14.856Z",
+  "current_step": "completion",
+  "revision": 2,
+  "iterations": [
+    {
+      "opened_at": "2026-03-07T04:15:00Z",
+      "feedback": "Directive is 'Productionize and Publish' but we haven't done either. Missing: (1) Vite build config + dist output, (2) npm publish config + .npmignore, (3) Replace CLI init/update with Claude Code skills (/gruai-agents, /gruai-config), (4) gruai start script, (5) Actually publish to npm. Delete dead CLI code."
+    }
+  ],
   "pipeline": {
-    "triage": { "status": "completed", "agent": "CEO", "output": { "weight": "strategic" } },
-    "read": { "status": "completed", "agent": "CEO" },
-    "context": { "status": "completed", "agent": "CEO" },
-    "challenge": { "status": "completed", "agent": "C-suite" },
-    "brainstorm": { "status": "completed", "agent": "C-suite", "output": { "artifact": "brainstorm.md" } },
-    "plan": { "status": "completed", "agent": "Morgan", "output": { "artifact": "morgan-plan.json", "projects_count": 5 } },
-    "audit": { "status": "completed", "agent": "Sarah" },
-    "approve": { "status": "completed", "agent": "CEO", "output": { "decision": "approved" } },
-    "project-brainstorm": {
+    "triage": {
       "status": "completed",
-      "agent": "Sarah",
+      "agent": "CEO",
       "output": {
-        "total_tasks": 21,
-        "projects": {
-          "repo-brand-publish": 4,
-          "role-based-pipeline": 5,
-          "init-and-scaffolding": 6,
-          "game-dynamic-team": 3,
-          "first-run-and-readme": 3
-        }
+        "weight": "strategic"
       }
     },
-    "setup": { "status": "completed", "agent": "CEO", "output": { "summary": "All 5 project.json files validated. No worktree needed (working on game branch). Execution waves computed." } },
-    "execute": { "status": "active", "agent": "CEO", "output": { "current_wave": 1, "total_waves": 3, "progress": "0/21 tasks" } },
-    "review-gate": { "status": "pending" },
-    "wrapup": { "status": "pending", "agent": "CEO" },
-    "completion": { "status": "pending", "agent": "CEO" }
+    "read": {
+      "status": "completed",
+      "agent": "CEO"
+    },
+    "context": {
+      "status": "completed",
+      "agent": "CEO"
+    },
+    "challenge": {
+      "status": "completed",
+      "agent": "C-suite"
+    },
+    "brainstorm": {
+      "status": "completed",
+      "agent": "C-suite",
+      "output": {
+        "artifact": "brainstorm.md"
+      }
+    },
+    "plan": {
+      "status": "completed",
+      "agent": "COO",
+      "output": {
+        "summary": "2 new projects: cli-to-skills (delete CLI, create skills) + build-and-publish-config (fix build, .npmignore, npm publish). Sequential dependency.",
+        "projects_count": 2
+      }
+    },
+    "audit": {
+      "status": "skipped",
+      "agent": "CTO",
+      "output": {
+        "summary": "Skipped — reopened directive, scope is clear from CEO feedback. Files already known."
+      }
+    },
+    "approve": {
+      "status": "completed",
+      "agent": "CEO",
+      "output": {
+        "decision": "approved",
+        "summary": "CEO approved 2-project plan as-is"
+      }
+    },
+    "project-brainstorm": {
+      "status": "active",
+      "agent": "CTO + builders"
+    },
+    "setup": {
+      "status": "pending"
+    },
+    "execute": {
+      "status": "pending"
+    },
+    "review-gate": {
+      "status": "pending"
+    },
+    "wrapup": {
+      "status": "pending"
+    },
+    "completion": {
+      "status": "completed",
+      "agent": "CEO"
+    }
   },
-  "projects": ["repo-brand-publish", "role-based-pipeline", "init-and-scaffolding", "game-dynamic-team", "first-run-and-readme"],
+  "projects": [
+    "repo-brand-publish",
+    "role-based-pipeline",
+    "init-and-scaffolding",
+    "game-dynamic-team",
+    "first-run-and-readme",
+    "cli-to-skills",
+    "build-and-publish-config"
+  ],
   "planning": {
-    "morgan_plan": { "artifact": "morgan-plan.json" },
-    "ceo_approval": { "status": "approved", "modifications": ["game-dynamic-team descoped to simple"] },
+    "coo_plan": {
+      "artifact": "plan.json"
+    },
+    "ceo_approval": {
+      "status": "approved",
+      "modifications": []
+    },
     "worktree_path": null
   },
   "wrapup": {
@@ -51,6 +122,5 @@
     "follow_ups_processed": false,
     "digest_path": null,
     "lessons_updated": false
-  },
-  "category": "game"
+  }
 }

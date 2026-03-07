@@ -120,7 +120,10 @@ function mapStatus(status: string): DirectiveState['status'] {
     case 'awaiting_completion': return 'awaiting_completion';
     case 'completed': return 'completed';
     case 'failed': return 'failed';
-    default: return 'in_progress';
+    case 'cancelled': return 'completed';
+    case 'pending': return 'pending';
+    case 'triaged': return 'pending';
+    default: return 'pending';
   }
 }
 
@@ -135,7 +138,10 @@ export class DirectiveWatcher {
   private aggregator: Aggregator;
   private directivesDir: string;
   private debounceTimer: ReturnType<typeof setTimeout> | null = null;
+  private pollTimer: ReturnType<typeof setInterval> | null = null;
   private _ready = false;
+  /** Snapshot of last emitted state hash for change detection in poll fallback */
+  private lastStateHash = '';
 
   /** mtime-based cache: dirId -> { mtimeMs, state } */
   private historyCache = new Map<string, { mtimeMs: number; state: DirectiveState }>();
@@ -182,6 +188,11 @@ export class DirectiveWatcher {
     this.directivesWatcher.on('error', (err: unknown) => {
       console.error(`[directive-watcher] Error:`, err);
     });
+
+    // Periodic poll fallback — catches missed chokidar events (macOS FSEvents limits, awaitWriteFinish stalls)
+    this.pollTimer = setInterval(() => {
+      this.pollForChanges();
+    }, 5000);
   }
 
   get ready(): boolean {
@@ -192,6 +203,10 @@ export class DirectiveWatcher {
     if (this.debounceTimer) {
       clearTimeout(this.debounceTimer);
       this.debounceTimer = null;
+    }
+    if (this.pollTimer) {
+      clearInterval(this.pollTimer);
+      this.pollTimer = null;
     }
     if (this.directivesWatcher) {
       await this.directivesWatcher.close();
@@ -228,7 +243,8 @@ export class DirectiveWatcher {
       }
 
       return null;
-    } catch {
+    } catch (err) {
+      console.error(`[directive-watcher] readCurrentState error:`, err);
       return null;
     }
   }
@@ -290,7 +306,8 @@ export class DirectiveWatcher {
       }
 
       return results;
-    } catch {
+    } catch (err) {
+      console.error(`[directive-watcher] readAllDirectiveStates error:`, err);
       return [];
     }
   }
@@ -321,6 +338,10 @@ export class DirectiveWatcher {
           if (activeTask) phase = 'build';
         }
 
+        // Extract project-level agent and reviewers arrays
+        const projAgent: string[] = Array.isArray(projJson.agent) ? projJson.agent.map(String) : [];
+        const projReviewers: string[] = Array.isArray(projJson.reviewers) ? projJson.reviewers.map(String) : [];
+
         projects.push({
           id: projId,
           title: String(projJson.title ?? projId),
@@ -328,6 +349,8 @@ export class DirectiveWatcher {
           phase,
           totalTasks,
           completedTasks,
+          agent: projAgent,
+          reviewers: projReviewers,
           tasks: tasks.map((t: { title?: string; status?: string; agent?: string; dod?: Array<{ criterion: string; met: boolean }> }) => ({
             title: String(t.title ?? ''),
             status: String(t.status ?? 'pending'),
@@ -384,7 +407,6 @@ export class DirectiveWatcher {
       pipelineSteps,
       currentStepId: currentStep,
       weight: directive.weight,
-      category: directive.category,
       triageRationale: directive.triage?.rationale,
       approvalStatus: directive.planning?.ceo_approval?.status,
       brainstormSummary: directive.pipeline?.brainstorm?.output?.summary,
@@ -440,6 +462,42 @@ export class DirectiveWatcher {
       });
     } catch {
       return [];
+    }
+  }
+
+  /**
+   * Poll fallback: check if any directive.json or project.json mtimes changed
+   * since the last update. Only triggers readAndUpdate if changes detected.
+   */
+  private pollForChanges(): void {
+    try {
+      const dirIds = this.listDirs(this.directivesDir);
+      // Build a lightweight hash from mtimes of all directive.json + project.json files
+      const parts: string[] = [];
+      for (const dirId of dirIds) {
+        try {
+          const stat = fs.statSync(path.join(this.directivesDir, dirId, 'directive.json'));
+          parts.push(`${dirId}:${stat.mtimeMs}`);
+        } catch { continue; }
+        // Also check project.json files
+        const projDir = path.join(this.directivesDir, dirId, 'projects');
+        try {
+          const projIds = fs.readdirSync(projDir);
+          for (const pId of projIds) {
+            try {
+              const pStat = fs.statSync(path.join(projDir, pId, 'project.json'));
+              parts.push(`${dirId}/${pId}:${pStat.mtimeMs}`);
+            } catch { continue; }
+          }
+        } catch { /* no projects dir */ }
+      }
+      const hash = parts.join('|');
+      if (hash !== this.lastStateHash) {
+        this.lastStateHash = hash;
+        this.readAndUpdate();
+      }
+    } catch {
+      // Poll failure is non-critical
     }
   }
 

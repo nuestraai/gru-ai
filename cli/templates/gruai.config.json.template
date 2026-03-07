@@ -1,0 +1,12 @@
+{
+  "name": "{{PROJECT_NAME}}",
+  "version": "1.0.0",
+  "agents": {{AGENTS_JSON}},
+  "skills": ["directive", "scout", "healthcheck", "report"],
+  "contextDir": ".context",
+  "settings": {
+    "dailyBudget": 50,
+    "autoScout": false,
+    "reportFrequency": "daily"
+  }
+}

@@ -46,7 +46,6 @@ export const BaseWorkItem = z.object({
   title: z.string(),
   status: LifecycleState,
   parentId: z.string().optional(),
-  category: z.string().optional(),
   createdAt: z.string(),   // ISO date
   updatedAt: z.string(),   // ISO date
   tags: z.array(z.string()).optional(),
@@ -60,7 +59,6 @@ export type BaseWorkItem = z.infer<typeof BaseWorkItem>;
 
 export const FeatureRecord = BaseWorkItem.extend({
   type: z.literal('feature'),
-  category: z.string().optional(),
   taskCount: z.number(),
   completedTaskCount: z.number(),
   hasSpec: z.boolean(),
@@ -82,7 +80,6 @@ export type TaskRecord = z.infer<typeof TaskRecord>;
 
 export const BacklogRecord = BaseWorkItem.extend({
   type: z.literal('backlog-item'),
-  category: z.string().optional(),
   priority: Priority.optional(),
   description: z.string().optional(),
   trigger: z.string().optional(),
@@ -100,7 +97,6 @@ export const DirectiveRecord = BaseWorkItem.extend({
   reportPath: z.string().optional(),
   // Structured fields from directive.json
   weight: z.string().optional(),
-  category: z.string().optional(),
   producedFeatures: z.array(z.string()).optional(),
   report: z.string().nullable().optional(),
   backlogSources: z.array(z.string()).optional(),
@@ -212,7 +208,6 @@ export type IndexState = z.infer<typeof IndexState>;
 export interface WorkItemFilter {
   type?: WorkItemType;
   status?: LifecycleState;
-  category?: string;
   q?: string;  // text search
 }
 

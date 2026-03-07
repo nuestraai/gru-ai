@@ -1,6 +1,6 @@
 {
   "id": "test-invalid-json",
-  "title": "Test invalid JSON in morgan-plan",
+  "title": "Test invalid JSON in plan",
   "status": "in_progress",
   "weight": "medium",
   "pipeline": {

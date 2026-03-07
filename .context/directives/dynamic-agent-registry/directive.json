@@ -1,8 +1,7 @@
 {
   "id": "dynamic-agent-registry",
-  "title": "Dynamic Agent Registry \u2014 Single Source of Truth",
+  "title": "Dynamic Agent Registry — Single Source of Truth",
   "status": "completed",
-  "category": "pipeline",
   "weight": "tactical",
   "created": "2026-03-02T00:00:00Z",
   "completed": "2026-03-03T00:00:00Z"

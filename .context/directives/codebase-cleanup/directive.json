@@ -1,0 +1,71 @@
+{
+  "id": "codebase-cleanup",
+  "title": "Codebase Cleanup",
+  "status": "in_progress",
+  "created": "2026-03-08",
+  "completed": null,
+  "weight": "heavyweight",
+  "produced_features": [],
+  "report": null,
+  "backlog_sources": [],
+
+  "started_at": "2026-03-08T00:00:00Z",
+  "updated_at": "2026-03-08T00:01:00Z",
+  "current_step": "brainstorm",
+
+  "pipeline": {
+    "triage": {
+      "status": "completed",
+      "agent": "CEO",
+      "output": {
+        "weight": "heavyweight",
+        "summary": "Classified as heavyweight: crosses all system boundaries (frontend, backend, server, game, scripts, config), 4+ parallel work areas, needs multi-agent coordination. Not strategic — approach is clear (find and remove dead code)."
+      }
+    },
+    "checkpoint": {
+      "status": "completed",
+      "agent": "CEO",
+      "output": { "summary": "No existing checkpoint found. Fresh start." }
+    },
+    "read": {
+      "status": "completed",
+      "agent": "CEO",
+      "output": { "summary": "Read directive.md. Codebase cleanup after 100+ iterations — audit all files for dead code, unused imports, stale types, orphaned files across frontend, server, game, scripts, config." }
+    },
+    "context": {
+      "status": "completed",
+      "agent": "CEO",
+      "output": { "summary": "Read vision.md, all lessons (orchestration, agent-behavior, state-management, skill-design), agent registry, active directives. Cataloged all 100+ source files across src/, server/, scripts/, mcp-server/. Git status shows massive churn with many D (deleted) files already staged." }
+    },
+    "challenge": {
+      "status": "skipped",
+      "agent": "CEO",
+      "output": { "summary": "Challenge inlined into COO planning prompt (default for non-controversial heavyweight). CEO explicitly requested this cleanup — no controversy." }
+    },
+    "brainstorm": { "status": "active" },
+    "plan": { "status": "pending" },
+    "audit": { "status": "pending" },
+    "approve": { "status": "pending" },
+    "project-brainstorm": { "status": "pending" },
+    "setup": { "status": "pending" },
+    "execute": { "status": "pending" },
+    "review-gate": { "status": "pending" },
+    "wrapup": { "status": "pending" },
+    "completion": { "status": "pending" }
+  },
+
+  "projects": [],
+
+  "planning": {
+    "coo_plan": {},
+    "ceo_approval": { "status": null, "modifications": [] },
+    "worktree_path": null
+  },
+
+  "wrapup": {
+    "okrs_persisted": false,
+    "follow_ups_processed": false,
+    "digest_path": null,
+    "lessons_updated": false
+  }
+}

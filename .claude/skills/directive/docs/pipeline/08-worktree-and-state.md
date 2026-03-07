@@ -31,7 +31,7 @@ Ensure `directive.json` has the correct state before execution:
 1. `pipeline.setup.status` = `"completed"`
 2. `pipeline.execute.status` = `"active"`
 3. `current_step` = `"execute"`
-4. `projects[]` array lists all projects from Morgan's plan with `status: "pending"`
+4. `projects[]` array lists all projects from the COO's plan with `status: "pending"`
 5. `updated_at` is current
 
 The dashboard watches `directive.json` via chokidar for real-time pipeline progress. There is NO separate `current.json` — directive.json IS the single source of truth for both checkpoint/resume and dashboard display.

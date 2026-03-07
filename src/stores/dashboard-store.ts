@@ -1,32 +1,26 @@
 import { create } from 'zustand';
-import type { DashboardState, DirectiveState, Session, HookEvent, Team, TeamTask, SessionActivity, NotificationConfig, ProjectGroup, FullWorkState } from './types';
+import type { DashboardState, DirectiveState, Session, HookEvent, Team, TeamTask, SessionActivity, ProjectGroup, FullWorkState } from './types';
 
 interface DashboardStore extends DashboardState {
   connected: boolean;
   workState: FullWorkState | null;
-  notificationConfig: NotificationConfig;
-  notificationFired: Record<string, number>;
   setFullState: (state: DashboardState) => void;
   updateSessions: (sessions: Session[]) => void;
   updateProjects: (projects: ProjectGroup[]) => void;
   updateTeams: (teams: Team[]) => void;
-  updateTasks: (tasksByTeam: Record<string, TeamTask[]>, tasksBySession?: Record<string, TeamTask[]>) => void;
+  updateTasks: (tasksBySession: Record<string, TeamTask[]>) => void;
   addEvent: (event: HookEvent) => void;
   updateEvents: (events: HookEvent[]) => void;
   setConnected: (connected: boolean) => void;
   updateSessionActivities: (activities: Record<string, SessionActivity>) => void;
   updateDirectiveState: (state: DirectiveState | null, history?: DirectiveState[], activeDirectives?: DirectiveState[]) => void;
   setWorkState: (state: FullWorkState) => void;
-  updateNotificationConfig: (config: NotificationConfig) => void;
-  addNotificationFired: (sessionId: string) => void;
-  deleteTeam: (teamName: string) => Promise<void>;
 }
 
 export const useDashboardStore = create<DashboardStore>((set) => ({
   teams: [],
   sessions: [],
   projects: [],
-  tasksByTeam: {},
   tasksBySession: {},
   events: [],
   sessionActivities: {},
@@ -36,15 +30,12 @@ export const useDashboardStore = create<DashboardStore>((set) => ({
   workState: null,
   lastUpdated: '',
   connected: false,
-  notificationConfig: { macOS: true, browser: true },
-  notificationFired: {},
 
   setFullState: (state) =>
     set({
       teams: state.teams ?? [],
       sessions: state.sessions ?? [],
       projects: state.projects ?? [],
-      tasksByTeam: state.tasksByTeam ?? {},
       tasksBySession: state.tasksBySession ?? {},
       events: state.events ?? [],
       directiveState: state.directiveState ?? null,
@@ -62,12 +53,11 @@ export const useDashboardStore = create<DashboardStore>((set) => ({
   updateTeams: (teams) =>
     set({ teams, lastUpdated: new Date().toISOString() }),
 
-  updateTasks: (tasksByTeam, tasksBySession) =>
-    set((state) => ({
-      tasksByTeam,
-      tasksBySession: tasksBySession ?? state.tasksBySession,
+  updateTasks: (tasksBySession) =>
+    set({
+      tasksBySession,
       lastUpdated: new Date().toISOString(),
-    })),
+    }),
 
   addEvent: (event) =>
     set((state) => ({
@@ -94,27 +84,4 @@ export const useDashboardStore = create<DashboardStore>((set) => ({
 
   setWorkState: (workState) =>
     set({ workState, lastUpdated: new Date().toISOString() }),
-
-  updateNotificationConfig: (config) =>
-    set({ notificationConfig: config }),
-
-  addNotificationFired: (sessionId) =>
-    set((state) => ({
-      notificationFired: { ...state.notificationFired, [sessionId]: Date.now() },
-    })),
-
-  deleteTeam: async (teamName) => {
-    try {
-      const { API_BASE } = await import('@/lib/api');
-      const res = await fetch(`${API_BASE}/api/teams/${encodeURIComponent(teamName)}`, {
-        method: 'DELETE',
-      });
-      if (!res.ok) {
-        const data = await res.json();
-        console.error('Failed to delete team:', data.error);
-      }
-    } catch (err) {
-      console.error('Failed to delete team:', err);
-    }
-  },
 }));

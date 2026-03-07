@@ -165,7 +165,6 @@ export class StateWatcher {
           if (!dirJson) continue;
 
           const dirStatus = this.mapDirectiveStatus(String(dirJson.status ?? 'pending'));
-          const category = dirJson.category ? String(dirJson.category) : undefined;
 
           allDirectives.push({
             id: dirId,
@@ -176,7 +175,6 @@ export class StateWatcher {
             updatedAt: String(dirJson.updated ?? dirJson.created ?? generated),
             projects: [],
             weight: dirJson.weight ? String(dirJson.weight) : undefined,
-            category,
             producedFeatures: Array.isArray(dirJson.produced_features) ? dirJson.produced_features.map(String) : undefined,
             report: dirJson.report != null ? String(dirJson.report) : null,
             backlogSources: Array.isArray(dirJson.backlog_sources) ? dirJson.backlog_sources.map(String) : undefined,
@@ -205,7 +203,6 @@ export class StateWatcher {
                 type: 'feature',
                 title: String(projJson.title ?? projId),
                 status: projStatus,
-                category,
                 createdAt: String(projJson.created ?? generated),
                 updatedAt: String(projJson.updated ?? generated),
                 taskCount,
@@ -284,11 +281,11 @@ export class StateWatcher {
     state.index = {
       generated,
       counts: {
-        activeFeatures: allProjects.filter((f) => f.status !== 'done').length,
-        doneFeatures: allProjects.filter((f) => f.status === 'done').length,
+        activeFeatures: allProjects.filter((f) => f.status !== 'completed').length,
+        doneFeatures: allProjects.filter((f) => f.status === 'completed').length,
         pendingTasks: 0, // TODO: aggregate from project tasks
         completedTasks: 0,
-        backlogItems: allBacklog.filter((b) => b.status !== 'done').length,
+        backlogItems: allBacklog.filter((b) => b.status !== 'completed').length,
         directives: allDirectives.length,
         reports: allReports.length,
         discussions: 0,

@@ -3,17 +3,17 @@
 <plist version="1.0">
 <dict>
     <key>Label</key>
-    <string>com.agent-conductor.foreman</string>
+    <string>com.gruai.foreman</string>
     <key>ProgramArguments</key>
     <array>
-        <string>/Users/yangyang/Repos/agent-conductor/scripts/foreman.sh</string>
+        <string>/Users/yangyang/Repos/gruai/scripts/foreman.sh</string>
     </array>
     <key>StartInterval</key>
     <integer>900</integer>
     <key>StandardOutPath</key>
-    <string>/Users/yangyang/Repos/agent-conductor/logs/launchd-foreman.log</string>
+    <string>/Users/yangyang/Repos/gruai/logs/launchd-foreman.log</string>
     <key>StandardErrorPath</key>
-    <string>/Users/yangyang/Repos/agent-conductor/logs/launchd-foreman-error.log</string>
+    <string>/Users/yangyang/Repos/gruai/logs/launchd-foreman-error.log</string>
     <key>EnvironmentVariables</key>
     <dict>
         <key>PATH</key>

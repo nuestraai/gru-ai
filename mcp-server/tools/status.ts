@@ -1,4 +1,3 @@
-import os from 'node:os';
 import fs from 'node:fs';
 import path from 'node:path';
 import { getProjectPath, readJsonSafe } from './paths.js';
@@ -7,7 +6,6 @@ interface DirectiveJson {
   id: string;
   title: string;
   status: string;
-  category?: string;
 }
 
 interface ProjectJson {
@@ -34,10 +32,8 @@ export function conductorStatus(): string {
   let completedTaskCount = 0;
 
   const pendingDirectives: Array<{ id: string; title: string }> = [];
-  const activeDirectives: Array<{ id: string; title: string; category: string; projects: Array<{ id: string; title: string; status: string; tasksCompleted: number; tasksTotal: number }> }> = [];
+  const activeDirectives: Array<{ id: string; title: string; projects: Array<{ id: string; title: string; status: string; tasksCompleted: number; tasksTotal: number }> }> = [];
   const recentDone: Array<{ id: string; title: string }> = [];
-
-  const categoryCounts: Record<string, { active: number; completed: number }> = {};
 
   if (fs.existsSync(directivesDir)) {
     const dirDirs = listDirs(directivesDir);
@@ -47,20 +43,12 @@ export function conductorStatus(): string {
       if (!dirJson) continue;
 
       directiveCount++;
-      const category = dirJson.category ?? 'uncategorized';
-
-      if (!categoryCounts[category]) {
-        categoryCounts[category] = { active: 0, completed: 0 };
-      }
 
       if (dirJson.status === 'pending' || dirJson.status === 'triaged') {
         pendingDirectives.push({ id: dirJson.id ?? dirId, title: dirJson.title ?? dirId });
       }
       if (dirJson.status === 'completed' || dirJson.status === 'done') {
         recentDone.push({ id: dirJson.id ?? dirId, title: dirJson.title ?? dirId });
-        categoryCounts[category]!.completed++;
-      } else {
-        categoryCounts[category]!.active++;
       }
 
       // Read projects under this directive
@@ -102,7 +90,6 @@ export function conductorStatus(): string {
         activeDirectives.push({
           id: dirJson.id ?? dirId,
           title: dirJson.title ?? dirId,
-          category,
           projects: directiveProjects,
         });
       }
@@ -125,21 +112,11 @@ export function conductorStatus(): string {
   lines.push(`- Reports: ${reportCount}`);
   lines.push('');
 
-  // Categories
-  const categoryEntries = Object.entries(categoryCounts);
-  if (categoryEntries.length > 0) {
-    lines.push('### Categories');
-    for (const [cat, counts] of categoryEntries) {
-      lines.push(`- **${cat}**: ${counts.active} active, ${counts.completed} completed`);
-    }
-    lines.push('');
-  }
-
   // Active directives with projects
   if (activeDirectives.length > 0) {
     lines.push('### Active Directives');
     for (const dir of activeDirectives) {
-      lines.push(`- **${dir.title}** (${dir.id}) [${dir.category}]`);
+      lines.push(`- **${dir.title}** (${dir.id})`);
       for (const proj of dir.projects.filter(p => p.status !== 'done')) {
         const pct = proj.tasksTotal > 0
           ? Math.round((proj.tasksCompleted / proj.tasksTotal) * 100)
@@ -163,21 +140,6 @@ export function conductorStatus(): string {
     lines.push('### Recently Completed Directives');
     for (const d of recentDone.slice(0, 5)) {
       lines.push(`- ${d.title}`);
-    }
-    lines.push('');
-  }
-
-  // Scheduler status
-  const schedulerConfigPath = path.join(os.homedir(), '.conductor', 'scheduler.json');
-  const schedulerConfig = readJsonSafe<{ enabled?: boolean; daily_budget?: { max_cost_usd?: number }; quiet_hours?: { start?: string; end?: string } }>(schedulerConfigPath);
-  if (schedulerConfig) {
-    lines.push('### Autopilot');
-    lines.push(`- **Status**: ${schedulerConfig.enabled ? 'enabled' : 'disabled'}`);
-    if (schedulerConfig.daily_budget?.max_cost_usd) {
-      lines.push(`- **Daily budget**: $${schedulerConfig.daily_budget.max_cost_usd}`);
-    }
-    if (schedulerConfig.quiet_hours) {
-      lines.push(`- **Quiet hours**: ${schedulerConfig.quiet_hours.start ?? '23:00'} - ${schedulerConfig.quiet_hours.end ?? '07:00'}`);
     }
     lines.push('');
   }

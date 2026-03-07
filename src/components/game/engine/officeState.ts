@@ -688,22 +688,12 @@ export class OfficeState {
   private applyAgentStatus(ch: Character, status: AgentStatus): void {
     const previousStatus = ch.agentStatus
     ch.agentStatus = status
-    ch.hasError = status === 'error'
+    ch.hasError = false
 
     // Derive isActive from status
     const wasActive = ch.isActive
-    const nowActive = status === 'working' || status === 'waiting'
+    const nowActive = status === 'working'
     ch.isActive = nowActive
-
-    // Map status → appropriate currentTool hint for animation selection
-    // (characters.ts uses currentTool to choose typing vs reading animation)
-    if (status === 'waiting') {
-      // Waiting agents show reading animation (looking at screen, waiting)
-      ch.currentTool = 'Read'
-    } else if (status === 'working' && !ch.currentTool) {
-      // Working agents with no specific tool default to typing
-      ch.currentTool = null
-    }
 
     if (!nowActive && wasActive) {
       // Went inactive — use the sentinel to skip long seat rest
@@ -714,10 +704,8 @@ export class OfficeState {
         ch.moveProgress = 0
       }
 
-      // Start linger timer — agent stays at desk before routing to break room
-      if (previousStatus === 'working' && (status === 'idle' || status === 'offline')) {
-        ch.lingerTimer = LINGER_MIN_SEC + Math.random() * (LINGER_MAX_SEC - LINGER_MIN_SEC)
-      }
+      // Start linger timer — agent sits idle at desk before wandering
+      ch.lingerTimer = LINGER_MIN_SEC + Math.random() * (LINGER_MAX_SEC - LINGER_MIN_SEC)
     }
 
     // Route agent to contextually appropriate room (skip player-controlled)
@@ -737,6 +725,22 @@ export class OfficeState {
     if (ch.lingerTimer > 0) return
     // If in a brainstorm meeting or review, don't override — those systems manage routing
     if (ch.routingZone === 'meeting' || ch.routingZone === 'review') return
+
+    // Idle agents with recent activity (< 30 min) stay at desk — don't route to break room
+    if (status === 'idle') {
+      const lastMs = ch.sessionInfo.lastActivityMs
+      if (lastMs && Date.now() - lastMs < 30 * 60 * 1000) {
+        // Send to seat if not already there
+        ch.routingZone = null
+        if (ch.seatId) {
+          const seat = this.seats.get(ch.seatId)
+          if (seat && (ch.tileCol !== seat.seatCol || ch.tileRow !== seat.seatRow)) {
+            this.sendToSeat(ch.id)
+          }
+        }
+        return
+      }
+    }
 
     const result = chooseDestination(ch, status, ch.sessionInfo)
 

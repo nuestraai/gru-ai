@@ -1,7 +1,7 @@
 {
   "id": "multi-directive-support",
   "title": "Tasks Panel — Merged Directive + Action with Interactive Navigation",
-  "status": "in_progress",
+  "status": "cancelled",
   "phase": "build",
   "agent": ["riley"],
   "reviewers": ["sarah"],

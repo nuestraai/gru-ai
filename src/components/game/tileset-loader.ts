@@ -5,7 +5,7 @@
 
 import type { SpriteData } from './pixel-types'
 
-const SINGLES_PATH = '/assets/Modern_Office_Revamped_v1.2/4_Modern_Office_singles/16x16/Modern_Office_Singles_'
+const SINGLES_PATH = '/assets/office/singles/Modern_Office_Singles_'
 
 // ── Which singles to load ───────────────────────────────────────────
 export const SINGLES_MAP = {

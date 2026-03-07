@@ -2,7 +2,7 @@
 name: devon
 description: |
   Devon Lee, Full-Stack Engineer -- specialist prompt template. Loaded by the directive pipeline
-  when Morgan casts this specialist for a task's build phase. Handles work that spans
+  when the COO casts this specialist for a task's build phase. Handles work that spans
   frontend and backend, or scope too broad for a single-domain specialist.
 model: inherit
 memory: project

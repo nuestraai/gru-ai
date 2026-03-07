@@ -3,13 +3,14 @@ import type { TileType as TileTypeVal, FurnitureInstance, Character, SpriteData,
 import { getCachedSprite, getOutlineSprite } from '../sprites/spriteCache'
 import { getCharacterSprites, BUBBLE_PERMISSION_SPRITE, BUBBLE_WAITING_SPRITE, BUBBLE_CHAT_SPRITE } from '../sprites/spriteData'
 import { STATUS_ICON_SPRITES } from '../sprites/statusIcons'
+import { INTERACTION_SPRITES, INTERACTION_DOT_COLORS } from '../sprites/interactionIcons'
 import { getCharacterSprite } from './characters'
 import { renderMatrixEffect } from './matrixEffect'
 import { getColorizedFloorSprite, hasFloorSprites, WALL_COLOR } from '../floorTiles'
 import { wallColorToHex } from '../wallTiles'
 import { hasTilesetCache, getScaledTileCanvas } from '../tilesetCache'
 import { renderBitmapText, measureBitmapText } from '../sprites/bitmapFont'
-import type { AgentStatus } from '../types'
+import type { AgentStatus, InteractionType } from '../types'
 import {
   CHARACTER_SITTING_OFFSET_PX,
   CHARACTER_Z_SORT_OFFSET,
@@ -636,8 +637,8 @@ export interface IdentityOverlay {
   colorMap: Map<number, string>
   /** Map from character id to current task description (shown below nameplate) */
   taskTextMap: Map<number, string>
-  /** Map from character id to id of agent they're interacting with (subagent relationship) */
-  interactionMap: Map<number, number>
+  /** Map from character id to interaction partner + type */
+  interactionMap: Map<number, {partnerId: number, type: InteractionType}>
   /** Monotonically increasing time (seconds) for animation */
   time: number
 }
@@ -749,22 +750,32 @@ export function renderIdentityPlates(
     const textY = plate.screenY + Math.floor(IDENTITY_PLATE_PAD_Y * zoom)
     renderBitmapText(ctx, plate.name, plate.brandColor, textX, textY, zoom)
 
-    // ── Task context line (below nameplate, no background) ──
+    // ── Task info card (working agents only) ──
+    // Compact native-font card below nameplate, ticker-style dark background
     const status = identity.statusMap.get(plate.ch.id)
-    if (status === 'working' || status === 'waiting') {
+    if (status === 'working') {
       const rawTask = identity.taskTextMap.get(plate.ch.id)
       if (rawTask && rawTask.length > 0) {
-        const taskText = rawTask.length > 20 ? rawTask.slice(0, 18) + '..' : rawTask
-        const taskSize = measureBitmapText(taskText)
-        const taskGap = Math.floor(1 * zoom)
-        const taskTextX = Math.floor(plate.screenX + plate.rect.w / 2 - Math.floor(taskSize.width * zoom) / 2)
-        const taskTextY = plate.screenY + plate.rect.h + taskGap
+        const taskText = rawTask.length > 30 ? rawTask.slice(0, 28) + '..' : rawTask
+        const fontSize = Math.max(9, Math.round(zoom * 3.5))
+        ctx.font = `${fontSize}px monospace`
+        const metrics = ctx.measureText(taskText)
+        const padX = Math.round(zoom)
+        const padY = Math.round(zoom * 0.5)
+        const cardW = Math.ceil(metrics.width) + padX * 2
+        const cardH = fontSize + padY * 2
+        const gap = Math.floor(1 * zoom)
+        const cardX = Math.floor(plate.screenX + plate.rect.w / 2 - cardW / 2)
+        const cardY = plate.screenY + plate.rect.h + gap
 
-        // Dimmed white text, no background plate
-        const prevAlpha = ctx.globalAlpha
-        ctx.globalAlpha = prevAlpha * 0.35
-        renderBitmapText(ctx, taskText, '#FFFFFF', taskTextX, taskTextY, zoom)
-        ctx.globalAlpha = prevAlpha
+        // Dark card background
+        ctx.fillStyle = 'rgba(61, 43, 31, 0.9)'
+        ctx.fillRect(cardX, cardY, cardW, cardH)
+
+        // Gold text
+        ctx.fillStyle = '#C4A265'
+        ctx.textBaseline = 'top'
+        ctx.fillText(taskText, cardX + padX, cardY + padY)
       }
     }
 
@@ -776,8 +787,6 @@ export function renderIdentityPlates(
 const STATUS_DOT_COLORS: Record<string, string> = {
   working: '#22c55e',
   idle: '#9ca3af',
-  error: '#ef4444',
-  waiting: '#eab308',
 }
 
 export function renderStatusIcons(
@@ -793,6 +802,9 @@ export function renderStatusIcons(
 
   for (const ch of characters) {
     if (ch.matrixEffect) continue
+
+    // Skip agents with active interactions — they get an interaction icon instead
+    if (identity.interactionMap.has(ch.id)) continue
 
     const status = identity.statusMap.get(ch.id)
     if (!status || status === 'offline') continue
@@ -892,8 +904,8 @@ export function renderBubbles(
   }
 }
 
-/** Render small chat bubbles above agents that are interacting with each other */
-export function renderChatBubbles(
+/** Render interaction icons above agents that are interacting with each other */
+export function renderInteractionIcons(
   ctx: CanvasRenderingContext2D,
   characters: Character[],
   offsetX: number,
@@ -903,30 +915,57 @@ export function renderChatBubbles(
 ): void {
   if (identity.interactionMap.size === 0) return
 
-  const cached = getCachedSprite(BUBBLE_CHAT_SPRITE, zoom)
-  // Track which pairs we've already rendered (avoid double-drawing)
+  // Track which agents we've already rendered (avoid double-drawing for pairs)
   const rendered = new Set<number>()
 
   for (const ch of characters) {
-    const partnerId = identity.interactionMap.get(ch.id)
-    if (partnerId === undefined || rendered.has(ch.id)) continue
+    const entry = identity.interactionMap.get(ch.id)
+    if (entry === undefined || rendered.has(ch.id)) continue
+    const { partnerId, type } = entry
     rendered.add(ch.id)
     rendered.add(partnerId)
 
-    // Draw chat bubble above this character
-    const sittingOff = ch.state === CharacterState.TYPE ? CHARACTER_SITTING_OFFSET_PX : 0
-    const bubbleX = Math.round(offsetX + ch.x * zoom - cached.width / 2)
-    const bubbleY = Math.round(offsetY + (ch.y + sittingOff - BUBBLE_VERTICAL_OFFSET_PX) * zoom - cached.height - 1 * zoom)
-    ctx.drawImage(cached, bubbleX, bubbleY)
+    const frames = INTERACTION_SPRITES[type]
+    if (!frames || frames.length === 0) continue
 
-    // Draw chat bubble above partner too
-    const partner = characters.find(c => c.id === partnerId)
-    if (partner) {
-      const pSittingOff = partner.state === CharacterState.TYPE ? CHARACTER_SITTING_OFFSET_PX : 0
-      const pBubbleX = Math.round(offsetX + partner.x * zoom - cached.width / 2)
-      const pBubbleY = Math.round(offsetY + (partner.y + pSittingOff - BUBBLE_VERTICAL_OFFSET_PX) * zoom - cached.height - 1 * zoom)
-      ctx.drawImage(cached, pBubbleX, pBubbleY)
+    // Animate: cycle through frames using identity.time
+    const frameIndex = Math.floor(identity.time * 1.5) % frames.length
+    const sprite = frames[frameIndex]
+
+    // ── Zoom < 2: simple colored dot fallback ──
+    if (zoom < 2) {
+      const dotColor = INTERACTION_DOT_COLORS[type]
+      const drawDot = (c: Character) => {
+        const sOff = c.state === CharacterState.TYPE ? CHARACTER_SITTING_OFFSET_PX : 0
+        const dotR = 2 * zoom
+        const dotCX = offsetX + c.x * zoom
+        const dotCY = offsetY + (c.y + sOff - BUBBLE_VERTICAL_OFFSET_PX) * zoom - dotR - 1 * zoom
+        ctx.beginPath()
+        ctx.arc(dotCX, dotCY, dotR, 0, Math.PI * 2)
+        ctx.fillStyle = dotColor
+        ctx.fill()
+      }
+      drawDot(ch)
+      const partner = characters.find(c => c.id === partnerId)
+      if (partner) drawDot(partner)
+      continue
     }
+
+    // ── Zoom >= 2: sprite-based interaction icon ──
+    const effectiveZoom = Math.min(zoom, 6)
+    const iconCanvas = getCachedSprite(sprite, effectiveZoom)
+
+    // Draw icon above this character
+    const drawIcon = (c: Character) => {
+      const sOff = c.state === CharacterState.TYPE ? CHARACTER_SITTING_OFFSET_PX : 0
+      const iconX = Math.round(offsetX + c.x * zoom - iconCanvas.width / 2)
+      const iconY = Math.round(offsetY + (c.y + sOff - BUBBLE_VERTICAL_OFFSET_PX) * zoom - iconCanvas.height - 1 * zoom)
+      ctx.drawImage(iconCanvas, iconX, iconY)
+    }
+
+    drawIcon(ch)
+    const partner = characters.find(c => c.id === partnerId)
+    if (partner) drawIcon(partner)
   }
 }
 
@@ -1051,9 +1090,9 @@ export function renderFrame(
   // Speech bubbles (always on top of characters)
   renderBubbles(ctx, characters, offsetX, offsetY, zoom)
 
-  // Chat bubbles for agent interactions (subagent relationships)
+  // Interaction icons for agent interactions (pipeline-derived relationships)
   if (identity) {
-    renderChatBubbles(ctx, characters, offsetX, offsetY, zoom, identity)
+    renderInteractionIcons(ctx, characters, offsetX, offsetY, zoom, identity)
   }
 
   // Editor overlays

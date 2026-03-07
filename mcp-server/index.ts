@@ -9,14 +9,14 @@ import { listDirectives, launchDirective } from './tools/directive.js';
 import { readReport, listReports } from './tools/report.js';
 
 const server = new McpServer({
-  name: 'agent-conductor',
+  name: 'gruai',
   version: '0.1.0',
 });
 
 // --- conductor_status ---
 server.tool(
   'conductor_status',
-  'Returns current conductor state: active directives by category, open projects, backlog summary, recent completions. Reads from .context/directives/.',
+  'Returns current conductor state: active directives, open projects, backlog summary, recent completions. Reads from .context/directives/.',
   async () => {
     try {
       const result = conductorStatus();
@@ -35,14 +35,13 @@ server.tool(
 // --- conductor_backlog ---
 server.tool(
   'conductor_backlog',
-  'List backlog items filtered by category and/or priority. Reads from .context/backlog.json.',
+  'List backlog items filtered by priority. Reads from .context/backlog.json.',
   {
-    category: z.string().optional().describe('Category to filter by (e.g., "framework", "dashboard", "game", "pipeline"). Omit for all categories.'),
     priority: z.string().optional().describe('Priority filter (e.g., "P0", "P1", "P2"). Omit for all priorities.'),
   },
-  async ({ category, priority }) => {
+  async ({ priority }) => {
     try {
-      const result = listBacklog(category, priority);
+      const result = listBacklog(priority);
       return { content: [{ type: 'text' as const, text: result }] };
     } catch (err) {
       return {
@@ -60,15 +59,14 @@ server.tool(
   'conductor_add_backlog',
   'Add a new item to the backlog (.context/backlog.json). Creates the backlog file if it does not exist.',
   {
-    category: z.string().describe('Category (e.g., "framework", "dashboard", "game", "pipeline")'),
     title: z.string().describe('Title of the backlog item'),
     priority: z.string().describe('Priority level (P0, P1, P2, or P3)'),
     description: z.string().describe('Description of the item'),
     trigger: z.string().optional().describe('Trigger condition for when this item should be activated (used by /scout)'),
   },
-  async ({ category, title, priority, description, trigger }) => {
+  async ({ title, priority, description, trigger }) => {
     try {
-      const result = addBacklogItem(category, title, priority, description, trigger);
+      const result = addBacklogItem(title, priority, description, trigger);
       return { content: [{ type: 'text' as const, text: result }] };
     } catch (err) {
       return {

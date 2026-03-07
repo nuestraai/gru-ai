@@ -24,6 +24,5 @@
       "feedback": "Missing designer agent (Quinn) for design review on UI tasks. V2: Add Quinn to the pipeline — design prototypes during planning, design review during execution. Ensure all UI-touching tasks get Quinn's design review."
     }
   ],
-  "category": "dashboard",
   "current_step": "completion"
 }

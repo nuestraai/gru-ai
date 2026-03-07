@@ -5,6 +5,12 @@ description: "Structured brainstorm — from quick Socratic refinement to full C
 
 # Brainstorm — Structured Strategic Thinking
 
+## Role Resolution
+
+Read `.claude/agent-registry.json` to map roles to agent names. Use each agent's `id` as the `subagent_type` when spawning. The COO = operations/orchestration, the CTO = architecture/technical, the CPO = product/UX, the CMO = growth/marketing.
+
+---
+
 The CEO has a question: $ARGUMENTS
 
 ## Step 0: Triage
@@ -36,13 +42,13 @@ Reasoning: {one sentence}
 For focused questions. One agent, interactive dialogue. Think 5-minute whiteboard chat.
 
 **Pick the right agent** based on the question domain:
-- Architecture / data model → Sarah
-- User experience / product → Marcus
-- Process / operations → Morgan
-- Growth / positioning → Priya
+- Architecture / data model → the CTO
+- User experience / product → the CPO
+- Process / operations → the COO
+- Growth / positioning → the CMO
 
-Spawn the agent with:
-- Their personality file
+Spawn the agent (using the registry's `id` as `subagent_type`) with:
+- Their personality file (auto-loaded via `subagent_type`)
 - The CEO's question
 - `.context/vision.md` and `.context/preferences.md`
 - Relevant files the question touches
@@ -73,7 +79,7 @@ CRITICAL OUTPUT FORMAT: JSON only. First character `{`, last `}`.
 
 **After the agent asks questions**, present them to the CEO via AskUserQuestion or as text. Let the CEO answer. Then re-spawn the agent (or resume) with the answers to get the options.
 
-**Final output:** Write a brief design note to `.context/goals/{relevant-goal}/projects/{project}/brainstorm.md` capturing the decision. Keep it short — this is a lightweight brainstorm, not a design doc.
+**Final output:** Write a brief design note to `.context/directives/{relevant-directive}/brainstorm.md` capturing the decision. Keep it short — this is a lightweight brainstorm, not a design doc.
 
 **If the question turns out to be bigger than expected** (agent's questions reveal cross-cutting complexity), upgrade to heavyweight. Tell the CEO: "This is bigger than it looked — upgrading to full brainstorm."
 
@@ -107,12 +113,12 @@ Show the framing to the CEO before spawning agents. This prevents wasted work on
 
 Spawn 2-3 C-suite agents **in parallel**. Pick the most relevant agents for the question domain:
 
-- **Architecture / data model / system design** → Sarah
-- **User experience / product design / workflows** → Marcus
-- **Operations / process / project structure** → Morgan
-- **Growth / positioning / external patterns** → Priya
+- **Architecture / data model / system design** → the CTO
+- **User experience / product design / workflows** → the CPO
+- **Operations / process / project structure** → the COO
+- **Growth / positioning / external patterns** → the CMO
 
-**Always include Morgan** (she synthesizes in Step 3). Pick 1-2 others based on the question.
+**Always include the COO** (they synthesize in Step 3). Pick 1-2 others based on the question.
 
 Each agent receives:
 - Their personality from `.claude/agents/{name}.md`
@@ -164,18 +170,18 @@ CRITICAL: First character `{`, last character `}`. JSON only. Have a STRONG opin
 
 All agents: `subagent_type: "general-purpose"`, `model: "opus"`.
 
-## Step 3: Converge — Morgan Synthesizes
+## Step 3: Converge — COO Synthesizes
 
-After all agents return, spawn Morgan with a synthesis task.
+After all agents return, spawn the COO with a synthesis task.
 
-Morgan receives:
-- Her personality
+The COO receives:
+- Their personality
 - All agent outputs from Step 2
 - The original framed question
 - Vision + preferences
 
 ```
-You are Morgan Park, COO. The team has brainstormed independently. Your job: synthesize their perspectives into 2-3 clear OPTIONS for the CEO to choose from.
+You are the COO. The team has brainstormed independently. Your job: synthesize their perspectives into 2-3 clear OPTIONS for the CEO to choose from.
 
 AGENT PERSPECTIVES:
 {all agent outputs}
@@ -185,7 +191,7 @@ SYNTHESIS RULES:
 2. Find the CONFLICTS — where do they disagree? These are the real decision points.
 3. Design 2-3 OPTIONS that represent genuinely different approaches (not just variations).
 4. For each option, be honest about trade-offs. Don't create a strawman "bad option" to make one look good.
-5. Include a "MORGAN'S PICK" — your recommendation with reasoning.
+5. Include a "COO'S PICK" — your recommendation with reasoning.
 6. Include the NON-NEGOTIABLES that all agents agreed on (these apply regardless of option).
 
 {
@@ -201,7 +207,7 @@ SYNTHESIS RULES:
     {
       "name": "Option A: descriptive name",
       "summary": "2-3 sentence description",
-      "inspired_by": ["which agent perspectives contributed"],
+      "inspired_by": ["which agent roles/perspectives contributed"],
       "pros": ["advantages"],
       "cons": ["disadvantages"],
       "effort": "quick | medium | large",
@@ -209,7 +215,7 @@ SYNTHESIS RULES:
     }
   ],
   "non_negotiables": ["Must be true regardless of option chosen"],
-  "morgans_pick": {
+  "coo_pick": {
     "option": "Option name",
     "reasoning": "Why — in 2-3 sentences"
   }
@@ -246,8 +252,8 @@ Present the synthesized options in a readable format:
 ### Option C: {name} (if applicable)
 ...
 
-## Morgan's Recommendation
-{Morgan's pick and reasoning}
+## COO's Recommendation
+{COO's pick and reasoning}
 
 ## Research Highlights
 {Most interesting external findings from agents — URLs included}
@@ -260,7 +266,7 @@ Ask the CEO using AskUserQuestion:
 
 After the CEO decides:
 
-1. **Write a design doc** to `.context/goals/{relevant-goal}/projects/{project}/brainstorm.md`:
+1. **Write a design doc** to `.context/directives/{relevant-directive}/brainstorm.md`:
    ```markdown
    # {Question Title}
    Date: {date}
@@ -302,7 +308,7 @@ After the CEO decides:
 **Normal path (auto-triggered):** Strategic directives trigger a brainstorm automatically inside the /directive pipeline. The CEO never needs to invoke /brainstorm separately — the team detects when strategic thinking is needed and handles it.
 
 ```
-CEO gives direction → /directive → Alex triages as "strategic" → C-suite brainstorms → Morgan plans → execute
+CEO gives direction → /directive → triage as "strategic" → C-suite brainstorms → COO plans → execute
 ```
 
 **Standalone path (CEO-invoked):** The CEO can still invoke /brainstorm directly for questions that don't need a directive — strategy decisions, process design, framework choices, or "I want to think through X with the team" moments.
@@ -311,7 +317,7 @@ CEO gives direction → /directive → Alex triages as "strategic" → C-suite b
 CEO invokes /brainstorm → triage → lightweight or heavyweight brainstorm → design doc
 ```
 
-**Not every directive needs a brainstorm** (simple fixes don't). But strategic work — new data models, workflow changes, architectural shifts — benefits from the team exploring approaches before Morgan plans execution.
+**Not every directive needs a brainstorm** (simple fixes don't). But strategic work — new data models, workflow changes, architectural shifts — benefits from the team exploring approaches before the COO plans execution.
 
 ## Rules
 
@@ -322,13 +328,13 @@ CEO invokes /brainstorm → triage → lightweight or heavyweight brainstorm →
 - Start heavyweight agents without framing the question first (Step 1)
 - Let heavyweight agents see each other's output during Step 2 (independent thinking prevents groupthink)
 - Present more than 3 options (decision paralysis)
-- Skip Morgan's synthesis in heavyweight (raw perspectives without synthesis is a data dump)
+- Skip the COO's synthesis in heavyweight (raw perspectives without synthesis is a data dump)
 
 ### ALWAYS
 - Triage first — lightweight or heavyweight
 - Capture the decision to a discussion file (reasoning dies in context windows)
 - Upgrade lightweight → heavyweight if clarifying questions reveal cross-cutting complexity
-- Include at least Morgan + one other agent for heavyweight
-- Have Morgan state a recommendation for heavyweight (no "it depends" cop-outs)
+- Include at least the COO + one other agent for heavyweight
+- Have the COO state a recommendation for heavyweight (no "it depends" cop-outs)
 - Include external research in heavyweight (agents should WebSearch, not just opine)
 - Frame the question before spawning heavyweight agents (prevents wasted work)

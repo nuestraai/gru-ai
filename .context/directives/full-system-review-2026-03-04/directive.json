@@ -22,6 +22,5 @@
       "API_BASE migration",
       "State-watcher deferred status"
     ]
-  },
-  "category": "pipeline"
+  }
 }

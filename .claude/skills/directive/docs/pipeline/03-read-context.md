@@ -2,17 +2,12 @@
 
 ## Step 2: Read Context
 
-Read ALL of these before spawning Morgan:
+Read ALL of these before spawning the COO:
 - `.context/vision.md` — north star + guardrails (agents must respect guardrails)
 - `.context/preferences.md` — CEO standing orders (agents must follow these)
-- `.context/directives/*/directive.json` — current directives, their categories, and status
+- `.context/directives/*/directive.json` — current directives and status
 - `.context/lessons/*.md` — project gotchas and patterns (read topic files as needed per agent role)
-- `.context/lessons/orchestration.md` — for Morgan and orchestration
+- `.context/lessons/orchestration.md` — for the COO and orchestration
 - `.context/lessons/agent-behavior.md` — for all agents
 - All `.context/directives/*/projects/*/project.json` — current project states and task status
-- The agent personality files Morgan may cast:
-  - `.claude/agents/sarah-cto.md`
-  - `.claude/agents/marcus-cpo.md`
-  - `.claude/agents/priya-cmo.md`
-
-Also note the directive's `category` field — this goes to the auditor in the audit step for domain context.
+- The C-suite agent personality files (resolve names from `.claude/agent-registry.json`)

@@ -5,6 +5,12 @@ description: "Cognitive walkthrough — simulate real user scenarios against the
 
 # Walkthrough — Cognitive Walkthrough
 
+## Role Resolution
+
+Read `.claude/agent-registry.json` to map roles to agent names. Use each agent's `id` as the `subagent_type` when spawning. The CPO designs the ideal experience; the CTO traces the actual implementation.
+
+---
+
 Simulate user scenarios against the current system. Find what's broken, missing, or surprising.
 
 **The pattern:** For each scenario, design what SHOULD happen (ideal), trace what DOES happen (actual), report the gaps.
@@ -32,10 +38,10 @@ If `all`, load all scenarios. If a specific name, load just that one.
 
 ### If $ARGUMENTS is free text:
 
-Treat it as an ad-hoc scenario. Spawn Marcus (CPO) to formalize it:
+Treat it as an ad-hoc scenario. Spawn the CPO to formalize it:
 
 ```
-You are Marcus Rivera, CPO. The CEO described a user scenario informally:
+You are the CPO. The CEO described a user scenario informally:
 
 "{$ARGUMENTS}"
 
@@ -75,16 +81,16 @@ Use AskUserQuestion with the scenario names as options.
 
 ## Step 2: Design the Ideal (per scenario)
 
-For each scenario, spawn Marcus (CPO) to design the **ideal experience** — what SHOULD happen if everything worked perfectly.
+For each scenario, spawn the CPO to design the **ideal experience** — what SHOULD happen if everything worked perfectly.
 
-Marcus receives:
-- His personality from `.claude/agents/marcus-cpo.md`
+The CPO receives:
+- Their personality file
 - The scenario definition
 - `.context/vision.md` — so the ideal aligns with the north star
 - `.context/preferences.md` — CEO expectations
 
 ```
-You are Marcus Rivera, CPO. You are designing the IDEAL user experience for this scenario. Don't look at the current implementation — design from scratch what the perfect flow would be.
+You are the CPO. You are designing the IDEAL user experience for this scenario. Don't look at the current implementation — design from scratch what the perfect flow would be.
 
 SCENARIO:
 - Actor: {actor}
@@ -123,17 +129,17 @@ CRITICAL OUTPUT FORMAT: First character must be `{`, last must be `}`. JSON only
 
 ## Step 3: Trace the Actual (per scenario)
 
-For each scenario, spawn Sarah (CTO) to trace what ACTUALLY happens in the current system. She reads code, config, and skill files to follow the real execution path.
+For each scenario, spawn the CTO to trace what ACTUALLY happens in the current system. The CTO reads code, config, and skill files to follow the real execution path.
 
-Sarah receives:
-- Her personality from `.claude/agents/sarah-cto.md`
+The CTO receives:
+- Their personality file
 - The scenario definition
-- Marcus's ideal flow (from Step 2)
+- The CPO's ideal flow (from Step 2)
 - `.context/lessons/` topic files — known issues
 - `.context/preferences.md`
 
 ```
-You are Sarah Chen, CTO. You are tracing what ACTUALLY happens in the current system for this scenario. Read the real code and config — don't guess.
+You are the CTO. You are tracing what ACTUALLY happens in the current system for this scenario. Read the real code and config — don't guess.
 
 SCENARIO:
 - Actor: {actor}
@@ -141,8 +147,8 @@ SCENARIO:
 - Goal: {goal}
 - Critical path: {steps}
 
-IDEAL FLOW (from Marcus):
-{Marcus's ideal_flow JSON}
+IDEAL FLOW (from the CPO):
+{CPO's ideal_flow JSON}
 
 For each step of the ideal flow, trace what the current system actually does:
 1. Read the relevant files (SKILL.md, agent files, code)
@@ -160,7 +166,7 @@ CRITICAL OUTPUT FORMAT: First character must be `{`, last must be `}`. JSON only
   "actual_flow": [
     {
       "ideal_step": 1,
-      "ideal_expectation": "what Marcus said should happen",
+      "ideal_expectation": "what the CPO said should happen",
       "actual_behavior": "what the system actually does",
       "status": "match | diverge | missing | broken",
       "evidence": "file:line or config entry that proves this",
@@ -247,8 +253,8 @@ If `.context/lessons/scenarios.md` doesn't exist, create it with starter scenari
 
 | Situation | Action |
 |-----------|--------|
-| Marcus can't formalize ad-hoc scenario | Ask CEO to clarify the scenario |
-| Sarah can't find the entry point for a step | Mark as "missing — no implementation found" |
+| The CPO can't formalize ad-hoc scenario | Ask CEO to clarify the scenario |
+| The CTO can't find the entry point for a step | Mark as "missing — no implementation found" |
 | A scenario has no gaps | Report it as passing — this is good news |
 | scenarios.md doesn't exist | Create it with starter scenarios, then run |
 
@@ -265,4 +271,4 @@ If `.context/lessons/scenarios.md` doesn't exist, create it with starter scenari
 - Include evidence (file:line) for every gap — no hand-waving
 - Acknowledge what's working well — not just gaps
 - Save the report even if no gaps found (it's a health signal)
-- Use Marcus for ideal (product thinking) and Sarah for actual (technical tracing)
+- Use the CPO for ideal (product thinking) and the CTO for actual (technical tracing)

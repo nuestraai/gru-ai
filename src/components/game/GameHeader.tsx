@@ -6,12 +6,14 @@ import { useBadgeCounts } from './hooks/useBadgeCounts';
 // Types
 // ---------------------------------------------------------------------------
 
-export type HudPanel = 'team' | 'tasks' | 'ops' | 'log';
+export type HudPanel = 'team' | 'tasks' | 'status' | 'log';
 
 interface GameHeaderProps {
   onPanelRequest?: (panel: HudPanel) => void;
   gameContainerRef?: React.RefObject<HTMLDivElement | null>;
   activePanel?: HudPanel | null;
+  workingCount?: number;
+  staffCount?: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -105,7 +107,7 @@ function HudButton({ icon, label, onClick, active, ariaLabel, badge, glow }: Hud
 // Component
 // ---------------------------------------------------------------------------
 
-export default function GameHeader({ onPanelRequest, gameContainerRef, activePanel }: GameHeaderProps) {
+export default function GameHeader({ onPanelRequest, gameContainerRef, activePanel, workingCount = 0, staffCount = 0 }: GameHeaderProps) {
   const badges = useBadgeCounts();
 
   // Fullscreen state
@@ -181,11 +183,12 @@ export default function GameHeader({ onPanelRequest, gameContainerRef, activePan
       <div className="flex items-center gap-1.5">
         <HudButton
           icon={<Users className="h-3.5 w-3.5" />}
-          label="Team"
+          label={`Team ${workingCount}/${staffCount}`}
           onClick={() => onPanelRequest?.('team')}
           active={activePanel === 'team'}
           ariaLabel="Team overview"
           badge={badges.team > 0 ? badges.team : undefined}
+          glow={workingCount > 0}
         />
         <HudButton
           icon={<Zap className="h-3.5 w-3.5" />}
@@ -197,11 +200,11 @@ export default function GameHeader({ onPanelRequest, gameContainerRef, activePan
         />
         <HudButton
           icon={<Activity className="h-3.5 w-3.5" />}
-          label="Ops"
-          onClick={() => onPanelRequest?.('ops')}
-          active={activePanel === 'ops'}
-          ariaLabel="Operations overview"
-          badge={badges.ops > 0 ? badges.ops : undefined}
+          label="Status"
+          onClick={() => onPanelRequest?.('status')}
+          active={activePanel === 'status'}
+          ariaLabel="System status"
+          badge={badges.status > 0 ? badges.status : undefined}
         />
         <HudButton
           icon={<ScrollText className="h-3.5 w-3.5" />}

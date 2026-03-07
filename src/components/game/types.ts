@@ -5,7 +5,10 @@
 import registry from '../../../.claude/agent-registry.json';
 
 /** Agent status derived from session data */
-export type AgentStatus = 'working' | 'waiting' | 'idle' | 'error' | 'offline';
+export type AgentStatus = 'working' | 'idle';
+
+/** Interaction type derived from directive pipeline step */
+export type InteractionType = 'planning' | 'brainstorming' | 'building' | 'reviewing' | 'auditing';
 
 /** Tile type strings (kept for SidePanel compatibility) */
 export type TileType =

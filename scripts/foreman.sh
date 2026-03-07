@@ -8,9 +8,9 @@
 #   ./scripts/foreman.sh
 #
 # LaunchAgent setup (macOS):
-#   See scripts/launchd/com.agent-conductor.foreman.plist
+#   See scripts/launchd/com.gruai.foreman.plist
 #   Copy to ~/Library/LaunchAgents/ and load with:
-#   launchctl load ~/Library/LaunchAgents/com.agent-conductor.foreman.plist
+#   launchctl load ~/Library/LaunchAgents/com.gruai.foreman.plist
 
 set -euo pipefail
 

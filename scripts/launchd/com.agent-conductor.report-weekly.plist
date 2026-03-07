@@ -3,10 +3,10 @@
 <plist version="1.0">
 <dict>
     <key>Label</key>
-    <string>com.agent-conductor.report-weekly</string>
+    <string>com.gruai.report-weekly</string>
     <key>ProgramArguments</key>
     <array>
-        <string>/Users/yangyang/Repos/agent-conductor/scripts/scheduled-runs.sh</string>
+        <string>/Users/yangyang/Repos/gruai/scripts/scheduled-runs.sh</string>
         <string>report</string>
         <string>weekly</string>
     </array>
@@ -20,9 +20,9 @@
         <integer>0</integer>
     </dict>
     <key>StandardOutPath</key>
-    <string>/Users/yangyang/Repos/agent-conductor/logs/launchd-report-weekly.log</string>
+    <string>/Users/yangyang/Repos/gruai/logs/launchd-report-weekly.log</string>
     <key>StandardErrorPath</key>
-    <string>/Users/yangyang/Repos/agent-conductor/logs/launchd-report-weekly-error.log</string>
+    <string>/Users/yangyang/Repos/gruai/logs/launchd-report-weekly-error.log</string>
     <key>EnvironmentVariables</key>
     <dict>
         <key>PATH</key>

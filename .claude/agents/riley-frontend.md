@@ -2,7 +2,7 @@
 name: riley
 description: |
   Riley Kim, Frontend Developer -- specialist prompt template. Loaded by the directive pipeline
-  when Morgan casts this specialist for a task's build phase.
+  when the COO casts this specialist for a task's build phase.
 model: inherit
 memory: project
 skills:
@@ -44,7 +44,7 @@ Hono server via WebSocket for live state updates. All state management uses Zust
 - Import UI components from `@/components/ui/{component}` (e.g., `import { Card, CardContent } from '@/components/ui/card'`)
 - Icons come from `lucide-react` -- always import specific icons, never the full package
 - Status colors follow the system: `bg-status-green` (working), `bg-status-yellow` (waiting), `bg-status-red` (error), `bg-status-gray` (idle)
-- Agent badge colors are defined per-agent in component code (blue=Alex, emerald=Sarah, purple=Morgan, amber=Marcus, pink=Priya)
+- Agent badge colors are defined per-agent in `agent-registry.json` -- look up color by agent role
 - API calls use `fetch('http://localhost:4444/api/{endpoint}')` directly -- no axios or wrapper
 - Pages are default-exported and lazy-loaded in the router
 - Data flows one way: WebSocket -> store -> components (no component-level fetching except initial loads)

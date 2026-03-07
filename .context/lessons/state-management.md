@@ -1,7 +1,7 @@
 # Lessons: State Management
 
 > Checkpoints, state files, worktrees, persistence patterns.
-> Relevant to: orchestrator (execution), Sarah (review), engineers (build)
+> Relevant to: orchestrator (execution), CTO (review), engineers (build)
 
 ## Checkpoint-Resume
 
@@ -20,7 +20,7 @@
 - **Index-then-replace is safer than replace-in-place.** The state indexer READS existing .context/ and produces parallel JSON state files. Originals are untouched. This avoids the "migration breaks everything" risk. Cutover to JSON-first writes happens later, incrementally.
 - **DirectiveWatcher was built but never had a writer.** The optimize-conductor-workflows directive reported this as done, but the writer was NOT added to SKILL.md. Checkpoint: always verify writer AND reader exist.
 - **Re-index state after every directive.** Dashboard won't show latest work unless the indexer runs. Added as Step 6e in SKILL.md.
-- **Review-then-fix is the right cycle.** Spawning Sarah + Marcus as background reviewers while continuing other work, then fixing findings, caught 10 real issues in a single iteration.
+- **Review-then-fix is the right cycle.** Spawning the CTO + the CPO as background reviewers while continuing other work, then fixing findings, caught 10 real issues in a single iteration.
 
 ## Parsing & Data Integrity
 

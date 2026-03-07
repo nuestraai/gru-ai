@@ -1,8 +1,7 @@
 {
   "id": "telemetry",
-  "title": "Directive telemetry \u2014 wall time, phase outcomes, review stats",
+  "title": "Directive telemetry — wall time, phase outcomes, review stats",
   "status": "completed",
-  "category": "pipeline",
   "weight": "tactical",
   "created": "2026-03-02T00:00:00Z",
   "completed": "2026-03-03T00:00:00Z"

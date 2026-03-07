@@ -22,9 +22,9 @@ Write 2-4 sentences describing what needs to happen. Focus on the outcome and ap
 - DOD should cover: functional correctness, scope completeness, and CEO-intent alignment
 - If the directive has explicit success criteria, each criterion should map to at least one DOD item
 
-Also from the first DOD block in Morgan's prompt:
+Also from the first DOD block in the COO's prompt:
 - Every task MUST have a definition_of_done array with 2-5 concrete, testable criteria
 - Each criterion must be verifiable (not vague like "improve quality")
 - DOD is what the CEO reviews to approve/reject the task's result
-- Examples of good DOD: "All directive.json files have category field", "Watcher reads directive.json and populates category field", "Type-check passes"
+- Examples of good DOD: "All directive.json files have required fields", "Watcher reads directive.json and populates state fields", "Type-check passes"
 - Examples of bad DOD: "Improve goal structure", "Make it work", "Better code quality"

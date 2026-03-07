@@ -24,15 +24,9 @@ Create `.context/directives/$ARGUMENTS/directive.json` if it doesn't already exi
   "created": "{today's date YYYY-MM-DD}",
   "completed": null,
   "weight": "{classification from triage: lightweight | medium | heavyweight | strategic}",
-  "category": "{one of: framework, pipeline, dashboard, game — infer from directive name/scope}",
   "produced_features": [],
   "report": null,
   "backlog_sources": []
 }
 ```
 
-Extract `category` from the directive .md content:
-- Look for `**Category**: {category}` in the directive text
-- If not found, infer from the directive name/scope (e.g., `game-*` -> `game`, `pipeline-*` -> `pipeline`, `dashboard-*` -> `dashboard`)
-- Valid categories: `framework`, `pipeline`, `dashboard`, `game`
-- Every directive MUST have a category

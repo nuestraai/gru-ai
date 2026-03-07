@@ -13,7 +13,10 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
-import { execSync, spawn } from 'node:child_process';
+import { execSync } from 'node:child_process';
+
+import { ClaudeCodeSpawnAdapter } from '../server/platform/claude-code-spawn.js';
+import type { SpawnAdapter } from '../server/platform/spawn-adapter.js';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -60,6 +63,9 @@ const LOG_PATH = path.join(CONDUCTOR_DIR, 'scheduler.log');
 
 // Skip markers — directives containing these are skipped by the foreman
 const SKIP_MARKERS = ['<!-- foreman:skip -->', '**Requires**: manual', 'DEFERRED', '**Status**: deferred', '**Status**: needs-human'];
+
+// Spawn adapter for launching Claude Code agent processes
+const spawnAdapter: SpawnAdapter = new ClaudeCodeSpawnAdapter();
 
 // ---------------------------------------------------------------------------
 // Config
@@ -248,7 +254,7 @@ function findReadyWork(projectPath: string): ReadyWork[] {
   if (fs.existsSync(backlogPath)) {
     let items: Array<{
       id?: string; title?: string; status?: string;
-      priority?: string; category?: string; trigger?: string;
+      priority?: string; trigger?: string;
     }>;
     try {
       const raw = JSON.parse(fs.readFileSync(backlogPath, 'utf-8'));
@@ -353,30 +359,21 @@ function launchDirective(work: ReadyWork, projectPath: string): void {
 
   console.log(`[foreman] Launching: ${work.name} (${work.priority}, ${work.source})`);
 
-  const logDir = '/Users/yangyang/Repos/agent-conductor/logs';
+  const logDir = '/Users/yangyang/Repos/gruai/logs';
   fs.mkdirSync(logDir, { recursive: true });
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
   const logFile = path.join(logDir, `foreman-${work.name}-${timestamp}.log`);
 
-  const outStream = fs.openSync(logFile, 'w');
-
   // Launch Claude in print mode with dangerously-skip-permissions for batch execution
-  const child = spawn('claude', [
-    '-p',
-    '--dangerously-skip-permissions',
+  const handle = spawnAdapter.spawnAgent({
     prompt,
-  ], {
     cwd: projectPath,
-    stdio: ['ignore', outStream, outStream],
-    detached: true,
+    skipPermissions: true,
+    outputPath: logFile,
     env: {
-      ...process.env,
       PATH: `/Users/yangyang/.local/bin:/usr/local/bin:/usr/bin:/bin:${process.env.PATH ?? ''}`,
     },
-  });
-
-  // Detach child so foreman can exit
-  child.unref();
+  }, 'detached');
 
   appendLog({
     timestamp: new Date().toISOString(),
@@ -386,7 +383,7 @@ function launchDirective(work: ReadyWork, projectPath: string): void {
     estimated_cost_usd: 5, // rough estimate per directive
   });
 
-  console.log(`[foreman] Launched ${work.name}, PID ${child.pid}, log: ${logFile}`);
+  console.log(`[foreman] Launched ${work.name}, PID ${handle.pid}, log: ${logFile}`);
 }
 
 // ---------------------------------------------------------------------------

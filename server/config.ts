@@ -17,9 +17,9 @@ function resolveHome(filePath: string): string {
  * Decode a ~/.claude/projects/ directory name back to a real filesystem path.
  *
  * Directory names encode paths by replacing `/` with `-`, e.g.:
- *   `-Users-yangyang-Repos-agent-conductor` -> `/Users/yangyang/Repos/agent-conductor`
+ *   `-Users-yangyang-Repos-gruai` -> `/Users/yangyang/Repos/gruai`
  *
- * The challenge: path components can contain hyphens (e.g. `agent-conductor`).
+ * The challenge: path components can contain hyphens (e.g. `gruai`).
  * We solve this by trying all possible hyphen->slash splits and checking which
  * decoded path actually exists on disk.
  */
@@ -73,7 +73,7 @@ function findValidPath(parts: string[], index: number, currentPath: string): str
 /**
  * Derive a human-friendly project name from a filesystem path.
  * Uses the last directory component, title-cased.
- * e.g. `/Users/yangyang/Repos/agent-conductor` -> `Agent Conductor`
+ * e.g. `/Users/yangyang/Repos/gruai` -> `Agent Conductor`
  */
 function deriveProjectName(projectPath: string): string {
   const basename = path.basename(projectPath);

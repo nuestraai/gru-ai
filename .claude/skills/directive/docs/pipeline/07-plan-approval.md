@@ -6,16 +6,16 @@
 
 After the audit and before presenting the plan, validate that all tasks are genuinely `simple` using the audit's `active_files` as mechanical ground truth:
 
-- If a task has **>5 active_files**: it's NOT simple. **Flag for re-decomposition** — Morgan must break it into 2-3 smaller simple tasks.
+- If a task has **>5 active_files**: it's NOT simple. **Flag for re-decomposition** — the COO must break it into 2-3 smaller simple tasks.
 - If a task has **>10 active_files** or spans **>2 directories**: it's genuinely complex. **Flag as needing its own project** with brainstorm.
 - Log any flags: `[COMPLEXITY FLAG] {task title}: touches 7 active files -- needs decomposition`
 
 **If any tasks are flagged:**
-1. Re-spawn Morgan with the flagged tasks + audit findings, instructing her to decompose them into simple tasks (or escalate to a separate project if genuinely complex)
+1. Re-spawn the COO with the flagged tasks + audit findings, instructing them to decompose the tasks into simple tasks (or escalate to a separate project if genuinely complex)
 2. Re-validate the updated plan
 3. Present the final plan to CEO
 
-This prevents Morgan (an LLM optimistic about complexity) from classifying everything as "simple". The audit's active_files count is mechanical ground truth that overrides Morgan's judgment.
+This prevents the COO (an LLM optimistic about complexity) from classifying everything as "simple". The audit's active_files count is mechanical ground truth that overrides the COO's judgment.
 
 ---
 
@@ -32,7 +32,7 @@ Always lead with a 3-5 bullet TL;DR that the CEO can read in 20 seconds:
 
 - **What**: {1-sentence goal}
 - **Scope**: {N} tasks{, M in K projects if multi-project}
-- **Risk**: {Morgan's recommendation -- proceed / scope down / defer}
+- **Risk**: {the COO's recommendation -- proceed / scope down / defer}
 - **Auto-ships**: {count} low-risk tasks execute without approval
 - **Needs your call**: {count} items need CEO decision {brief description}
 
@@ -41,14 +41,14 @@ Approve all / Approve with changes / Reject
 
 The CEO should be able to approve from the TL;DR alone for medium-risk directives. The full detail below is for heavyweight review or "Approve with changes" scenarios.
 
-### Challenges (from Morgan's inline analysis + challenge step if separate challengers were spawned)
+### Challenges (from the COO's inline analysis + challenge step if separate challengers were spawned)
 
-First, present Morgan's built-in challenge analysis:
+First, present the COO's built-in challenge analysis:
 
 ```
-## Risk & Scope Assessment (Morgan)
+## Risk & Scope Assessment (COO)
 
-Risks: {Morgan's top 3 risks from challenges.risks}
+Risks: {the COO's top 3 risks from challenges.risks}
 Over-engineering flags: {challenges.over_engineering_flags}
 Recommendation: {challenges.recommendation}
 ```
@@ -62,19 +62,19 @@ If separate C-suite challengers were spawned (heavyweight/controversial directiv
 {If risk flags: "Risks: {list}"}
 ```
 
-If any challenge (Morgan's or separate) recommends scoping down, highlight it prominently. The CEO should consider the challenge before approving the plan.
+If any challenge (the COO's or separate) recommends scoping down, highlight it prominently. The CEO should consider the challenge before approving the plan.
 
 ### Plan (from plan + audit steps)
 
-Merge Morgan's strategic plan with the audit findings and present **grouped by priority**:
+Merge the COO's strategic plan with the audit findings and present **grouped by priority**:
 
 For each task, display:
 - Title + priority + complexity
-- Scope (from Morgan)
-- User scenario (from Morgan — the one-sentence user experience)
+- Scope (from the COO)
+- User scenario (from the COO — the one-sentence user experience)
 - Audit findings: active files, dead code flagged, recommended approach
 - Phases + agent cast
-- Definition of Done items (from Morgan's plan — for CEO to review before approving)
+- Definition of Done items (from the COO's plan — for CEO to review before approving)
 
 Flag tasks where the audit found nothing to fix or all dead code -- recommend removal.
 
@@ -83,7 +83,7 @@ Example format:
 ## P0 — Must Ship
 
   1. {Task Title} (phases: {phases list}) — {cast summary}
-     Scope: {Morgan's scope description}
+     Scope: {the COO's scope description}
      User scenario: {user_scenario}
      Audit: {baseline} | {N} active files | {M} dead code files flagged
      Approach: {auditor's recommended approach}
@@ -117,22 +117,21 @@ If CEO wants changes, adjust the plan accordingly.
 
 Once the CEO approves (or approves with changes), create the project.json — this is the source of truth for execution. Builders read it to know what to do. The dashboard shows it for progress tracking.
 
-1. Create directory: `mkdir -p .context/directives/{directive-id}/projects/{project-id}/` (for each project in Morgan's plan)
-2. Write `project.json` with fields derived from Morgan's plan (incorporating any CEO modifications):
+1. Create directory: `mkdir -p .context/directives/{directive-id}/projects/{project-id}/` (for each project in the COO's plan)
+2. Write `project.json` with fields derived from the COO's plan (incorporating any CEO modifications):
    - `id`: directive name
-   - `title`: from Morgan's plan goal title
-   - `category`: from Morgan's `category` field (or directive.json `category`)
+   - `title`: from the COO's plan goal title
    - `status`: `"in_progress"`
    - `priority`: highest priority from tasks (P0 > P1 > P2)
-   - `agent`: array of builder agent names from Morgan's cast (e.g. `["riley"]`, `["jordan", "casey"]`)
-   - `reviewers`: array of reviewer agent names from Morgan's cast (e.g. `["sarah"]`, `["sarah", "marcus"]`)
+   - `agent`: array of builder agent IDs from the COO's cast (e.g. `["frontend-engineer-id"]`, `["backend-engineer-id", "data-engineer-id"]`)
+   - `reviewers`: array of reviewer agent IDs from the COO's cast (e.g. `["cto-id"]`, `["cto-id", "cpo-id"]`)
    - `description`: from the directive brief
    - `source_directive`: directive name
    - `scope.in`: aggregated from all task scopes
    - `scope.out`: anything explicitly excluded
-   - `dod`: from Morgan's `definition_of_done` arrays — each criterion starts as `{ "criterion": "...", "met": false }`
+   - `dod`: from the COO's `definition_of_done` arrays — each criterion starts as `{ "criterion": "...", "met": false }`
    - `browser_test`: `true` if any task touches UI files
-   - `tasks`: one entry per task from Morgan's plan, each with `status: "pending"`, `agent: []`, `dod` from the task's DOD -- each criterion starts as `{ "criterion": "...", "met": false }`. **CRITICAL: The key MUST be `tasks`.** The validator will reject any other key name.
+   - `tasks`: one entry per task from the COO's plan, each with `status: "pending"`, `agent: []`, `dod` from the task's DOD -- each criterion starts as `{ "criterion": "...", "met": false }`. **CRITICAL: The key MUST be `tasks`.** The validator will reject any other key name.
    - `created`: current ISO 8601 timestamp with actual time (e.g. `new Date().toISOString()` — NEVER use `T00:00:00Z` placeholder)
    - `updated`: same as `created` initially
 

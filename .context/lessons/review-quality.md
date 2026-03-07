@@ -1,12 +1,12 @@
 # Lessons: Review Quality
 
 > How reviews work, what makes them effective, common review pitfalls.
-> Relevant to: Sarah (review), Marcus (product review), Morgan (process review)
+> Relevant to: CTO (review), CPO (product review), COO (process review)
 
 ## Reviewer Effectiveness
 
-- **Domain-matched reviewers catch more than single-reviewer defaults.** Morgan reviewing process changes and Marcus reviewing CEO-facing changes both found gaps that a single Sarah review would have missed (DOD not in engineer prompt, stale template count, missing audit coverage checklist item). Match reviewer to what's being changed.
-- **Never assign an agent to review changes to its own behavior.** Sarah reviewing changes to Sarah's review persona is a conflict of interest — the exact blind spot the review is supposed to catch. Same applies to Morgan reviewing changes to Morgan's planning.
+- **Domain-matched reviewers catch more than single-reviewer defaults.** The COO reviewing process changes and the CPO reviewing CEO-facing changes both found gaps that a single CTO review would have missed (DOD not in engineer prompt, stale template count, missing audit coverage checklist item). Match reviewer to what's being changed.
+- **Never assign an agent to review changes to its own behavior.** The CTO reviewing changes to the CTO's review persona is a conflict of interest -- the exact blind spot the review is supposed to catch. Same applies to the COO reviewing changes to the COO's planning.
 - **Standing Corrections must be in a distributable file, not session memory.** MEMORY.md CRITICAL section was completely invisible to spawned agents (session-scoped). Moving corrections to preferences.md (which all agents receive) made them enforceable.
 - **DOD must flow to both builder AND reviewer.** Initially only the reviewer received DOD items — the engineer was building blind to acceptance criteria. Include definition_of_done in the engineer's spawn prompt so they know what "done" looks like before starting.
 

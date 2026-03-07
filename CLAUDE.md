@@ -11,7 +11,7 @@ An autonomous AI company framework. See `.context/vision.md` for the full vision
 |
 |-- directives/                         # ALL work lives here: Directive > Project > Task
 |   |-- {id}/
-|   |   |-- directive.json              # Pipeline state, weight, category, references
+|   |   |-- directive.json              # Pipeline state, weight, references
 |   |   |-- directive.md                # CEO brief
 |   |   |-- brainstorm.md              # OPTIONAL: pre-planning (strategic/heavyweight)
 |   |   |-- audit.md                   # OPTIONAL: technical audit
@@ -55,17 +55,6 @@ An autonomous AI company framework. See `.context/vision.md` for the full vision
 - Projects discovered via glob: `directives/*/projects/*/project.json`
 - No indexer or computed state files -- read source files directly
 
-## Categories
-
-Every directive has a `category` field in directive.json. Categories are flat labels for domain grouping:
-
-| Category | Domain |
-|----------|--------|
-| `framework` | Context tree structure, entity schemas, relationships |
-| `pipeline` | Directive pipeline, skills, agent casting, checkpoint/resume, telemetry, review quality |
-| `dashboard` | Dashboard app, watchers, visualizations, CEO experience |
-| `game` | Office simulation game — pixel-art CEO interface, React + Canvas 2D, separate from dashboard |
-
 ## Lessons Routing
 
 | Role | Read These |
@@ -80,6 +69,13 @@ Every directive has a `category` field in directive.json. Categories are flat la
 ## Pipeline Enforcement
 - **ALL work goes through the `/directive` pipeline.** The pipeline is weight-adaptive: lightweight tasks skip Morgan/C-suite/approval and run fast; heavyweight gets the full process. No need to bypass it.
 - NEVER spawn builder/engineer agents directly. Use `/directive` which handles reviews, scope, and completion verification. Bypassing the pipeline = bypassing all guardrails.
+
+## Design-First for UI Work
+When the CEO asks about UI changes or improvements (e.g. "can we improve the UI of X", "this panel looks bad", "redesign the log panel"), **spawn Quinn (UI/UX designer) first** to produce a design before routing to `/directive`. Flow:
+1. Spawn Quinn with the CEO's request + relevant current code as context
+2. Quinn produces a design (layout, components, visual spec, interactions)
+3. Show the design to the CEO for feedback
+4. Once the CEO is happy, create a directive with Quinn's design attached and run `/directive`
 
 ## Git Operations
 NEVER perform git operations without explicit user approval.

@@ -7,7 +7,6 @@ interface BacklogItem {
   title: string;
   status: string;
   priority?: string;
-  category?: string;
   trigger?: string;
   source_directive?: string;
   context?: string;
@@ -18,9 +17,9 @@ interface BacklogItem {
 
 /**
  * List backlog items from .context/backlog.json.
- * Optionally filtered by category and/or priority.
+ * Optionally filtered by priority.
  */
-export function listBacklog(category?: string, priority?: string): string {
+export function listBacklog(priority?: string): string {
   const projectPath = getProjectPath();
   const backlogPath = path.join(projectPath, '.context', 'backlog.json');
 
@@ -35,10 +34,6 @@ export function listBacklog(category?: string, priority?: string): string {
 
   let items = raw;
 
-  if (category) {
-    items = items.filter(i => i.category === category);
-  }
-
   if (priority) {
     const normalizedPriority = priority.toUpperCase();
     items = items.filter(i => i.priority?.toUpperCase() === normalizedPriority);
@@ -49,7 +44,7 @@ export function listBacklog(category?: string, priority?: string): string {
   const done = items.filter(i => i.status === 'done');
 
   const lines: string[] = [];
-  lines.push(`## Backlog${category ? ` (${category})` : ''}${priority ? ` [${priority}]` : ''}`);
+  lines.push(`## Backlog${priority ? ` [${priority}]` : ''}`);
   lines.push(`${pending.length} pending, ${done.length} done`);
   lines.push('');
 
@@ -58,7 +53,6 @@ export function listBacklog(category?: string, priority?: string): string {
     for (const item of pending) {
       const parts: string[] = [`- **${item.title}**`];
       if (item.priority) parts.push(`[${item.priority}]`);
-      if (item.category && !category) parts.push(`(${item.category})`);
       lines.push(parts.join(' '));
       if (item.trigger) {
         lines.push(`  - Trigger: ${item.trigger}`);
@@ -84,7 +78,6 @@ export function listBacklog(category?: string, priority?: string): string {
  * Add a new item to .context/backlog.json.
  */
 export function addBacklogItem(
-  category: string,
   title: string,
   priorityLevel: string,
   description: string,
@@ -116,7 +109,6 @@ export function addBacklogItem(
     title,
     status: 'pending',
     priority: priorityLevel.toUpperCase(),
-    category,
     description,
     created: now,
     updated: now,
@@ -130,5 +122,5 @@ export function addBacklogItem(
 
   fs.writeFileSync(backlogPath, JSON.stringify(items, null, 2), 'utf-8');
 
-  return `Added "${title}" (${priorityLevel}) [${category}] to backlog.json${triggerCondition ? ` with trigger: "${triggerCondition}"` : ''}`;
+  return `Added "${title}" (${priorityLevel}) to backlog.json${triggerCondition ? ` with trigger: "${triggerCondition}"` : ''}`;
 }

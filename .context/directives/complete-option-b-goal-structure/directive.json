@@ -1,6 +1,6 @@
 {
   "id": "complete-option-b-goal-structure",
-  "title": "Complete Option B: Structured Goals \u2014 Finish What Was Started",
+  "title": "Complete Option B: Structured Goals — Finish What Was Started",
   "status": "completed",
   "source": "ceo",
   "weight": "tactical",
@@ -19,6 +19,5 @@
   "cast": null,
   "dod": null,
   "report_summary": "complete-option-b-goal-structure-2026-03-02",
-  "telemetry": null,
-  "category": "framework"
+  "telemetry": null
 }

@@ -5,7 +5,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { OFFICE_LAYOUT } from './office-layout'
-import { OFFICE_AGENTS } from './types'
+import { OFFICE_AGENTS, type InteractionType } from './types'
 import type { AgentStatus, SessionInfo } from './pixel-types'
 import { OfficeState } from './engine/officeState'
 import { renderFrame, type SelectionRenderState, type IdentityOverlay } from './engine/renderer'
@@ -77,8 +77,8 @@ interface CanvasOfficeProps {
   agentSessionInfos?: Record<string, SessionInfo>
   /** Per-agent busy flag (multiple active sessions) */
   agentBusyMap?: Record<string, boolean>
-  /** Agent interaction pairs (parent↔subagent where both are office agents) */
-  agentInteractions?: Array<[string, string]>
+  /** Agent interaction pairs with type (derived from directive pipeline step) */
+  agentInteractions?: Array<[string, string, InteractionType]>
   /** Directed parent→children map for meeting room routing */
   subagentsByParent?: Map<string, string[]>
   /** Review interactions: reviewerAgentName -> builderAgentName */
@@ -496,16 +496,16 @@ export default function CanvasOffice({
         }
       }
 
-      // Build interaction map from agent pairs
-      const interactionMap = new Map<number, number>()
+      // Build interaction map from agent pairs (widened with type)
+      const interactionMap = new Map<number, {partnerId: number, type: InteractionType}>()
       const interactions = propsRef.current.agentInteractions
       if (interactions) {
-        for (const [a, b] of interactions) {
+        for (const [a, b, type] of interactions) {
           const idA = AGENT_NAME_TO_ID.get(a)
           const idB = AGENT_NAME_TO_ID.get(b)
           if (idA !== undefined && idB !== undefined) {
-            interactionMap.set(idA, idB)
-            interactionMap.set(idB, idA)
+            interactionMap.set(idA, {partnerId: idB, type})
+            interactionMap.set(idB, {partnerId: idA, type})
           }
         }
       }
@@ -524,7 +524,7 @@ export default function CanvasOffice({
       if (interactionMap.size > 0) {
         const chars = state.getCharacters()
         const charById = new Map(chars.map(c => [c.id, c]))
-        for (const [idA, idB] of interactionMap) {
+        for (const [idA, {partnerId: idB}] of interactionMap) {
           const a = charById.get(idA)
           const b = charById.get(idB)
           if (a && b && a.state !== CharacterState.WALK) {

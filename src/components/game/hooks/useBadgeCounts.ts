@@ -8,7 +8,7 @@ import { useDashboardStore } from '@/stores/dashboard-store';
 export interface BadgeCounts {
   team: number;
   tasks: number;
-  ops: number;
+  status: number;
   log: number;
 }
 
@@ -23,29 +23,27 @@ function isRecent(dateStr: string | undefined): boolean {
  * Reads dashboard store and computes badge counts for each HUD tab.
  *
  * Badge rules:
- * - Team: agents in waiting-approval, waiting-input, or error state
+ * - Team: count of unique agents with active working sessions
  * - Tasks: errors + waiting-approval sessions + awaiting_completion directives + pipeline steps needing action
- * - Ops: blocked/failing projects
+ * - Status: directives with failed steps or awaiting_completion
  * - Log: never shows a badge
  */
 export function useBadgeCounts(): BadgeCounts {
   const sessions = useDashboardStore((s) => s.sessions);
   const directiveState = useDashboardStore((s) => s.directiveState);
   const activeDirectives = useDashboardStore((s) => s.activeDirectives);
-  const workState = useDashboardStore((s) => s.workState);
 
   return useMemo(() => {
-    // -- Team badge: agents needing attention (waiting-approval, waiting-input, error) --
+    // -- Team badge: count unique agents with working sessions --
     let team = 0;
+    const workingAgents = new Set<string>();
     for (const s of sessions) {
-      if (s.isSubagent || s.status === 'done') continue;
-      if (
-        (s.status === 'waiting-approval' || s.status === 'waiting-input' || s.status === 'error') &&
-        isRecent(s.lastActivity)
-      ) {
-        team++;
+      if (s.isSubagent || !s.agentName) continue;
+      if (s.status === 'working') {
+        workingAgents.add(s.agentName);
       }
     }
+    team = workingAgents.size;
 
     // -- Tasks badge: session items + directive items --
     let tasks = 0;
@@ -74,13 +72,17 @@ export function useBadgeCounts(): BadgeCounts {
       }
     }
 
-    // -- Ops badge: blocked or failing projects --
-    let ops = 0;
-    const features = workState?.features?.features;
-    if (features) {
-      for (const f of features) {
-        if (f.status === 'blocked') {
-          ops++;
+    // -- Status badge: directives with failed steps or awaiting completion --
+    let status = 0;
+    for (const d of directives) {
+      if (d.status === 'failed') {
+        status++;
+      } else if (d.pipelineSteps) {
+        for (const step of d.pipelineSteps) {
+          if (step.status === 'failed') {
+            status++;
+            break;
+          }
         }
       }
     }
@@ -88,6 +90,6 @@ export function useBadgeCounts(): BadgeCounts {
     // -- Log badge: never shows --
     const log = 0;
 
-    return { team, tasks, ops, log };
-  }, [sessions, directiveState, activeDirectives, workState]);
+    return { team, tasks, status, log };
+  }, [sessions, directiveState, activeDirectives]);
 }

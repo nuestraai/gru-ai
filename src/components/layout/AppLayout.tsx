@@ -1,18 +1,13 @@
 import { useEffect, useRef } from 'react';
-import { Outlet, useLocation } from 'react-router-dom';
-import Sidebar from './Sidebar';
-import Header from './Header';
-import SearchCommandPalette from '@/components/shared/SearchCommandPalette';
+import { Outlet } from 'react-router-dom';
 import { useDashboardStore } from '@/stores/dashboard-store';
 import { API_BASE } from '@/lib/api';
 
 export default function AppLayout() {
   const workState = useDashboardStore((s) => s.workState);
   const fetchedRef = useRef(false);
-  const location = useLocation();
-  const isGameRoute = location.pathname === '/office' || location.pathname === '/';
 
-  // Eagerly fetch work state on app load so orientation banner + search have data
+  // Eagerly fetch work state on app load so game HUD panels have data
   useEffect(() => {
     if (workState?.features || fetchedRef.current) return;
     fetchedRef.current = true;
@@ -31,16 +26,5 @@ export default function AppLayout() {
     });
   }, [workState?.features]);
 
-  return (
-    <div className="flex h-screen overflow-hidden">
-      <Sidebar />
-      <div className="flex-1 flex flex-col overflow-hidden">
-        {!isGameRoute && <Header />}
-        <main className={`flex-1 overflow-y-auto ${isGameRoute ? '' : 'p-6'}`}>
-          <Outlet />
-        </main>
-      </div>
-      <SearchCommandPalette />
-    </div>
-  );
+  return <Outlet />;
 }

@@ -1,124 +1,145 @@
-# Agent Conductor
+<p align="center">
+  <strong>Your AI dev team, visualized.</strong>
+</p>
 
-**The mission control for Claude Code power users.**
+# gruai
 
-If you're like me — running Claude Code like crazy, multitasking across 10+ terminal sessions, constantly tab-switching to check if an agent finished, peeking at team progress, approving prompts, and wishing you could just *click something* to jump straight to the right session — Agent Conductor is for you. It's a real-time dashboard that gives you full visibility and control over every Claude Code session, so you can stop juggling terminals and start shipping faster.
+[![MIT License](https://img.shields.io/badge/license-MIT-green)](LICENSE) [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue)](https://www.typescriptlang.org/) [![Status](https://img.shields.io/badge/status-alpha-orange)]()
 
-![Dashboard](https://img.shields.io/badge/status-alpha-orange) ![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue) ![React](https://img.shields.io/badge/React-19-blue) ![License](https://img.shields.io/badge/license-MIT-green)
+<p align="center">
+  <img src="docs/assets/demo.gif" alt="gruai pixel-art office simulation" width="720" />
+</p>
 
-![Demo](docs/demo.gif)
+Watch your AI agents work in a pixel-art office. gruai turns Claude Code sessions
+into a living simulation -- autonomous agents sitting at desks, writing code,
+reviewing PRs, and shipping features while you grab coffee.
 
-## Features
+No other tool does this. Devin is $500/mo and headless. CrewAI is YAML config files.
+gruai gives you a real-time office where you can *see* your team think.
 
-### Session Kanban Board
-See every Claude Code session at a glance — organized into columns by status: **Active**, **Waiting**, **Needs You**, and **Done**. Each card shows the model, git branch, working directory, elapsed time, and what the agent is doing *right now*. Filter by time range, search by project, and never lose track of a session again.
+---
 
-### One-Click Session Focus
-Click any session card and instantly jump to its terminal tab/pane. No more hunting through 15 tmux panes or 8 iTerm tabs. Works with **tmux**, **iTerm2**, **Warp**, and **Terminal.app** — Conductor detects which terminal hosts each session and shows a badge on the card so you know at a glance.
-
-### Live Activity Tracking
-See what each agent is doing in real-time: which tool is running, what file is being edited, whether it's thinking. Active sessions pulse with a green dot. You'll know the moment something finishes or needs attention.
-
-### Agent Teams & Subagents
-Monitor entire agent teams from one view. See team members, their roles, current tasks, and progress bars. Subagents are nested under their parent session with their own status and activity. Track task completion across the whole team without switching terminals.
-
-### Quick Actions — Approve, Reject, Abort
-When a session is waiting for approval or input, action buttons appear right on the card. Approve, reject, or abort without leaving the dashboard. Send custom text input too. No more switching to a terminal just to type "y".
-
-### Prompt History
-Searchable history of every prompt across all sessions — 1000+ entries, filterable by project and date. Find that prompt you ran three days ago, see what you asked, and pick up where you left off.
-
-### Usage Insights
-Daily message charts, model usage breakdown, activity heatmaps, and session statistics. See how you're using Claude Code across projects and time periods.
-
-### Plans Viewer
-Browse all your Claude Code plans with rendered markdown previews. See which plans are running, done, or still in draft.
-
-### Notifications
-Native macOS alerts and browser notifications when agents need your attention — even when the dashboard is minimized. Never miss a permission prompt again.
-
-### Stale Team Cleanup
-Old teams cluttering your `~/.claude/teams/`? Delete them with one click from the dashboard.
-
-## Quick Start
+## Quickstart
 
 ```bash
-git clone https://github.com/andrew-yangy/agent-conductor.git
-cd agent-conductor
+git clone https://github.com/andrew-yangy/gruai.git
+cd gruai && npm install
+npm run dev
+```
+
+Then in Claude Code, run `/gruai-agents` to scaffold your AI team. The skill
+generates agent personalities, a team registry, and a welcome directive so your
+team has something to work on immediately. Open [http://localhost:5173](http://localhost:5173)
+to see the pixel-art office.
+
+---
+
+## What You Get
+
+### Pixel-Art Office Simulation
+Your agents aren't abstract boxes on a kanban board. They're characters in an
+office -- walking to their desks, typing at keyboards, gathering around a
+whiteboard to brainstorm. The office is a live view of your project's real state.
+
+### Autonomous Agent Teams
+Define roles (planner, builder, reviewer, scout) and gruai handles the rest.
+Agents pick up directives, decompose them into projects and tasks, build code,
+review each other's work, and report back. You approve or redirect -- they execute.
+
+### Directive Pipeline
+Every piece of work flows through a structured pipeline: triage, planning, audit,
+build, review, completion. Lightweight tasks skip the heavy steps automatically.
+No ceremony for small fixes, full rigor for big features.
+
+### Custom Teams
+Create your own agent roles with markdown templates in `.claude/agents/`. Give
+them personalities, specializations, and memory. The office simulation renders
+them as unique characters.
+
+### Live Dashboard
+Session kanban, activity tracking, one-click terminal focus, approval actions,
+prompt history, and usage insights. Everything you need to manage 10+ concurrent
+Claude Code sessions without losing your mind.
+
+---
+
+## Two Ways to Use gruai
+
+### Clone and run (recommended)
+
+```bash
+git clone https://github.com/andrew-yangy/gruai.git
+cd gruai
 npm install
 npm run dev
 ```
 
-Open [http://localhost:5173](http://localhost:5173). That's it.
+Then run `/gruai-agents` in Claude Code to scaffold your team. The dashboard
+discovers all Claude Code sessions from `~/.claude/` automatically -- no config needed.
 
-Agent Conductor automatically discovers all your Claude Code sessions from `~/.claude/` — no configuration, no hooks, no setup. Just run it and see everything.
+### Install as npm package
 
-## Architecture
-
-```
-~/.claude/                          Agent Conductor
-┌─────────────────────┐            ┌──────────────────────────────────────┐
-│ projects/           │            │                                      │
-│   {project}/        │  chokidar  │  ┌──────────────┐   ┌────────────┐  │
-│     {uuid}.jsonl  ──┼──watch────>│  │   Session     │──>│            │  │
-│     {uuid}/         │            │  │   Scanner     │   │ Aggregator │  │
-│       subagents/    │            │  └──────────────┘   │            │  │
-│         agent-*.jsonl            │                      │  merges    │  │
-│                     │            │  ┌──────────────┐   │  sources   │  │
-│ teams/              │  read      │  │   Team &     │──>│  into      │  │
-│   {team}/config.json├──────────>│  │   Task       │   │  unified   │  │
-│                     │            │  │   Parsers    │   │  state     │  │
-│ tasks/              │  read      │  └──────────────┘   └─────┬──────┘  │
-│   {team}/*.json   ──┼──────────>│                            │         │
-│                     │            │  ┌──────────────┐         │         │
-│ history.jsonl     ──┼──read────>│  │   Process    │   WebSocket     │
-│ plans/*.md        ──┼──read────>│  │   Discovery  │─────────│         │
-│ stats-cache.json  ──┼──read────>│  │   (ps, lsof) │         │         │
-└─────────────────────┘            │  └──────────────┘   ┌─────▼───────┐ │
-                                   │                     │   React     │ │
-  ┌─────────────┐                  │                     │   Dashboard │ │
-  │ Hook events │   POST           │                     │             │ │
-  │ (optional)  ├──/api/events───>│  enrich status ────>│  Sessions   │ │
-  └─────────────┘                  │                     │  Teams      │ │
-                                   │  ┌──────────────┐   │  Insights   │ │
-  ┌─────────────┐                  │  │  Terminal    │   │  History    │ │
-  │ Click card  │   POST           │  │  Focus &    │   │  Plans      │ │
-  │ in browser  ├──/api/actions──>│  │  Send Input │   │  Settings   │ │
-  └─────────────┘                  │  └──────────────┘   └─────────────┘ │
-                                   └──────────────────────────────────────┘
+```bash
+npm install gruai
+npm start
 ```
 
-**How it works:**
+Then run `/gruai-agents` in Claude Code to scaffold agents into your project.
 
-1. **Session Scanner** watches `~/.claude/projects/` for JSONL session files. Active sessions (modified < 30s) get tail-read for live metadata — model, git branch, cwd, current tool, file being edited. Inactive sessions use file path info only, keeping things fast even with hundreds of sessions.
+---
 
-2. **Process Discovery** maps running Claude processes to terminal panes using `ps` and `lsof`. It walks process trees to find tmux panes, iTerm2 tabs, and Warp windows. For sessions where Claude has exited (orphan tabs), it uses TTY + CWD matching to still connect the dots.
+## How It Works
 
-3. **Team & Task Parsers** read team configs and task lists from `~/.claude/teams/` and `~/.claude/tasks/`. Subagent relationships are built from the directory structure.
+```
+Your repo                              gruai
+┌─────────────────────┐               ┌──────────────────────────────┐
+│ .context/           │               │                              │
+│   directives/       │  file watch   │  Directive    Agent          │
+│     {id}/           ├──────────────>│  Pipeline  -> Casting        │
+│       directive.json│               │                              │
+│       projects/     │               │  Session      Pixel-Art     │
+│                     │               │  Scanner  --> Office UI      │
+│ .claude/            │               │                              │
+│   agents/           │  session      │  Process      Live           │
+│     {role}.md       │  discovery    │  Discovery -> Dashboard      │
+│                     ├──────────────>│                              │
+│ ~/.claude/          │               │  WebSocket    React          │
+│   projects/         │               │  Server   --> Frontend       │
+│     *.jsonl         │               │                              │
+└─────────────────────┘               └──────────────────────────────┘
+```
 
-4. **Aggregator** merges everything into a single state object, pushed to the dashboard via WebSocket in real-time.
+1. **Directive Pipeline** reads `.context/directives/` and orchestrates work
+   through triage, planning, build, and review phases
+2. **Session Scanner** watches `~/.claude/projects/` for live Claude Code sessions
+   and extracts metadata (model, branch, current tool, files being edited)
+3. **Process Discovery** maps running Claude processes to terminal panes via
+   `ps` and `lsof` -- supports tmux, iTerm2, Warp, and Terminal.app
+4. **Pixel-Art Office** renders agents as characters in an isometric office,
+   with real-time animations tied to actual session state
 
-## Supported Terminals
+---
 
-Session discovery works on **any OS** where Claude Code runs — it just reads `~/.claude/` files.
+## Terminal Support
 
-Terminal focus and send-input require OS-level integration. Current support:
+Session discovery works on any OS. Terminal focus requires OS integration:
 
-| Environment | Focus | Send Input | How It Works |
-|-------------|:-----:|:----------:|--------------|
-| **iTerm2 + tmux** | Yes | Yes | AppleScript tab switching + tmux `select-pane` |
-| **iTerm2 (native)** | Yes | Yes | AppleScript with unique session ID |
-| **Warp + tmux** | Yes | Yes | CGEvents for Warp + tmux for pane |
-| **Warp (native)** | Yes | No | CGEvents tab navigation |
-| **Terminal.app + tmux** | Yes | Yes | Brings app to front + tmux pane switching |
+| Environment | Focus | Send Input | Notes |
+|-------------|:-----:|:----------:|-------|
+| iTerm2 + tmux | Yes | Yes | AppleScript + tmux pane switching |
+| iTerm2 native | Yes | Yes | AppleScript with session ID |
+| Warp + tmux | Yes | Yes | CGEvents + tmux |
+| Warp native | Yes | No | CGEvents tab navigation |
+| Terminal.app + tmux | Yes | Yes | Bring to front + tmux |
 
-Each session card shows a **terminal badge** (tmux, iTerm, Warp) so you know what's available at a glance.
+> Linux and Windows support coming soon.
 
-> **Coming soon:** Linux support via `xdotool`/`wmctrl`, Kitty/Alacritty IPC, Windows PowerShell-based activation.
+---
 
 ## Optional: Claude Code Hooks
 
-Agent Conductor works out of the box — no hooks required. But for **instant** status detection (permission prompts, idle states), you can add hooks to `~/.claude/settings.json`:
+gruai works without hooks. For instant status detection (permission prompts, idle
+states), add hooks to `~/.claude/settings.json`:
 
 ```json
 {
@@ -127,10 +148,6 @@ Agent Conductor works out of the box — no hooks required. But for **instant** 
       {
         "matcher": "permission_prompt",
         "hooks": [{ "type": "command", "command": "bash -c 'INPUT=$(cat); curl -s -X POST http://localhost:4444/api/events -H \"Content-Type: application/json\" -d \"{\\\"type\\\":\\\"permission_prompt\\\",\\\"sessionId\\\":\\\"$(echo $INPUT | jq -r .session_id)\\\",\\\"message\\\":\\\"$(echo $INPUT | jq -r .message)\\\"}\"'" }]
-      },
-      {
-        "matcher": "idle_prompt",
-        "hooks": [{ "type": "command", "command": "bash -c 'INPUT=$(cat); curl -s -X POST http://localhost:4444/api/events -H \"Content-Type: application/json\" -d \"{\\\"type\\\":\\\"idle_prompt\\\",\\\"sessionId\\\":\\\"$(echo $INPUT | jq -r .session_id)\\\",\\\"message\\\":\\\"$(echo $INPUT | jq -r .message)\\\"}\"'" }]
       }
     ],
     "Stop": [
@@ -142,45 +159,48 @@ Agent Conductor works out of the box — no hooks required. But for **instant** 
 }
 ```
 
-Without hooks, Conductor detects status via filesystem scanning (slight delay). With hooks, status updates are instant.
+Without hooks, status updates via filesystem scanning (slight delay). With hooks,
+updates are instant.
+
+---
 
 ## Tech Stack
 
 | Layer | Stack |
 |-------|-------|
-| **Server** | Node.js + `ws` WebSocket + SQLite (better-sqlite3) + chokidar |
-| **Frontend** | React 19 + Vite + Zustand + Tailwind v4 + shadcn/ui |
-| **Terminal** | AppleScript (iTerm2, Terminal.app) + CGEvents (Warp) + tmux CLI |
-| **Data** | Zero external services — everything reads from `~/.claude/` locally |
+| Server | Node.js + WebSocket + SQLite + chokidar |
+| Frontend | React 19 + Vite + Zustand + Tailwind v4 + shadcn/ui |
+| Game | Canvas 2D pixel-art engine, 16x16 tile system |
+| Terminal | AppleScript (iTerm2) + CGEvents (Warp) + tmux CLI |
+| Data | Zero external services -- reads from `~/.claude/` locally |
 
-## API Reference
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/api/state` | Full dashboard state |
-| `GET` | `/api/events` | Recent events |
-| `POST` | `/api/events` | Add hook event |
-| `POST` | `/api/actions/focus-session` | Focus a terminal pane |
-| `POST` | `/api/actions/send-input` | Send input to a session |
-| `DELETE` | `/api/teams/:name` | Delete a stale team |
-| `GET` | `/api/config` | Get notification settings |
-| `PATCH` | `/api/config` | Update notification settings |
-| `GET` | `/api/insights/stats` | Usage statistics |
-| `GET` | `/api/insights/history` | Prompt history |
-| `GET` | `/api/insights/plans` | Plan files |
-| `WS` | `ws://localhost:4444` | Real-time state stream |
+---
 
 ## Scripts
 
 ```bash
-npm run dev          # Start server + client
+npm run dev          # Dev mode (server + client with hot reload)
 npm run dev:server   # Server only (port 4444)
 npm run dev:client   # Vite dev only
+npm start            # Production server (serves built assets)
 npm run build        # Production build
 npm run type-check   # TypeScript check
 npm run lint         # ESLint
 ```
 
+## Claude Code Skills
+
+```
+/gruai-agents        # Scaffold AI agent team (replaces gruai init)
+/gruai-config        # Update framework files to latest version
+/directive           # Run work through the directive pipeline
+/report              # CEO dashboard report
+/healthcheck         # Internal codebase health check
+/scout               # External intelligence gathering
+```
+
+---
+
 ## License
 
-MIT
+[MIT](LICENSE)

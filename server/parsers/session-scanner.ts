@@ -61,6 +61,11 @@ export function cleanPromptText(raw: string): string | undefined {
     if (!line) continue;
     if (line === 'Implement the following plan:') continue;
     if (line.startsWith('Caveat:')) continue;
+    // Skip directive-style preambles
+    if (/^(Execute|Complete|Implement|Perform|Run)\s+(all\s+)?\d*\s*(tasks?|items?|steps?)\s+(below|listed|described|following)/i.test(line)) continue;
+    if (/^The CEO\s/i.test(line)) continue;
+    if (/^You are being spawned/i.test(line)) continue;
+    if (/^You have \d+\s*(sequential\s+)?tasks?/i.test(line)) continue;
     if (line.startsWith('# Plan:') || line.startsWith('## ')) {
       line = line.replace(/^#+ (?:Plan:\s*)?/, '').trim();
       if (!line) continue;
@@ -215,7 +220,11 @@ const parentAgentMapCache = new Map<string, { mtime: number; map: Map<string, st
  * Returns a map of agentId → subagent_type (e.g. "a4df5875a493548ce" → "alex").
  * Results are cached per parent file and invalidated on mtime change.
  */
-export function extractSubagentTypesFromParent(parentFilePath: string): Map<string, string> {
+export function extractSubagentTypesFromParent(
+  parentFilePath: string,
+  cache?: Map<string, { mtime: number; map: Map<string, string> }>,
+): Map<string, string> {
+  const cacheMap = cache ?? parentAgentMapCache;
   // Check cache
   let stat: fs.Stats;
   try {
@@ -224,7 +233,7 @@ export function extractSubagentTypesFromParent(parentFilePath: string): Map<stri
     return new Map();
   }
 
-  const cached = parentAgentMapCache.get(parentFilePath);
+  const cached = cacheMap.get(parentFilePath);
   if (cached && cached.mtime === stat.mtimeMs) {
     return cached.map;
   }
@@ -306,7 +315,7 @@ export function extractSubagentTypesFromParent(parentFilePath: string): Map<stri
     }
   }
 
-  parentAgentMapCache.set(parentFilePath, { mtime: stat.mtimeMs, map: result });
+  cacheMap.set(parentFilePath, { mtime: stat.mtimeMs, map: result });
   return result;
 }
 
@@ -316,9 +325,10 @@ export function extractSubagentTypesFromParent(parentFilePath: string): Map<stri
  */
 export function resolveAgentFromParent(
   parentFilePath: string,
-  childAgentId: string
+  childAgentId: string,
+  cache?: Map<string, { mtime: number; map: Map<string, string> }>,
 ): { name: string; role: string } | undefined {
-  const typeMap = extractSubagentTypesFromParent(parentFilePath);
+  const typeMap = extractSubagentTypesFromParent(parentFilePath, cache);
   const subagentType = typeMap.get(childAgentId);
   if (!subagentType) return undefined;
 

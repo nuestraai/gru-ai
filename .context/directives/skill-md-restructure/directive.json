@@ -16,7 +16,7 @@
       "0.3-build-routing-map",
       "0.4-content-integrity-verification"
     ],
-    "rationale": "P0 enabler \u2014 every harness engineering project depends on SKILL.md being modular",
+    "rationale": "P0 enabler — every harness engineering project depends on SKILL.md being modular",
     "requires_ceo_approval": false
   },
   "plan": null,
@@ -29,7 +29,6 @@
     "Zero content loss",
     "Alex spawn prompt updated to reference routing map"
   ],
-  "report_summary": "Split 1,450-line SKILL.md into 27 modular docs (11 pipeline, 16 reference) + 134-line routing map. Verified 76/76 headings, 10/10 content blocks, zero content loss. Alex spawn: 68KB \u2192 500 bytes.",
-  "telemetry": null,
-  "category": "pipeline"
+  "report_summary": "Split 1,450-line SKILL.md into 27 modular docs (11 pipeline, 16 reference) + 134-line routing map. Verified 76/76 headings, 10/10 content blocks, zero content loss. Alex spawn: 68KB → 500 bytes.",
+  "telemetry": null
 }

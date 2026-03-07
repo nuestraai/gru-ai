@@ -58,7 +58,7 @@
       "status": "completed",
       "agent": "CEO",
       "output": {
-        "summary": "Ad-hoc directive from CEO \u2014 consolidate 3 files into 1, rich stepper UI"
+        "summary": "Ad-hoc directive from CEO — consolidate 3 files into 1, rich stepper UI"
       }
     },
     "context": {
@@ -108,7 +108,7 @@
       ],
       "output": {
         "progress": "3/3 complete",
-        "summary": "All initiatives built and reviewed \u2014 schema consolidated, watcher rewritten, rich stepper UI with CurrentStepHeader"
+        "summary": "All initiatives built and reviewed — schema consolidated, watcher rewritten, rich stepper UI with CurrentStepHeader"
       }
     },
     "wrapup": {
@@ -122,7 +122,7 @@
       "status": "completed",
       "agent": "CEO",
       "output": {
-        "summary": "Directive complete \u2014 3 initiatives delivered"
+        "summary": "Directive complete — 3 initiatives delivered"
       }
     }
   },
@@ -256,6 +256,5 @@
     "follow_ups_processed": true,
     "digest_path": null,
     "lessons_updated": true
-  },
-  "category": "pipeline"
+  }
 }

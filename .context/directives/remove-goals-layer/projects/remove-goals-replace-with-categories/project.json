@@ -2,7 +2,6 @@
   "id": "remove-goals-replace-with-categories",
   "title": "Remove goals layer: category replaces goal_ids across pipeline docs, schemas, server, dashboard, and hooks",
   "directive_id": "remove-goals-layer",
-  "category": "data-model",
   "status": "completed",
   "priority": "P0",
   "complexity": "complex",

@@ -6,11 +6,11 @@ import { promisify } from 'node:util';
 import { parseAllTeams } from '../parsers/team-parser.js';
 import { parseAllTeamTasks, parseAllTasks } from '../parsers/task-parser.js';
 import {
-  initializeAllFileStates,
-  discoverSessionFiles,
-  getAllFileStates,
-  getOrBootstrap,
-  removeFileState,
+  initializeAllFileStates as initializeAllFileStatesRaw,
+  discoverSessionFiles as discoverSessionFilesRaw,
+  getAllFileStates as getAllFileStatesRaw,
+  getOrBootstrap as getOrBootstrapRaw,
+  removeFileState as removeFileStateRaw,
   machineStateToLastEntryType,
   toSessionActivity,
   type SessionFileState,
@@ -18,6 +18,7 @@ import {
 } from '../parsers/session-state.js';
 import type { LastEntryType } from '../parsers/session-scanner.js';
 import { projectDirFromPath } from '../parsers/session-scanner.js';
+import type { PlatformAdapter } from '../platform/types.js';
 import { discoverClaudePanes } from '../parsers/process-discovery.js';
 import type { ClaudePaneMapping } from '../parsers/process-discovery.js';
 import { getRecentEvents } from '../db.js';
@@ -62,10 +63,12 @@ function deriveSessionStatus(
     }
   }
 
+  // 5 min – 1 hour: agent was recently active but not right now
   if (ageMs < ONE_HOUR_MS) {
     return 'paused';
   }
 
+  // > 1 hour: truly idle
   return 'idle';
 }
 
@@ -152,9 +155,12 @@ export class Aggregator extends EventEmitter {
   private workState: FullWorkState = { features: null, backlogs: null, conductor: null, index: null };
   readonly projectFilter: string;
 
-  constructor(config: ConductorConfig) {
+  private adapter: PlatformAdapter | null;
+
+  constructor(config: ConductorConfig, adapter?: PlatformAdapter) {
     super();
     this.config = config;
+    this.adapter = adapter ?? null;
     this.projectFilter = projectDirFromPath(process.cwd());
     this.state = {
       teams: [],
@@ -192,7 +198,9 @@ export class Aggregator extends EventEmitter {
 
     // Bootstrap all session file states (incremental parser) — scoped to this project
     console.log(`[aggregator] Session scope: ${this.projectFilter}`);
-    this.discoveredFiles = initializeAllFileStates(this.config.claudeHome, this.projectFilter);
+    this.discoveredFiles = this.adapter
+      ? this.adapter.initializeAllFileStates(this.projectFilter)
+      : initializeAllFileStatesRaw(this.config.claudeHome, this.projectFilter);
 
     // Build sessions from file states + hook events
     const { sessions, projects } = this.buildSessionsFromFileStates(events);
@@ -307,10 +315,9 @@ export class Aggregator extends EventEmitter {
     return items.filter(item => {
       if (filters.type && item.type !== filters.type) return false;
       if (filters.status && item.status !== filters.status) return false;
-      if (filters.category && item.category !== filters.category) return false;
       if (filters.q) {
         const q = filters.q.toLowerCase();
-        const searchable = `${item.title} ${item.id} ${item.category ?? ''}`.toLowerCase();
+        const searchable = `${item.title} ${item.id}`.toLowerCase();
         if (!searchable.includes(q)) return false;
       }
       return true;
@@ -318,16 +325,26 @@ export class Aggregator extends EventEmitter {
   }
 
   refreshSessions(): void {
-    const newDiscovered = discoverSessionFiles(this.config.claudeHome, this.projectFilter);
+    const newDiscovered = this.adapter
+      ? this.adapter.discoverSessionFiles(this.projectFilter)
+      : discoverSessionFilesRaw(this.config.claudeHome, this.projectFilter);
 
     for (const [filePath] of newDiscovered) {
       if (!this.discoveredFiles.has(filePath)) {
-        getOrBootstrap(filePath);
+        if (this.adapter) {
+          this.adapter.getOrBootstrap(filePath);
+        } else {
+          getOrBootstrapRaw(filePath);
+        }
       }
     }
     for (const [filePath] of this.discoveredFiles) {
       if (!newDiscovered.has(filePath)) {
-        removeFileState(filePath);
+        if (this.adapter) {
+          this.adapter.removeFileState(filePath);
+        } else {
+          removeFileStateRaw(filePath);
+        }
       }
     }
     this.discoveredFiles = newDiscovered;
@@ -364,7 +381,7 @@ export class Aggregator extends EventEmitter {
   }
 
   private rederiveSessionStatuses(): void {
-    const fileStates = getAllFileStates();
+    const fileStates = this.adapter ? this.adapter.getAllFileStates() : getAllFileStatesRaw();
     let statusChanged = false;
     let activityChanged = false;
 
@@ -1011,7 +1028,7 @@ export class Aggregator extends EventEmitter {
   // --- Private helpers ---
 
   private buildSessionsFromFileStates(events: HookEvent[]): { sessions: Session[]; projects: ProjectGroup[] } {
-    const fileStates = getAllFileStates();
+    const fileStates = this.adapter ? this.adapter.getAllFileStates() : getAllFileStatesRaw();
 
     const eventStatusMap = new Map<string, { status: Session['status']; timestamp: string }>();
     for (const event of events) {
@@ -1114,7 +1131,7 @@ export class Aggregator extends EventEmitter {
 
   private buildSessionActivities(): Record<string, SessionActivity> {
     const result: Record<string, SessionActivity> = {};
-    const fileStates = getAllFileStates();
+    const fileStates = this.adapter ? this.adapter.getAllFileStates() : getAllFileStatesRaw();
 
     for (const [, state] of fileStates) {
       const activity = toSessionActivity(state);

@@ -14,7 +14,6 @@ directive.json is the ONLY state file for a directive. It stores metadata, pipel
   "created": "{today's date YYYY-MM-DD}",
   "completed": null,
   "weight": "{classification from triage step}",
-  "category": "framework | pipeline | dashboard | game",
   "produced_features": [],
   "report": null,
   "backlog_sources": [],
@@ -52,13 +51,13 @@ directive.json is the ONLY state file for a directive. It stores metadata, pipel
     },
     "plan": {
       "status": "completed",
-      "agent": "Morgan",
+      "agent": "COO",
       "output": { "goal": "...", "projects": "..." },
-      "artifacts": [".context/directives/{id}/morgan-plan.json"]
+      "artifacts": [".context/directives/{id}/plan.json"]
     },
     "audit": {
       "status": "completed",
-      "agent": "Sarah",
+      "agent": "CTO",
       "output": { "summary": "...", "findings": 3 },
       "artifacts": [".context/directives/{id}/audit.md"]
     },
@@ -69,7 +68,7 @@ directive.json is the ONLY state file for a directive. It stores metadata, pipel
     },
     "project-brainstorm": {
       "status": "completed",
-      "agent": "Sarah + builder",
+      "agent": "CTO + builder",
       "output": { "summary": "Task breakdown and DOD produced per project" },
       "artifacts": [".context/directives/{id}/projects/{project-id}/project.json"]
     },
@@ -80,8 +79,8 @@ directive.json is the ONLY state file for a directive. It stores metadata, pipel
     },
     "execute": {
       "status": "active",
-      "agent": "Riley",
-      "reviewers": ["Sarah"],
+      "agent": "frontend-engineer",
+      "reviewers": ["CTO"],
       "output": { "progress": "1/3 complete", "current": "project-name" }
     },
     "review-gate": { "status": "pending" },
@@ -97,7 +96,7 @@ directive.json is the ONLY state file for a directive. It stores metadata, pipel
   ],
 
   "planning": {
-    "morgan_plan": {},
+    "coo_plan": {},
     "ceo_approval": { "status": "approved|rejected|auto-approved", "modifications": [] },
     "worktree_path": "string | null"
   },
@@ -126,17 +125,11 @@ The `projects[]` array contains lightweight references. Each entry has `id` (mat
 ### Write protocol
 Use the Write tool to overwrite the entire directive.json. Always update `updated_at` to the current ISO timestamp. Update `pipeline.{step}.status` and `pipeline.{step}.output` after each step completes.
 
-### Extracting `category`
-- Look for `**Category**: {category}` in the directive text
-- Valid categories: `framework`, `pipeline`, `ui`, `game`
-- If not found, infer from the directive name/scope
-- If uncertain, set to the best-fit category — every directive MUST have a category
-
 ### On completion (wrapup + completion gate)
 - Set `status` to `"awaiting_completion"` (CEO must approve)
 - CEO reviews digest and either:
   - **Approves** -> status = `"completed"`, set `completed` to today's date
-  - **Reopens** -> status = `"reopened"`, CEO states what's missing, Morgan plans new projects
+  - **Reopens** -> status = `"reopened"`, CEO states what's missing, the COO plans new projects
 - Set `report` to the digest filename
 - `pipeline` data stays — it's the permanent execution record
 

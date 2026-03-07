@@ -7,7 +7,7 @@
 - **Goal**: Get the work done without blocking my session. Review the plan quickly, approve, and get back a summary when it's done.
 - **Critical path**:
   1. CEO invokes /directive — lightweight runs inline, medium/heavy launches a CLI session
-  2. Planning happens — Morgan plans, auditor scans
+  2. Planning happens — the COO plans, auditor scans
   3. CEO gets notified — short plan summary, not a wall of text (heavyweight only)
   4. CEO approves in 30 seconds — not a 5-minute read (heavyweight only)
   5. Execution proceeds — engineers build, reviewers verify
@@ -33,10 +33,10 @@
 - **Goal**: Capture the idea with context, continue Project A, nothing lost.
 - **Critical path**:
   1. CEO describes the idea naturally ("we should add competitor comparison pages")
-  2. System writes it to the right `goals/{goal}/backlog.json` with enough context to act on later
+  2. System writes it to `.context/backlog.json` with enough context to act on later
   3. CEO continues current work — no context switch
   4. Idea appears in next /report or /scout review as a backlog item
-- **Success criteria**: Zero ideas lost. Zero context switches. Idea lands in the correct goal's backlog.json and is actionable when reviewed later.
+- **Success criteria**: Zero ideas lost. Zero context switches. Idea lands in backlog.json and is actionable when reviewed later.
 
 ## ceo-continuous-execution
 - **Actor**: CEO
@@ -58,7 +58,7 @@
 - **Goal**: See goal progress, active projects, pending tasks, and blockers — without reading raw JSON.
 - **Critical path**:
   1. CEO asks "what's the status of {goal}?" or opens the dashboard
-  2. System reads `goals/{goal}/goal.json` + all `goals/{goal}/projects/*/project.json`
+  2. System reads `directives/{id}/directive.json` + all `directives/{id}/projects/*/project.json`
   3. CEO sees: goal summary, active projects with task completion %, blockers, backlog depth
   4. CEO can drill into any project to see individual tasks and their status
   5. CEO decides whether to intervene or let work continue
@@ -82,10 +82,10 @@
 - **Goal**: Execute the directive end-to-end, produce a project with completed tasks, update all state.
 - **Critical path**:
   1. Directive session reads directive from .context/directives/{name}.md
-  2. Morgan plans projects with agent casting
+  2. The COO plans projects with agent casting
   3. Auditor scans codebase, produces baseline findings
   4. CEO approves plan (heavyweight) or auto-approved (medium)
-  5. Engineers execute tasks -- each phase produces artifacts in goals/{goal}/projects/{project}/
+  5. Engineers execute tasks -- each phase produces artifacts in directives/{id}/projects/{project}/
   6. Reviewers verify DOD criteria are met
   7. project.json is created/updated with tasks, DOD status, and verification results
   8. directive.json status updated to "completed", digest written to .context/reports/

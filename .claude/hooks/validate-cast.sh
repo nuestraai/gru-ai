@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# validate-cast.sh — Mechanical casting validation for Morgan's plan JSON
+# validate-cast.sh — Mechanical casting validation for the COO's plan JSON
 #
-# Validates that Morgan's project cast follows the casting rules:
+# Validates that the COO's project cast follows the casting rules:
 # 1. Every project must have at least one reviewer
 # 2. Builder (agent) must not be in the reviewers array
 # 3. Complex projects (5+ tasks) must have at least one C-suite reviewer
@@ -9,9 +9,9 @@
 # 5. depends_on references must point to existing project IDs
 # 6. No circular dependencies in depends_on graph
 #
-# Usage: cat morgan-plan.json | ./validate-cast.sh
-#    or: ./validate-cast.sh < morgan-plan.json
-#    or: ./validate-cast.sh /path/to/morgan-plan.json
+# Usage: cat plan.json | ./validate-cast.sh
+#    or: ./validate-cast.sh < plan.json
+#    or: ./validate-cast.sh /path/to/plan.json
 #
 # Output: JSON with valid/invalid status and violation list
 # Exit 0 always (output contains the pass/fail decision)

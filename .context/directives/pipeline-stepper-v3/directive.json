@@ -1,6 +1,6 @@
 {
   "id": "pipeline-stepper-v3",
-  "title": "Pipeline Stepper v3 \u2014 Full Dashboard UX Overhaul",
+  "title": "Pipeline Stepper v3 — Full Dashboard UX Overhaul",
   "status": "completed",
   "created": "2026-03-06",
   "completed": "2026-03-06",
@@ -145,6 +145,5 @@
     "follow_ups_processed": true,
     "digest_path": null,
     "lessons_updated": true
-  },
-  "category": "dashboard"
+  }
 }

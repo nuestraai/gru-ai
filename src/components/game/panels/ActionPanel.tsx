@@ -306,6 +306,8 @@ function DirectiveCard({
 
   const isAwaitingCompletion = directive.status === 'awaiting_completion';
   const isFailed = directive.status === 'failed';
+  const isCompleted = directive.status === 'completed';
+  const isInProgress = directive.status === 'in_progress';
   const borderColor = isAwaitingCompletion ? '#EAB308' : isFailed ? '#EF4444' : '#C4A265';
 
   return (
@@ -324,7 +326,17 @@ function DirectiveCard({
       >
         {/* Name + weight + elapsed */}
         <div className="flex items-center gap-1.5 min-w-0">
-          <Crosshair className="h-3 w-3 shrink-0" style={{ color: PARCHMENT.accent }} />
+          {isCompleted ? (
+            <CheckCircle2 className="h-3 w-3 shrink-0" style={{ color: '#22C55E' }} />
+          ) : isFailed ? (
+            <XCircle className="h-3 w-3 shrink-0" style={{ color: '#EF4444' }} />
+          ) : isAwaitingCompletion ? (
+            <AlertTriangle className="h-3 w-3 shrink-0" style={{ color: '#EAB308' }} />
+          ) : isInProgress ? (
+            <Play className="h-3 w-3 shrink-0" style={{ color: '#3B82F6' }} />
+          ) : (
+            <Circle className="h-3 w-3 shrink-0" style={{ color: PARCHMENT.textDim }} />
+          )}
           <span
             className="text-xs font-bold truncate font-mono"
             style={{ color: PARCHMENT.text }}
@@ -415,13 +427,8 @@ function DirectiveCard({
       {/* Expanded content */}
       {expanded && (
         <div className="px-2.5 pb-2.5 space-y-2 font-mono">
-          {/* Info strip: category + phase + approval */}
+          {/* Info strip: phase + approval */}
           <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[9px]" style={{ color: PARCHMENT.textDim }}>
-            {directive.category && (
-              <span>
-                Category: <span className="font-bold" style={{ color: PARCHMENT.text }}>{directive.category}</span>
-              </span>
-            )}
             <span>
               Phase: <span className="font-bold" style={{ color: PARCHMENT.text }}>{directive.currentPhase}</span>
             </span>
@@ -874,45 +881,37 @@ function SessionCard({
 // Directive History — recent completed/failed
 // ---------------------------------------------------------------------------
 
-function DirectiveHistoryList() {
-  const directives = useDashboardStore((s) => s.workState?.conductor?.directives);
+function DirectiveHistoryList({
+  sessions,
+  onApprove,
+  onFocus,
+  onOpenDetail,
+  approvingId,
+  focusingPane,
+}: {
+  sessions: Session[];
+  onApprove: (e: React.MouseEvent, name: string) => void;
+  onFocus: (paneId: string) => void;
+  onOpenDetail: (type: 'brainstorm' | 'brief', directiveTitle: string, content: string) => void;
+  approvingId: string | null;
+  focusingPane: string | null;
+}) {
   const directiveHistory = useDashboardStore((s) => s.directiveHistory);
+  const activeDirectives = useDashboardStore((s) => s.activeDirectives);
+
+  // Build set of active directive IDs to exclude from recent
+  const activeIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const d of activeDirectives ?? []) ids.add(d.directiveName);
+    return ids;
+  }, [activeDirectives]);
 
   const recentDirectives = useMemo(() => {
-    const items: Array<{
-      id: string;
-      title: string;
-      status: string;
-      updatedAt: string;
-      weight?: string;
-    }> = [];
-
-    for (const d of directiveHistory ?? []) {
-      items.push({
-        id: d.directiveName,
-        title: d.title || d.directiveName,
-        status: d.status,
-        updatedAt: d.lastUpdated,
-        weight: d.weight,
-      });
-    }
-
-    for (const d of directives ?? []) {
-      if (!items.find((i) => i.id === d.id)) {
-        items.push({
-          id: d.id,
-          title: d.title,
-          status: d.status,
-          updatedAt: d.updatedAt,
-          weight: d.weight,
-        });
-      }
-    }
-
-    return items
-      .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
+    return (directiveHistory ?? [])
+      .filter((d) => !activeIds.has(d.directiveName))
+      .sort((a, b) => new Date(b.lastUpdated).getTime() - new Date(a.lastUpdated).getTime())
       .slice(0, 5);
-  }, [directiveHistory, directives]);
+  }, [directiveHistory, activeIds]);
 
   if (recentDirectives.length === 0) return null;
 
@@ -923,43 +922,17 @@ function DirectiveHistoryList() {
       </SectionHeader>
 
       {recentDirectives.map((d) => (
-        <div
-          key={d.id}
-          className="flex items-center gap-1.5 px-2 py-1.5 font-mono"
-          style={PIXEL_CARD}
-        >
-          {d.status === 'completed' ? (
-            <CheckCircle2 className="h-3 w-3 text-green-600 shrink-0" />
-          ) : d.status === 'failed' ? (
-            <XCircle className="h-3 w-3 text-red-500 shrink-0" />
-          ) : (
-            <Circle className="h-3 w-3 shrink-0" style={{ color: PARCHMENT.textDim }} />
-          )}
-          <span
-            className="text-[11px] truncate flex-1"
-            style={{ color: PARCHMENT.text }}
-          >
-            {d.title}
-          </span>
-          {d.weight && (
-            <span
-              className="text-[9px] font-bold font-mono px-1.5 py-0.5 leading-none shrink-0"
-              style={{
-                backgroundColor: weightBg(d.weight),
-                color: weightFg(d.weight),
-                borderRadius: '2px',
-              }}
-            >
-              {d.weight}
-            </span>
-          )}
-          <span
-            className="text-[9px] shrink-0"
-            style={{ color: PARCHMENT.textDim }}
-          >
-            {timeAgo(d.updatedAt)}
-          </span>
-        </div>
+        <DirectiveCard
+          key={d.directiveName}
+          directive={d}
+          defaultExpanded={false}
+          sessions={sessions}
+          onApprove={onApprove}
+          onFocus={onFocus}
+          onOpenDetail={onOpenDetail}
+          approvingId={approvingId}
+          focusingPane={focusingPane}
+        />
       ))}
     </div>
   );
@@ -1124,7 +1097,14 @@ export default function ActionPanel() {
             No active directives or pending actions
           </p>
         </div>
-        <DirectiveHistoryList />
+        <DirectiveHistoryList
+          sessions={sessions}
+          onApprove={handleApprove}
+          onFocus={handleFocus}
+          onOpenDetail={(type, title, content) => setDetailView({ type, directiveTitle: title, content })}
+          approvingId={approvingId}
+          focusingPane={focusingPane}
+        />
       </div>
     );
   }
@@ -1183,7 +1163,14 @@ export default function ActionPanel() {
 
       {/* History */}
       {sortedDirectives.length > 0 && <ParchmentDivider ornament />}
-      <DirectiveHistoryList />
+      <DirectiveHistoryList
+          sessions={sessions}
+          onApprove={handleApprove}
+          onFocus={handleFocus}
+          onOpenDetail={(type, title, content) => setDetailView({ type, directiveTitle: title, content })}
+          approvingId={approvingId}
+          focusingPane={focusingPane}
+        />
     </div>
   );
 }

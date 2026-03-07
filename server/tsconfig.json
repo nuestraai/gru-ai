@@ -8,15 +8,15 @@
     "types": ["node"],
     "skipLibCheck": true,
     "outDir": "../dist-server",
-    "rootDir": ".",
+    "rootDir": "..",
     "declaration": true,
     "strict": true,
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
     "noFallthroughCasesInSwitch": true,
     "esModuleInterop": true,
     "resolveJsonModule": true,
     "isolatedModules": true
   },
-  "include": ["./**/*"]
+  "include": ["./**/*", "../scripts/intelligence-trends.ts", "../scripts/spawn-agent.ts", "../scripts/personality-compiler.ts"]
 }

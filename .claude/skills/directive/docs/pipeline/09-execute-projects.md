@@ -4,9 +4,9 @@
 
 ### Multi-Project Execution
 
-**For multi-project plans** (where Morgan's plan produced a `projects` array): Run the ENTIRE execute step once per project, sequentially by priority tier (all P0 projects before P1). Each project has its own project.json, its own brainstorm, its own task loop, and its own review verification. Treat each project as an independent execution unit.
+**For multi-project plans** (where the COO's plan produced a `projects` array): Run the ENTIRE execute step once per project, sequentially by priority tier (all P0 projects before P1). Each project has its own project.json, its own brainstorm, its own task loop, and its own review verification. Treat each project as an independent execution unit.
 
-**Cross-project dependencies:** Projects can declare `depends_on` in Morgan's plan to specify execution order. The wave analysis algorithm (below) uses `depends_on` + file overlap to compute which projects can run in parallel. Projects without `depends_on` and with no file overlap run in the same wave. Tightly coupled work that shares code dependencies should still be ONE project with ordered tasks -- use `depends_on` for genuinely separate projects where one must complete before another starts.
+**Cross-project dependencies:** Projects can declare `depends_on` in the COO's plan to specify execution order. The wave analysis algorithm (below) uses `depends_on` + file overlap to compute which projects can run in parallel. Projects without `depends_on` and with no file overlap run in the same wave. Tightly coupled work that shares code dependencies should still be ONE project with ordered tasks -- use `depends_on` for genuinely separate projects where one must complete before another starts.
 
 **For single-project plans** (flat `tasks` array): Run the execute step once for the single project.json.
 
@@ -121,22 +121,22 @@ function computeWaves(tasks, auditResults):
     {
       "wave": 1,
       "tasks": [
-        { "id": "update-types", "builder": "jordan", "priority": "P0", "active_files": ["src/types.ts"] }
+        { "id": "update-types", "builder": "backend-engineer-id", "priority": "P0", "active_files": ["src/types.ts"] }
       ],
       "parallel": false
     },
     {
       "wave": 2,
       "tasks": [
-        { "id": "build-component-a", "builder": "riley", "priority": "P0", "active_files": ["src/components/A.tsx"] },
-        { "id": "build-component-b", "builder": "riley", "priority": "P0", "active_files": ["src/components/B.tsx"] }
+        { "id": "build-component-a", "builder": "frontend-engineer-id", "priority": "P0", "active_files": ["src/components/A.tsx"] },
+        { "id": "build-component-b", "builder": "frontend-engineer-id", "priority": "P0", "active_files": ["src/components/B.tsx"] }
       ],
       "parallel": true
     },
     {
       "wave": 3,
       "tasks": [
-        { "id": "integration-test", "builder": "sam", "priority": "P1", "active_files": ["tests/integration.test.ts"] }
+        { "id": "integration-test", "builder": "qa-engineer-id", "priority": "P1", "active_files": ["tests/integration.test.ts"] }
       ],
       "parallel": false
     }
@@ -144,7 +144,7 @@ function computeWaves(tasks, auditResults):
 }
 ```
 
-**Same builder in parallel tasks:** If a wave has two tasks both cast to the same builder (e.g., Riley), they still run in parallel as separate agent instances. Each instance gets its own scope, files, and context. The personality file makes them behave consistently, not identically.
+**Same builder in parallel tasks:** If a wave has two tasks both cast to the same builder (e.g., the frontend engineer), they still run in parallel as separate agent instances. Each instance gets its own scope, files, and context. The personality file makes them behave consistently, not identically.
 
 ### Wave-Based Execution Loop
 
@@ -168,7 +168,7 @@ for each wave in wave manifest:
     advance to next wave
 ```
 
-**Parallel builds use CLI spawns** (`claude -p --agent`), NOT the Agent tool with `run_in_background`. Background agents get Bash permission auto-rejected. CLI sessions can use Bash. See "Agent Spawn Rules" below for the spawn pattern with CHILD_PIDS + trap cleanup.
+**Parallel builds use CLI spawns** (`tsx scripts/spawn-agent.ts`), NOT the Agent tool with `run_in_background`. Background agents get Bash permission auto-rejected. CLI sessions can use Bash. See "Agent Spawn Rules" below for the spawn pattern with CHILD_PIDS + trap cleanup.
 
 **Reviews stay sequential per task** within each wave. Rationale:
 - Reviews read the full file -- parallel reviews could see inconsistent state
@@ -186,19 +186,19 @@ for each wave in wave manifest:
 
 ```
 Wave 1/3: [1 task, sequential]
-  [1/8] Update types (P0, jordan) -- building...
+  [1/8] Update types (P0, backend-engineer) -- building...
   [1/8] Update types -- completed
 
 Wave 2/3: [2 tasks, PARALLEL]
-  [2/8] Build component A (P0, riley) -- building...
-  [3/8] Build component B (P0, riley) -- building...
+  [2/8] Build component A (P0, frontend-engineer) -- building...
+  [3/8] Build component B (P0, frontend-engineer) -- building...
   [3/8] Build component B -- completed (2m 14s)
   [2/8] Build component A -- completed (3m 01s)
   [2/8] Build component A -- reviewing...
   [3/8] Build component B -- reviewing...
 
 Wave 3/3: [1 task, sequential]
-  [4/8] Integration test (P1, sam) -- building...
+  [4/8] Integration test (P1, qa-engineer) -- building...
 ```
 
 For each task, execute its `phases` array in order. Each phase has specific agent assignments and artifact outputs.
@@ -208,19 +208,22 @@ For each task, execute its `phases` array in order. Each phase has specific agen
 For each phase in the task's `phases` array, execute it according to these rules:
 
 **Phase: `research`**
-Spawn researcher agent (Priya or Sarah per cast) to investigate and produce findings. **Artifact:** the project directory as `research.md`.
+Spawn researcher agent (the CMO or CTO per cast) to investigate and produce findings. **Artifact:** the project directory as `research.md`.
 
 **Phase: `product-spec`**
-Spawn Marcus to write product requirements + acceptance criteria. **Artifact:** the project directory as `product-spec.md`.
+Spawn the CPO to write product requirements + acceptance criteria. **Artifact:** the project directory as `product-spec.md`.
 
 **Phase: `design`**
-Spawn designer agent (Sarah for technical design, Quinn for UI design) to read the codebase and write a technical approach. For UI-touching tasks, spawn both: Sarah produces the technical design, Quinn produces the visual design prototype (wireframes, component specs, interaction notes). Include any prior phase artifacts (research, product-spec) as context. If a design prototype exists from the audit step (`.context/directives/{id}/design-prototype.md`), include it as the starting point. **Artifact:** the project directory as `design.md`.
+Spawn the CTO to read the codebase and write a technical approach. Include any prior phase artifacts (research, product-spec) as context. **Artifact:** the project directory as `design.md`.
+
+**Phase: `visual-design`**
+Spawn the UI/UX designer (Quinn) to produce a visual design spec before the builder writes code. Include task scope + any prior phase artifacts (research, product-spec, design, audit findings) as context. The designer produces layout, component structure, visual spec, and interaction notes. The builder receives this as context during the build phase. **Artifact:** the project directory as `visual-design.md`.
 
 **Phase: `keyword-research`**
-Spawn Priya to research target keywords, search intent, competitor content gaps, and recommended topics. **Artifact:** the project directory as `keyword-research.md`.
+Spawn the CMO to research target keywords, search intent, competitor content gaps, and recommended topics. **Artifact:** the project directory as `keyword-research.md`.
 
 **Phase: `outline`**
-Spawn Priya to create a content outline -- structure, headings, target keywords per section, internal linking strategy. Include keyword research artifact as context. **Artifact:** the project directory as `outline.md`.
+Spawn the CMO to create a content outline -- structure, headings, target keywords per section, internal linking strategy. Include keyword research artifact as context. **Artifact:** the project directory as `outline.md`.
 
 **Phase: `clarification`**
 Pre-build Q&A stolen from ChatDev's dual-agent dehallucination pattern (40% error reduction). Spawn the engineer with all context (scope, design output, audit findings). Engineer outputs 3-5 specific clarifying questions about scope boundaries, edge cases, integration points, and ambiguous requirements. Spawn the designer/auditor from the previous phase to respond. **Artifact:** the project directory as `clarification.md`.
@@ -232,11 +235,11 @@ Spawn engineer agent(s) with task scope + all prior phase artifacts + audit find
 Spawn engineer agent to write the actual content (MDX files, page components) following the outline artifact. **Artifact:** the project directory as `draft.md`.
 
 **Phase: `seo-review`**
-Spawn Priya to review the draft for SEO quality -- meta tags, keyword density, structured data, internal links, readability. **Artifact:** the project directory as `seo-review.md`.
+Spawn the CMO to review the draft for SEO quality -- meta tags, keyword density, structured data, internal links, readability. **Artifact:** the project directory as `seo-review.md`.
 
 **Phase: `code-review`** (independent review with fresh context -- inspired by [Anthropic's official code-review plugin](https://github.com/anthropics/claude-code/tree/main/plugins/code-review))
 
-Spawn the reviewer(s) from the project's `reviewers` array -- the SAME agents Morgan assigned, but with a **fresh-context prompt** that strips all builder reasoning. They get full file contents + diff but NO design docs, scope, or builder intent. This is NOT hardcoded to any specific agent. If the builder IS one of the reviewers (conflict of interest), skip that reviewer for this phase.
+Spawn the reviewer(s) from the project's `reviewers` array -- the SAME agents the COO assigned, but with a **fresh-context prompt** that strips all builder reasoning. They get full file contents + diff but NO design docs, scope, or builder intent. This is NOT hardcoded to any specific agent. If the builder IS one of the reviewers (conflict of interest), skip that reviewer for this phase.
 
 The reviewer gets:
 1. The **full contents** of files touched by this task (so they can see surrounding context)
@@ -299,7 +302,7 @@ A review that finds zero issues is SUSPICIOUS. Real code changes almost always h
 
 This phase is separate from the standard `review` phase. `code-review` catches bugs through fresh eyes; `review` checks DOD compliance and user perspective. Both are valuable for different reasons.
 
-**When to include `code-review`:** Morgan includes it when the task touches integration points (data flows, state management, API boundaries) or has >3 DOD criteria. Skip for trivial fixes. Pattern: `["build", "code-review", "review"]`.
+**When to include `code-review`:** The COO includes it when the task touches integration points (data flows, state management, API boundaries) or has >3 DOD criteria. Skip for trivial fixes. Pattern: `["build", "code-review", "review"]`.
 
 **Artifact:** the project directory as `code-review.md`.
 
@@ -307,13 +310,13 @@ This phase is separate from the standard `review` phase. `code-review` catches b
 For each reviewer in the project's `reviewers` array, spawn the reviewer agent to review the changes. Collect all review JSONs. If ANY reviewer returns "critical", trigger the retry logic. **Artifact:** the project directory as `review.md`.
 
 **Phase: `design-review`**
-Spawn Quinn to review the UI implementation against the design prototype. Quinn compares the running UI against the wireframes, component specs, and interaction notes from the design prototype (`design-prototype.md`). She evaluates layout fidelity, visual consistency, usability, responsiveness, and polish. **Artifact:** the project directory as `design-review.md`. Include this phase for any UI-touching task — pattern: `["build", "code-review", "design-review", "review"]`.
+Spawn the UI/UX designer to review the UI implementation against the design spec (`visual-design.md`). Evaluates layout fidelity, visual consistency, usability, responsiveness, and polish. **Artifact:** the project directory as `design-review.md`. Include this phase for any UI-touching task.
 
 **Phase: `tech-review`**
-Spawn Sarah to review code quality + architecture. **Artifact:** the project directory as `tech-review.md`.
+Spawn the CTO to review code quality + architecture. **Artifact:** the project directory as `tech-review.md`.
 
 **Phase: `product-review`**
-Spawn Marcus to verify it meets the product spec. **Artifact:** the project directory as `product-review.md`.
+Spawn the CPO to verify it meets the product spec. **Artifact:** the project directory as `product-review.md`.
 
 **After the last phase:** If any task phase produced UI changes, trigger UX verification (see "UX Verification Phase" below).
 
@@ -321,7 +324,7 @@ Spawn Marcus to verify it meets the product spec. **Artifact:** the project dire
 
 ### Agent Spawn Rules
 
-> **Process cleanup:** When spawning CLI agents (`claude -p --agent ...`), track child PIDs so they get killed if the directive session exits unexpectedly. Without this, orphaned agent processes accumulate and saturate API rate limits.
+> **Process cleanup:** When spawning CLI agents (`tsx scripts/spawn-agent.ts`), track child PIDs so they get killed if the directive session exits unexpectedly. Without this, orphaned agent processes accumulate and saturate API rate limits.
 
 **CLI spawn pattern with cleanup trap:**
 
@@ -336,35 +339,35 @@ cleanup_children() {
 trap cleanup_children EXIT
 
 # For each CLI spawn, track the PID:
-CLAUDECODE= claude -p --agent riley --model sonnet --dangerously-skip-permissions --no-session-persistence "prompt" > /tmp/riley-output.txt 2>&1 &
+tsx scripts/spawn-agent.ts --agent {agent-id} --prompt "prompt" --mode tracked --model sonnet --output /tmp/{agent-id}-output.txt &
 CHILD_PIDS+=($!)
 wait $!
 ```
 
 If the session gets killed (context limit, timeout, user cancels), the trap fires and kills all child processes. No more zombies.
 
-**All named agents** (C-suite and specialists): Use the agent's named `subagent_type` -- e.g., `subagent_type: "sarah"`, `subagent_type: "riley"`, `subagent_type: "jordan"`, etc. The personality file is auto-loaded by the agent system. Do NOT manually paste personality file contents into the prompt -- just use the named type.
+**All named agents** (C-suite and specialists): Use the agent's `id` from `.claude/agent-registry.json` as the `subagent_type`. The personality file is auto-loaded by the agent system. Do NOT manually paste personality file contents into the prompt -- just use the named type.
 
-Available named `subagent_type` values:
-- **C-suite**: `"sarah"`, `"marcus"`, `"priya"`, `"morgan"`
-- **Specialists**: `"riley"` (frontend), `"quinn"` (UI/UX design), `"jordan"` (backend), `"casey"` (data), `"taylor"` (content), `"sam"` (QA/investigation/review), `"devon"` (full-stack)
+Available `subagent_type` values are the `id` fields from the agent registry. Resolve roles to IDs by reading the registry at runtime:
+- **C-suite**: CTO, CPO, CMO, COO
+- **Specialists**: frontend engineer, UI/UX designer, backend engineer, data engineer, content builder, QA engineer, full-stack engineer
 
 Specialists receive engineer-style instructions (scope, DOD, audit findings) in their task prompt -- the personality is already loaded via the type.
 
 **Fallback assignments** (when no specific specialist is assigned):
-- `"builder": "devon"` in cast -> `subagent_type: "devon"` (Full-Stack Engineer, handles broad/cross-domain scope)
-- Unnamed auditor (no named auditor assigned) -> `subagent_type: "sarah"` (CTO handles unassigned audits)
-- Unnamed reviewer (no named reviewer assigned) -> `subagent_type: "sam"` (QA handles unassigned reviews)
+- No specific builder assigned -> use the full-stack engineer (handles broad/cross-domain scope)
+- Unnamed auditor (no named auditor assigned) -> use the CTO (handles unassigned audits)
+- Unnamed reviewer (no named reviewer assigned) -> use the QA engineer (handles unassigned reviews)
 
 All agents are named agents with personality files. There are no generic role agents.
 
-**Engineer/builder agents** (any specialist or `"devon"`): Spawn with:
-- Task scope (from Morgan's plan)
-- Task definition_of_done (from Morgan's plan) -- the engineer must know acceptance criteria BEFORE building
+**Engineer/builder agents** (any specialist or the full-stack engineer): Spawn with:
+- Task scope (from the COO's plan)
+- Task definition_of_done (from the COO's plan) -- the engineer must know acceptance criteria BEFORE building
 - Audit findings (from audit step): active file list, baseline, dead code flags
 - **Recommended approach** (from the architect's audit output) -- include the `recommended_approach` field verbatim as implementation context. This is guidance, not a mandate -- the builder can deviate if they discover a better path during implementation, but they should note deviations in their build report.
 - Design output (if available from earlier phases)
-- **Design prototype** (if `.context/directives/{id}/design-prototype.md` exists -- Quinn's wireframes and specs from the audit step). Include it as the visual spec the builder must follow for UI layout, components, and interactions.
+- **Visual design spec** (if `visual-design.md` exists in the project directory -- the UI/UX designer's pre-build design from the `visual-design` phase). Include the full contents as the visual spec for the builder to follow.
 - Brainstorm output (if this task's project had a brainstorm phase -- see brainstorm constraint below)
 - Instruction: "The architect's recommended approach is provided as context. Use it as your starting point -- it's based on real codebase investigation. If you find a better approach during implementation, go with it but explain why in your build report."
 
@@ -388,8 +391,10 @@ This is not optional. If your build report has no `brainstorm_alignment` section
 ```
 
 This forces the builder to engage with the brainstorm output rather than ignoring it. The reviewer can then check whether deviations were justified.
+
 - **Task instruction**: "After completing the build, report BOTH what you built AND what you think is still missing or broken. List specific follow-ups you'd propose -- gaps in the UX, edge cases not covered, related features that should exist but don't. This is not optional -- every build report must include a `proposed_improvements` section."
 - **User-perspective instruction**: "Before reporting completion, mentally walk through the feature as if you are the CEO using it for the first time. Ask yourself: Can I click this? Where does it go? Does the number match reality? Is anything a dead end? Include a `user_walkthrough` section in your build report describing what the CEO would experience step-by-step."
+- **Project tracking instruction**: "After completing each task, update the project.json file. Set the task's `status` to `completed` and each of its `dod` items to `met: true` for criteria you verified. When ALL tasks are done, set the project-level `status` to `completed` and update project-level `dod` items. Also update the `updated` timestamp. This is how the dashboard tracks progress -- if you skip this, the project shows 0% complete despite being done."
 
 **Engineer clarification prompt** (for complex processes only -- prepend to the engineer's build prompt when a clarification phase precedes the build):
 
@@ -408,10 +413,10 @@ Use these clarifications to guide your implementation. If the answers revealed s
 - `.context/vision.md` guardrails section -- hard constraints
 - `.context/lessons/` topic files (load only what's relevant to the agent's role):
   - **Engineers**: `.context/lessons/agent-behavior.md` + `.context/lessons/skill-design.md`
-  - **Sarah (auditor/reviewer)**: `.context/lessons/agent-behavior.md` + `.context/lessons/review-quality.md`
-  - **Marcus (product reviewer)**: `.context/lessons/review-quality.md`
-  - **Morgan (process reviewer)**: `.context/lessons/orchestration.md` + `.context/lessons/review-quality.md`
-  - **Priya (content/growth)**: `.context/lessons/agent-behavior.md`
+  - **CTO (auditor/reviewer)**: `.context/lessons/agent-behavior.md` + `.context/lessons/review-quality.md`
+  - **CPO (product reviewer)**: `.context/lessons/review-quality.md`
+  - **COO (process reviewer)**: `.context/lessons/orchestration.md` + `.context/lessons/review-quality.md`
+  - **CMO (content/growth)**: `.context/lessons/agent-behavior.md`
 
 ### UX Verification Phase (mandatory for UI work)
 
@@ -428,7 +433,7 @@ Use these clarifications to guide your implementation. If the answers revealed s
 
 **If UX verification fails:** Fix the issues immediately (spawn another engineer if needed), then re-verify. Do NOT skip to the next task with broken UI.
 
-**Visual feedback loop (MANDATORY for game category):** When the directive's category is `game` AND the task touches visual rendering (sprites, tiles, furniture, Canvas drawing), the standard UX verification is NOT sufficient. Instead:
+**Visual feedback loop (MANDATORY for game visual work):** When the directive touches game visual rendering (check if active_files include paths under `src/components/game/` that involve sprites, tiles, furniture, or Canvas drawing), the standard UX verification is NOT sufficient. Instead:
 1. After the build phase, take screenshots of the game at multiple zoom levels (1x, 2x, 4x)
 2. Compare visually against the quality bar in `.context/directives/game-visual-quality-overhaul/` context
 3. If the visual quality doesn't match the reference repos (pixel-agents, claw-empire), spawn the builder again with the screenshot and specific feedback ("the desk needs wood grain texture", "the character needs more detail in the hair", etc.)
@@ -449,7 +454,7 @@ Separate from code review. After the reviewer checks code quality, the reviewer 
 
 ```
 SEPARATE FROM CODE REVIEW -- also evaluate this work from the CEO/end-user perspective:
-1. Walk through the task's `user_scenario`: "{user_scenario from Morgan's plan}". Does the build actually deliver this experience?
+1. Walk through the task's `user_scenario`: "{user_scenario from the COO's plan}". Does the build actually deliver this experience?
 2. If this were shipped today, would the CEO's workflow actually improve?
 3. What did the engineer build that technically works but misses the user's real need?
 4. What's MISSING that the directive didn't ask for but the user clearly needs?
@@ -662,7 +667,7 @@ The project.json was created in the approve step (after CEO approval) with tasks
 
 4. **Update project status**: if all tasks completed, set `"status": "completed"` and `"completed": "{current ISO timestamp}"`. Do NOT leave as `"in_progress"` when all work is done.
 
-5. **If project.json doesn't exist** (legacy directive or pipeline error): create it from scratch using Morgan's plan + execution results. Log a warning -- this should not happen if the approve step ran correctly.
+5. **If project.json doesn't exist** (legacy directive or pipeline error): create it from scratch using the COO's plan + execution results. Log a warning -- this should not happen if the approve step ran correctly.
 
 6. **For each completed task, also update directive.json:**
    - Add `goal-id/project-id` to `produced_projects` array

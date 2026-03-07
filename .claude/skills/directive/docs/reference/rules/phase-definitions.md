@@ -5,23 +5,26 @@
 Instead of picking from a fixed process type taxonomy, specify the exact phases each task needs as an ordered array. Available phases:
 
 - "research" — investigation, analysis, competitive intel (researcher agent)
-- "product-spec" — product requirements + acceptance criteria (Marcus)
-- "design" — technical approach document (Sarah)
-- "keyword-research" — SEO keyword analysis (Priya, for content work)
-- "outline" — content structure and plan (Priya, for content work)
+- "product-spec" — product requirements + acceptance criteria (the CPO)
+- "design" — technical approach document (the CTO)
+- "visual-design" — pre-build visual design spec (the UI/UX designer). For UI tasks. Designer produces layout, component structure, visual spec, interactions. Builder receives as context during build.
+- "keyword-research" — SEO keyword analysis (the CMO, for content work)
+- "outline" — content structure and plan (the CMO, for content work)
 - "clarification" — pre-build Q&A between engineer and designer/auditor (auto-added for complex work)
 - "build" — implementation (engineer agent)
 - "draft" — content writing (engineer, for content work)
-- "seo-review" — SEO quality review (Priya, for content work)
+- "seo-review" — SEO quality review (the CMO, for content work)
 - "code-review" — independent review using cast reviewers with full files + diff but no builder reasoning (fresh eyes catch bugs)
 - "review" — code/quality review (reviewer agents from cast — checks DOD, user perspective, corrections)
-- "tech-review" — architecture review (Sarah, for complex work)
-- "product-review" — product spec verification (Marcus, for complex work)
+- "tech-review" — architecture review (the CTO, for complex work)
+- "product-review" — product spec verification (the CPO, for complex work)
 
 ## Common Phase Patterns (guidance, not rigid rules)
 
 - Simple fix: ["build", "review"]
 - Integration-touching fix: ["build", "code-review", "review"]
+- UI task (design-first): ["visual-design", "build", "code-review", "design-review", "review"]
+- Complex UI task: ["design", "visual-design", "clarification", "build", "code-review", "design-review", "review"]
 - Complex project task: ["design", "clarification", "build", "code-review", "review"] (only within multi-project plans)
 - Research only: ["research"] (no build — produces a report)
 - Migration: ["research", "design", "clarification", "build", "review"] (build is incremental)

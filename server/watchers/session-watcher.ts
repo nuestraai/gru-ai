@@ -1,22 +1,30 @@
 import path from 'node:path';
 import fs from 'node:fs';
 import { watch, type FSWatcher } from 'chokidar';
-import type { Aggregator } from '../state/aggregator.js';
-import { processFileUpdate, getOrBootstrap, removeFileState, toSessionActivity } from '../parsers/session-state.js';
+import type { AggregatorHandle } from '../platform/types.js';
+import type { PlatformAdapter } from '../platform/types.js';
+import {
+  processFileUpdate as processFileUpdateRaw,
+  getOrBootstrap as getOrBootstrapRaw,
+  removeFileState as removeFileStateRaw,
+  toSessionActivity as toSessionActivityRaw,
+} from '../parsers/session-state.js';
 
 export class SessionWatcher {
   private watcher: FSWatcher | null = null;
-  private aggregator: Aggregator;
+  private aggregator: AggregatorHandle;
   private claudeHome: string;
   private projectFilter?: string;
+  private adapter: PlatformAdapter | null;
   private activityTimers = new Map<string, ReturnType<typeof setTimeout>>();
   private sessionRefreshTimer: ReturnType<typeof setTimeout> | null = null;
   private _ready = false;
 
-  constructor(aggregator: Aggregator, claudeHome: string, projectFilter?: string) {
+  constructor(aggregator: AggregatorHandle, claudeHome: string, projectFilter?: string, adapter?: PlatformAdapter) {
     this.aggregator = aggregator;
     this.claudeHome = claudeHome;
     this.projectFilter = projectFilter;
+    this.adapter = adapter ?? null;
   }
 
   start(): void {
@@ -45,7 +53,11 @@ export class SessionWatcher {
       if (event === 'add' || event === 'unlink') {
         // Session file added or deleted — refresh session list (1s debounce)
         if (event === 'unlink') {
-          removeFileState(filePath);
+          if (this.adapter) {
+            this.adapter.removeFileState(filePath);
+          } else {
+            removeFileStateRaw(filePath);
+          }
         }
         this.scheduleSessionRefresh();
       }
@@ -106,9 +118,13 @@ export class SessionWatcher {
       this.activityTimers.delete(filePath);
 
       // Incremental update: reads only new bytes since last offset
-      const state = processFileUpdate(filePath);
+      const state = this.adapter
+        ? this.adapter.processFileUpdate(filePath)
+        : processFileUpdateRaw(filePath);
       if (state) {
-        const activity = toSessionActivity(state);
+        const activity = this.adapter
+          ? this.adapter.toSessionActivity(state)
+          : toSessionActivityRaw(state);
         if (activity && activity.active) {
           console.log(`[session-watcher] Activity for session ${activity.sessionId}: ${activity.tool ?? (activity.thinking ? 'thinking' : 'idle')}`);
           this.aggregator.updateSessionFromFileState(filePath, state);
@@ -118,7 +134,9 @@ export class SessionWatcher {
         }
       } else {
         // No new data or bootstrap failed — try bootstrap for new files
-        const bootstrapped = getOrBootstrap(filePath);
+        const bootstrapped = this.adapter
+          ? this.adapter.getOrBootstrap(filePath)
+          : getOrBootstrapRaw(filePath);
         if (bootstrapped) {
           this.aggregator.updateSessionFromFileState(filePath, bootstrapped);
         }

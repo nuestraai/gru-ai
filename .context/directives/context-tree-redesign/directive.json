@@ -1,6 +1,6 @@
 {
   "id": "context-tree-redesign",
-  "title": "Context Tree Redesign \u2014 Clean Slate",
+  "title": "Context Tree Redesign — Clean Slate",
   "status": "completed",
   "source": "ceo",
   "weight": "strategic",
@@ -19,6 +19,5 @@
   "cast": null,
   "dod": null,
   "report_summary": null,
-  "telemetry": null,
-  "category": "framework"
+  "telemetry": null
 }

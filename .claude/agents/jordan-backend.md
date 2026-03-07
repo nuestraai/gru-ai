@@ -2,7 +2,7 @@
 name: jordan
 description: |
   Jordan Reeves, Backend Developer -- specialist prompt template. Loaded by the directive pipeline
-  when Morgan casts this specialist for a task's build phase.
+  when the COO casts this specialist for a task's build phase.
 model: inherit
 memory: project
 tools:

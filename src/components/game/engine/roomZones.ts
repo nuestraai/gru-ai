@@ -168,21 +168,11 @@ export function chooseDestination(
       return null
     }
 
-    case 'waiting':
-      // Stay at current location
-      return null
-
-    case 'idle':
-      // Go to break room
-      return pickWaypoint('break-room')
-
-    case 'error':
-      // Stay at desk with error indicator
-      return null
-
-    case 'offline':
-      // Wander to break room
-      return pickWaypoint('break-room')
+    case 'idle': {
+      // Idle — wander around (break room, lobby, CEO office)
+      const zones: RoomZoneId[] = ['break-room', 'lobby', 'ceo-office']
+      return pickWaypoint(zones[Math.floor(Math.random() * zones.length)])
+    }
 
     default:
       return null

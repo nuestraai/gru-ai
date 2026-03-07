@@ -1,9 +1,5 @@
 <!-- Pipeline doc: 10-wrapup.md | Source: SKILL.md restructure -->
 
-## Step 6: Category Context (if applicable)
-
-The directive's category (from directive.json `category` field) provides domain context. No OKR updates needed -- categories are flat labels, not goals with OKRs.
-
 ## Step 6b: Process Follow-Up Actions
 
 Collect all `follow_ups` from the audit findings (audit step) across all tasks. Process them by risk level:
@@ -107,17 +103,17 @@ If the directive produced new learnings, append them to the appropriate topic fi
 
 **Only add if:** something unexpected happened, a pattern emerged that prevents future mistakes, or a workaround was needed. Skip if the directive completed cleanly with no surprises.
 
-**Format:** For failure-mode lessons, include what was tried and why it failed — not just the fix. Example: `**Morgan produces prose before JSON despite "output ONLY JSON" instructions.** Fix: stronger preamble ("first character must be {") AND parse defensively.` For stable patterns/facts, a single sentence is fine.
+**Format:** For failure-mode lessons, include what was tried and why it failed — not just the fix. Example: `**The COO produces prose before JSON despite "output ONLY JSON" instructions.** Fix: stronger preamble ("first character must be {") AND parse defensively.` For stable patterns/facts, a single sentence is fine.
 
 Read existing topic files first to avoid duplicates.
 
 **Consolidation trigger:** After every 10th directive (count reports in `.context/reports/`), re-read all reports and consolidate recurring patterns into the topic files. Remove one-off entries that haven't recurred. This keeps lessons actionable, not bloated.
 
 **Personality evolution trigger:** On the same 10th-directive cycle, also update the `## Learned Patterns` section in each agent's personality file (`.claude/agents/*.md`). For each agent, extract lessons from `.context/lessons/` topic files that are relevant to their role:
-- **Morgan** — operational patterns (sequencing, scoping, casting, compression)
-- **Sarah** — technical patterns (audit accuracy, review findings, schema issues, build failures)
-- **Marcus** — product patterns (UX verification, user perspective, feature management)
-- **Priya** — growth patterns (content strategy, SEO, browser testing)
+- **COO** — operational patterns (sequencing, scoping, casting, compression)
+- **CTO** — technical patterns (audit accuracy, review findings, schema issues, build failures)
+- **CPO** — product patterns (UX verification, user perspective, feature management)
+- **CMO** — growth patterns (content strategy, SEO, browser testing)
 
 Replace the contents between `## Learned Patterns` and the next `##` heading. Keep each pattern as a single bullet with bold lead + explanation. Max 8 patterns per agent — keep only the most impactful.
 
@@ -169,7 +165,7 @@ Show the CEO:
 | Challenger's output doesn't parse as JSON | Log the error, continue. Challenge is advisory, not blocking. |
 | All challengers endorse | Note in approval presentation, proceed normally. |
 | A challenger challenges the directive | Highlight prominently in approval presentation. CEO decides whether to proceed. |
-| Morgan's plan doesn't parse as JSON | Stop, show the raw output, ask CEO to intervene |
+| The COO's plan doesn't parse as JSON | Stop, show the raw output, ask CEO to intervene |
 | Worktree creation fails | Warn CEO, work in the main repo instead. All changes are uncommitted, CEO can review with `git diff`. |
 | Audit finds nothing for ALL tasks | Skip to stale doc detection, generate digest noting "no issues found", recommend CEO review the directive scope. |
 | CEO rejects the plan | Stop. CEO can re-run with adjusted directive or manually edit the plan |
@@ -187,11 +183,11 @@ Show the CEO:
 - Skip triage — must classify before choosing the process weight
 - Run heavyweight process for lightweight work (wastes tokens and CEO attention)
 - Run lightweight process for heavyweight work (skips critical safety gates)
-- Execute heavyweight directives without CEO approval of the combined plan (Morgan + audit)
-- Skip the planning phase (Morgan evaluation)
+- Execute heavyweight directives without CEO approval of the combined plan (COO + audit)
+- Skip the planning phase (COO evaluation)
 - Skip the technical audit (audit step) — always verify scope before CEO approval
-- Skip the challenge step — Morgan's inline challenge is always required; separate challengers only for heavyweight/controversial
-- Have Morgan scan the codebase (she plans strategy, not code)
+- Skip the challenge step — the COO's inline challenge is always required; separate challengers only for heavyweight/controversial
+- Have the COO scan the codebase (the COO plans strategy, not code)
 - Run tasks in parallel without checking active_files overlap (see Parallelism Analysis in 09-execute-projects.md) -- tasks sharing files MUST be sequential; only non-overlapping tasks in the same priority tier can be parallelized
 - Treat reviewer findings as blockers (they're advisory)
 - Accept a review that only covers code quality without user-perspective evaluation
@@ -206,7 +202,7 @@ Show the CEO:
 ### ALWAYS
 - Triage the directive before choosing which process to run
 - Upgrade to heavyweight if ANY guardrail in vision.md could be affected
-- Include Morgan's inline challenge analysis in every plan — separate challengers for heavyweight/controversial only
+- Include the COO's inline challenge analysis in every plan — separate challengers for heavyweight/controversial only
 - Read preferences.md + vision.md guardrails before spawning any agent
 - Run technical audit before CEO approval to verify scope
 - Read .context/lessons/ topic files before spawning any agent
@@ -232,10 +228,10 @@ Show the CEO:
 - Write artifact files after every phase output in execute step
 - Update directive.json status to "awaiting_completion" after digest is written (wrapup) -- CEO approves in completion step
 - Pipeline data stays in directive.json permanently — it's the execution record
-- Include clarification phase before build when task has design/research/product-spec phases (Morgan's phase list should already include it)
+- Include clarification phase before build when task has design/research/product-spec phases (the COO's phase list should already include it)
 - Include task's definition_of_done in every reviewer prompt
 - Include Standing Corrections check in every reviewer prompt
-- Match reviewers to the domain being changed (process→Morgan, product→Marcus, architecture→Sarah)
+- Match reviewers to the domain being changed (process→COO, product→CPO, architecture→CTO)
 - Never assign an agent to review changes to its own behavior or prompts
 - Use file-pattern matching (*.tsx, *.jsx, *.css, etc.) to detect UI-touching tasks -- don't rely on subjective judgment
 - Cast multiple reviewers when task crosses domains (UI + backend, process + product)

@@ -171,13 +171,15 @@ export interface OfficeLayout {
 }
 
 /** Agent status from backend session state */
-export type AgentStatus = 'working' | 'waiting' | 'idle' | 'error' | 'offline'
+export type AgentStatus = 'working' | 'idle'
 
 /** Context data threaded from the session/activity layer */
 export interface SessionInfo {
   taskName?: string
   toolName?: string
   detail?: string
+  /** Timestamp (ms) of last session activity — used for idle duration calc */
+  lastActivityMs?: number
 }
 
 export interface Character {

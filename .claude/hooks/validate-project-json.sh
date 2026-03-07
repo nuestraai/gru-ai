@@ -48,7 +48,7 @@ if [[ ! -f "$PROJECT_PATH" ]]; then
 fi
 
 # Validate required fields
-REQUIRED_FIELDS=("id" "title" "category" "status" "description" "scope" "dod" "tasks")
+REQUIRED_FIELDS=("id" "title" "status" "description" "scope" "dod" "tasks")
 
 for field in "${REQUIRED_FIELDS[@]}"; do
   val=$(jq -r ".${field} // empty" "$PROJECT_PATH" 2>/dev/null)

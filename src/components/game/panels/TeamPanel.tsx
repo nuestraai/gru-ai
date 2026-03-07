@@ -1,9 +1,9 @@
 // ---------------------------------------------------------------------------
-// TeamPanel — game-style agent roster with pixel-art cards
+// TeamPanel — org hierarchy roster with team groups and session counts
 // ---------------------------------------------------------------------------
 
-import { useMemo, useState } from 'react';
-import { Swords, Fish, Users, ChevronDown, ChevronRight, FolderOpen } from 'lucide-react';
+import { useMemo } from 'react';
+import { Swords, Fish } from 'lucide-react';
 import { cn, timeAgo } from '@/lib/utils';
 import { useDashboardStore } from '@/stores/dashboard-store';
 import QuickActions from '@/components/shared/QuickActions';
@@ -15,26 +15,29 @@ import {
 } from './panelUtils';
 
 // ---------------------------------------------------------------------------
-// Team data from registry
+// Org hierarchy maps from registry
 // ---------------------------------------------------------------------------
 
-const TEAMS = registry.teams;
-
-/** Map agent first name -> team name */
-const AGENT_TEAM_MAP: Record<string, string> = {};
-/** Map agent first name -> full role */
+const AGENT_IS_CSUITE: Record<string, boolean> = {};
+const AGENT_REPORTS_TO: Record<string, string> = {};
 const AGENT_FULL_ROLE: Record<string, string> = {};
-for (const team of TEAMS) {
-  for (const memberId of team.memberAgentIds) {
-    const agent = registry.agents.find((a) => a.id === memberId);
-    if (agent) {
-      AGENT_TEAM_MAP[agent.name.split(' ')[0]] = team.name;
-    }
-  }
-}
+
 for (const agent of registry.agents) {
-  AGENT_FULL_ROLE[agent.name.split(' ')[0]] = agent.role;
+  const firstName = agent.name.split(' ')[0];
+  AGENT_IS_CSUITE[firstName] = agent.isCsuite;
+  if (agent.reportsTo) {
+    const manager = registry.agents.find((a) => a.id === agent.reportsTo);
+    if (manager) AGENT_REPORTS_TO[firstName] = manager.name.split(' ')[0];
+  }
+  AGENT_FULL_ROLE[firstName] = agent.role;
 }
+
+const TEAM_COLORS: Record<string, string> = {
+  Engineering: '#8B5CF6',
+  Product: '#3B82F6',
+  Growth: '#F59E0B',
+  Operations: '#10B981',
+};
 
 // ---------------------------------------------------------------------------
 // Props
@@ -46,7 +49,7 @@ interface TeamPanelProps {
 }
 
 // ---------------------------------------------------------------------------
-// Derived agent info
+// Types
 // ---------------------------------------------------------------------------
 
 interface AgentInfo {
@@ -63,6 +66,23 @@ interface AgentInfo {
   subagentNames: string[];
 }
 
+interface InactiveAgent {
+  agent: (typeof OFFICE_AGENTS)[0];
+  status: AgentStatus;
+  lastFeature?: string;
+  lastActivity?: string;
+  fullRole?: string;
+  sessionCount: number;
+  isCsuite: boolean;
+}
+
+interface TeamGroup {
+  name: string;
+  color: string;
+  leader: InactiveAgent | null;
+  reports: InactiveAgent[];
+}
+
 /** Extract a meaningful task description from a session prompt */
 function extractTask(prompt: string | undefined): string | undefined {
   if (!prompt) return undefined;
@@ -73,103 +93,142 @@ function extractTask(prompt: string | undefined): string | undefined {
 }
 
 // ---------------------------------------------------------------------------
-// KPI strip — compact team status summary
+// KPI strip — 2-counter (Working / Loafing)
 // ---------------------------------------------------------------------------
 
-function TeamKpi({
-  working,
-  waiting,
-  idle,
-  directiveName,
-  directiveStatus,
-}: {
-  working: number;
-  waiting: number;
-  idle: number;
-  directiveName: string | null;
-  directiveStatus: string | undefined;
-}) {
+function TeamKpi({ working, idle }: { working: number; idle: number }) {
   return (
-    <div className="space-y-1.5">
-      {/* Directive banner */}
-      {directiveName && (
-        <div
-          className="flex items-center gap-1.5 px-2 py-1.5 font-mono"
-          style={PIXEL_CARD}
-        >
-          <span
-            className="text-[9px] font-bold px-1.5 py-0.5 leading-none shrink-0"
-            style={{
-              backgroundColor: directiveStatus === 'awaiting_completion' ? '#FDE68A' : '#BBF7D0',
-              color: directiveStatus === 'awaiting_completion' ? '#92400E' : '#052E16',
-              borderRadius: '2px',
-            }}
-          >
-            {directiveStatus === 'awaiting_completion' ? 'Review' : 'Active'}
-          </span>
-          <span
-            className="text-[10px] font-bold truncate"
-            style={{ color: PARCHMENT.text }}
-          >
-            {directiveName}
-          </span>
-        </div>
-      )}
-
-      {/* Status counters */}
-      <div className="flex gap-1.5">
-        <div
-          className="flex-1 flex items-center gap-1.5 px-2 py-1.5 font-mono"
-          style={PIXEL_CARD}
-        >
-          <span
-            className="h-2 w-2 rounded-full shrink-0"
-            style={{ backgroundColor: '#22C55E', boxShadow: working > 0 ? '0 0 4px #22C55E80' : 'none' }}
-          />
-          <span className="text-sm font-bold tabular-nums" style={{ color: PARCHMENT.text }}>
-            {working}
-          </span>
-          <span className="text-[9px] uppercase tracking-wider" style={{ color: PARCHMENT.textDim }}>
-            Working
-          </span>
-        </div>
-        <div
-          className="flex-1 flex items-center gap-1.5 px-2 py-1.5 font-mono"
-          style={PIXEL_CARD}
-        >
-          <span
-            className="h-2 w-2 rounded-full shrink-0"
-            style={{ backgroundColor: waiting > 0 ? '#EAB308' : '#9CA3AF' }}
-          />
-          <span className="text-sm font-bold tabular-nums" style={{ color: PARCHMENT.text }}>
-            {waiting}
-          </span>
-          <span className="text-[9px] uppercase tracking-wider" style={{ color: PARCHMENT.textDim }}>
-            Waiting
-          </span>
-        </div>
-        <div
-          className="flex-1 flex items-center gap-1.5 px-2 py-1.5 font-mono"
-          style={PIXEL_CARD}
-        >
-          <span
-            className="h-2 w-2 rounded-full shrink-0"
-            style={{ backgroundColor: '#9CA3AF' }}
-          />
-          <span className="text-sm font-bold tabular-nums" style={{ color: PARCHMENT.text }}>
-            {idle}
-          </span>
-          <span className="text-[9px] uppercase tracking-wider" style={{ color: PARCHMENT.textDim }}>
-            Loafing
-          </span>
-        </div>
+    <div className="flex gap-1.5">
+      <div
+        className="flex-1 flex items-center gap-1.5 px-2 py-1.5 font-mono"
+        style={PIXEL_CARD}
+      >
+        <span
+          className="h-2 w-2 rounded-full shrink-0"
+          style={{ backgroundColor: '#22C55E', boxShadow: working > 0 ? '0 0 4px #22C55E80' : 'none' }}
+        />
+        <span className="text-sm font-bold tabular-nums" style={{ color: PARCHMENT.text }}>
+          {working}
+        </span>
+        <span className="text-[9px] uppercase tracking-wider" style={{ color: PARCHMENT.textDim }}>
+          Working
+        </span>
+      </div>
+      <div
+        className="flex-1 flex items-center gap-1.5 px-2 py-1.5 font-mono"
+        style={PIXEL_CARD}
+      >
+        <span
+          className="h-2 w-2 rounded-full shrink-0"
+          style={{ backgroundColor: '#9CA3AF' }}
+        />
+        <span className="text-sm font-bold tabular-nums" style={{ color: PARCHMENT.text }}>
+          {idle}
+        </span>
+        <span className="text-[9px] uppercase tracking-wider" style={{ color: PARCHMENT.textDim }}>
+          Loafing
+        </span>
       </div>
     </div>
   );
 }
 
 // ---------------------------------------------------------------------------
-// Idle empty state — when nobody is working
+// LoafingCard — individual inactive agent card with hierarchy indent
+// ---------------------------------------------------------------------------
+
+function LoafingCard({
+  info,
+  isReport,
+  onSelectAgent,
+}: {
+  info: InactiveAgent;
+  isReport: boolean;
+  onSelectAgent?: (name: string) => void;
+}) {
+  return (
+    <button
+      type="button"
+      className="w-full text-left p-0 transition-all cursor-pointer"
+      style={{
+        ...PIXEL_CARD,
+        position: 'relative' as const,
+        overflow: 'hidden',
+        marginLeft: isReport ? '12px' : '0',
+        width: isReport ? 'calc(100% - 12px)' : '100%',
+      }}
+      onClick={() => onSelectAgent?.(info.agent.agentName)}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.backgroundColor = PARCHMENT.cardHover;
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.backgroundColor = PARCHMENT.card;
+      }}
+      aria-label={`View ${info.agent.agentName} details`}
+    >
+      {/* Left connector for reports */}
+      {isReport && (
+        <div
+          className="absolute left-0 top-0 bottom-0 w-0.5"
+          style={{ backgroundColor: info.agent.color, opacity: 0.4 }}
+        />
+      )}
+
+      <div className={cn('pr-2 py-1.5 space-y-0.5', isReport ? 'pl-2.5' : 'pl-2')}>
+        <div className="flex items-center gap-1.5">
+          <span
+            className="h-2 w-2 rounded-sm shrink-0"
+            style={{ backgroundColor: info.agent.color, opacity: 0.6 }}
+          />
+          <span
+            className="text-[11px] font-semibold font-mono truncate"
+            style={{ color: PARCHMENT.text }}
+          >
+            {info.agent.agentName}
+          </span>
+          <span
+            className="text-[9px] font-mono truncate"
+            style={{ color: PARCHMENT.textDim }}
+          >
+            {info.fullRole ?? info.agent.agentRole}
+          </span>
+          {info.sessionCount > 0 && (
+            <span
+              className="text-[9px] font-mono tabular-nums shrink-0 px-1 py-0.5 leading-none"
+              style={{
+                color: PARCHMENT.textDim,
+                backgroundColor: `${PARCHMENT.accent}20`,
+                borderRadius: '2px',
+              }}
+            >
+              {info.sessionCount} sess
+            </span>
+          )}
+          {info.lastActivity && (
+            <span
+              className="text-[9px] font-mono tabular-nums shrink-0 ml-auto"
+              style={{ color: PARCHMENT.textDim }}
+            >
+              {timeAgo(info.lastActivity)}
+            </span>
+          )}
+        </div>
+
+        {info.lastFeature && (
+          <div
+            className="text-[10px] font-mono truncate pl-3.5"
+            style={{ color: PARCHMENT.textDim }}
+          >
+            Last: {info.lastFeature}
+          </div>
+        )}
+      </div>
+    </button>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Idle empty state
 // ---------------------------------------------------------------------------
 
 function IdleEmptyState() {
@@ -197,29 +256,18 @@ function IdleEmptyState() {
 export default function TeamPanel({ agentStatuses, onSelectAgent }: TeamPanelProps) {
   const sessions = useDashboardStore((s) => s.sessions);
   const sessionActivities = useDashboardStore((s) => s.sessionActivities);
-  const directiveState = useDashboardStore((s) => s.directiveState);
-  const [offDutyExpanded, setOffDutyExpanded] = useState(false);
 
   const agentData = useMemo(() => {
     const active: AgentInfo[] = [];
-    const inactive: Array<{
-      agent: (typeof OFFICE_AGENTS)[0];
-      status: AgentStatus;
-      lastFeature?: string;
-      lastActivity?: string;
-      team?: string;
-      fullRole?: string;
-      sessionCount: number;
-    }> = [];
+    const inactive: InactiveAgent[] = [];
 
     for (const a of OFFICE_AGENTS) {
       if (a.isPlayer) continue;
-      const st = agentStatuses[a.agentName] ?? 'offline';
+      const st = agentStatuses[a.agentName] ?? 'idle';
 
-      // Total session count for this agent
       const allAgentSessions = sessions.filter((s) => s.agentName === a.agentName);
 
-      if (st === 'working' || st === 'waiting' || st === 'error') {
+      if (st === 'working') {
         const activeSessions = allAgentSessions.filter((s) => s.status !== 'done');
         const sorted = [...activeSessions].sort(
           (a, b) => new Date(b.lastActivity).getTime() - new Date(a.lastActivity).getTime(),
@@ -239,7 +287,7 @@ export default function TeamPanel({ agentStatuses, onSelectAgent }: TeamPanelPro
             if (extracted) taskName = extracted;
           }
           if (!bestLastActivity) bestLastActivity = s.lastActivity;
-          if (!bestSessionStatus && (s.status === 'working' || s.status === 'waiting-approval' || s.status === 'waiting-input')) {
+          if (!bestSessionStatus && s.status === 'working') {
             bestSessionStatus = s.status;
             bestPaneId = s.paneId;
             bestTerminalApp = s.terminalApp;
@@ -294,31 +342,57 @@ export default function TeamPanel({ agentStatuses, onSelectAgent }: TeamPanelPro
           status: st,
           lastFeature: lastSession?.feature ?? undefined,
           lastActivity: lastSession?.lastActivity ?? undefined,
-          team: AGENT_TEAM_MAP[a.agentName],
           fullRole: AGENT_FULL_ROLE[a.agentName],
           sessionCount: allAgentSessions.length,
+          isCsuite: AGENT_IS_CSUITE[a.agentName] ?? false,
         });
       }
     }
     return { active, inactive };
   }, [agentStatuses, sessions, sessionActivities]);
 
-  // KPI counts
-  const workingCount = agentData.active.filter((a) => a.status === 'working').length;
-  const waitingCount = agentData.active.filter((a) => a.status === 'waiting' || a.status === 'error').length;
+  // Build team groups for loafing section
+  const teamGroups = useMemo(() => {
+    const groups: TeamGroup[] = [];
+    const teamOrder = ['Engineering', 'Product', 'Growth', 'Operations'];
+
+    for (const team of registry.teams) {
+      const leader = registry.agents.find((a) => a.id === team.leadAgentId);
+      const leaderName = leader?.name.split(' ')[0];
+
+      const leaderInfo = agentData.inactive.find((i) => i.agent.agentName === leaderName) ?? null;
+      const reports = agentData.inactive.filter((i) => {
+        const reportsTo = AGENT_REPORTS_TO[i.agent.agentName];
+        return reportsTo === leaderName && i.agent.agentName !== leaderName;
+      });
+
+      // Only include teams that have at least one inactive member
+      if (leaderInfo || reports.length > 0) {
+        groups.push({
+          name: team.name,
+          color: TEAM_COLORS[team.name] ?? PARCHMENT.accent,
+          leader: leaderInfo,
+          reports,
+        });
+      }
+    }
+
+    // Sort by standard team order
+    groups.sort((a, b) => {
+      const ai = teamOrder.indexOf(a.name);
+      const bi = teamOrder.indexOf(b.name);
+      return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
+    });
+
+    return groups;
+  }, [agentData.inactive]);
+
+  const workingCount = agentData.active.length;
   const idleCount = agentData.inactive.length;
-  const directiveName = directiveState?.title ?? directiveState?.directiveName ?? null;
 
   return (
     <div className="space-y-2">
-      {/* KPI strip — always visible, passes 3-second test */}
-      <TeamKpi
-        working={workingCount}
-        waiting={waitingCount}
-        idle={idleCount}
-        directiveName={directiveName}
-        directiveStatus={directiveState?.status}
-      />
+      <TeamKpi working={workingCount} idle={idleCount} />
 
       {/* Active agents */}
       {agentData.active.length > 0 && (
@@ -333,159 +407,162 @@ export default function TeamPanel({ agentStatuses, onSelectAgent }: TeamPanelPro
               Working
             </SectionHeader>
 
-            {agentData.active.map((info) => {
-              const isWaiting = info.sessionStatus === 'waiting-approval' || info.sessionStatus === 'waiting-input';
-
-              return (
-                <button
-                  key={info.agent.agentName}
-                  type="button"
-                  className="w-full text-left p-0 transition-all cursor-pointer group"
+            {agentData.active.map((info) => (
+              <button
+                key={info.agent.agentName}
+                type="button"
+                className="w-full text-left p-0 transition-all cursor-pointer group"
+                style={{
+                  ...PIXEL_CARD_RAISED,
+                  position: 'relative',
+                  overflow: 'hidden',
+                }}
+                onClick={() => onSelectAgent?.(info.agent.agentName)}
+                aria-label={`View ${info.agent.agentName} details`}
+              >
+                {/* Colored left accent bar */}
+                <div
+                  className="absolute left-0 top-0 bottom-0 w-1"
                   style={{
-                    ...PIXEL_CARD_RAISED,
-                    position: 'relative',
-                    overflow: 'hidden',
+                    backgroundColor: info.agent.color,
+                    boxShadow: `1px 0 0 0 ${info.agent.color}40`,
                   }}
-                  onClick={() => onSelectAgent?.(info.agent.agentName)}
-                  aria-label={`View ${info.agent.agentName} details`}
-                >
-                  {/* Colored left accent bar */}
-                  <div
-                    className="absolute left-0 top-0 bottom-0 w-1"
-                    style={{
-                      backgroundColor: info.agent.color,
-                      boxShadow: `1px 0 0 0 ${info.agent.color}40`,
-                    }}
-                  />
+                />
 
-                  <div className="pl-3 pr-2 py-2 space-y-1">
-                    {/* Row 1: Agent name + status */}
-                    <div className="flex items-center gap-1.5">
-                      <span
-                        className={cn(
-                          'h-2.5 w-2.5 rounded-sm shrink-0',
-                          info.status === 'working' && 'animate-pulse',
-                        )}
-                        style={{
-                          backgroundColor: info.agent.color,
-                          boxShadow: info.status === 'working'
-                            ? `0 0 6px ${info.agent.color}80`
-                            : `0 0 2px ${info.agent.color}40`,
-                        }}
+                <div className="pl-3 pr-2 py-2 space-y-1">
+                  {/* Row 1: Agent name + session count + status */}
+                  <div className="flex items-center gap-1.5">
+                    <span
+                      className={cn(
+                        'h-2.5 w-2.5 rounded-sm shrink-0 animate-pulse',
+                      )}
+                      style={{
+                        backgroundColor: info.agent.color,
+                        boxShadow: `0 0 6px ${info.agent.color}80`,
+                      }}
+                    />
+                    <span
+                      className="text-xs font-bold font-mono truncate"
+                      style={{ color: PARCHMENT.text }}
+                    >
+                      {info.agent.agentName}
+                    </span>
+                    <span
+                      className="text-[9px] font-mono tabular-nums shrink-0 px-1 py-0.5 leading-none"
+                      style={{
+                        color: PARCHMENT.textDim,
+                        backgroundColor: `${PARCHMENT.accent}20`,
+                        borderRadius: '2px',
+                      }}
+                    >
+                      {sessions.filter((s) => s.agentName === info.agent.agentName).length} sess
+                    </span>
+                    <span className="ml-auto shrink-0 flex items-center gap-1">
+                      {info.lastActivity && (
+                        <span
+                          className="text-[9px] font-mono tabular-nums"
+                          style={{ color: PARCHMENT.textDim }}
+                        >
+                          {timeAgo(info.lastActivity)}
+                        </span>
+                      )}
+                      <StatusChip
+                        status="working"
+                        animated
                       />
+                    </span>
+                  </div>
+
+                  {/* Task description */}
+                  {info.taskName && (
+                    <p
+                      className="text-[11px] leading-tight font-mono"
+                      style={{ color: PARCHMENT.text }}
+                    >
+                      {info.taskName}
+                    </p>
+                  )}
+
+                  {/* Current tool activity */}
+                  {info.toolName && (
+                    <div
+                      className="flex items-center gap-1 text-[10px] font-mono"
+                      style={{ color: '#5B8C3E' }}
+                    >
                       <span
-                        className="text-xs font-bold font-mono truncate"
-                        style={{ color: PARCHMENT.text }}
-                      >
-                        {info.agent.agentName}
-                      </span>
-                      <span className="ml-auto shrink-0 flex items-center gap-1">
-                        {info.lastActivity && (
-                          <span
-                            className="text-[9px] font-mono tabular-nums"
-                            style={{ color: PARCHMENT.textDim }}
-                          >
-                            {timeAgo(info.lastActivity)}
-                          </span>
+                        className="h-1.5 w-1.5 rounded-full shrink-0 animate-pulse"
+                        style={{ backgroundColor: '#5B8C3E' }}
+                      />
+                      <span className="truncate">
+                        {info.toolName === 'thinking' ? 'Thinking...' : (
+                          <>
+                            <span className="font-semibold">{info.toolName}</span>
+                            {info.toolDetail && (
+                              <span style={{ color: PARCHMENT.textDim }}>
+                                ({info.toolDetail})
+                              </span>
+                            )}
+                          </>
                         )}
-                        <StatusChip
-                          status={info.sessionStatus ?? 'working'}
-                          animated={info.status === 'working'}
-                        />
                       </span>
                     </div>
+                  )}
 
-                    {/* Task description */}
-                    {info.taskName && (
-                      <p
-                        className="text-[11px] leading-tight font-mono"
-                        style={{ color: PARCHMENT.text }}
-                      >
-                        {info.taskName}
-                      </p>
-                    )}
+                  {/* Git branch */}
+                  {info.gitBranch && (
+                    <div
+                      className="text-[9px] font-mono truncate"
+                      style={{ color: PARCHMENT.textDim }}
+                    >
+                      &#x2387; {info.gitBranch}
+                    </div>
+                  )}
 
-                    {/* Current tool activity */}
-                    {info.toolName && (
-                      <div
-                        className="flex items-center gap-1 text-[10px] font-mono"
-                        style={{ color: '#5B8C3E' }}
-                      >
+                  {/* Subagent chips */}
+                  {info.subagentNames.length > 0 && (
+                    <div className="flex items-center gap-1 flex-wrap">
+                      {info.subagentNames.slice(0, 4).map((name) => (
                         <span
-                          className="h-1.5 w-1.5 rounded-full shrink-0 animate-pulse"
-                          style={{ backgroundColor: '#5B8C3E' }}
-                        />
-                        <span className="truncate">
-                          {info.toolName === 'thinking' ? 'Thinking...' : (
-                            <>
-                              <span className="font-semibold">{info.toolName}</span>
-                              {info.toolDetail && (
-                                <span style={{ color: PARCHMENT.textDim }}>
-                                  ({info.toolDetail})
-                                </span>
-                              )}
-                            </>
-                          )}
+                          key={name}
+                          className="text-[9px] font-mono px-1 py-0.5 rounded-sm"
+                          style={{
+                            backgroundColor: '#5B8C3E20',
+                            color: '#3D6B26',
+                            border: '1px solid #5B8C3E30',
+                          }}
+                        >
+                          {name}
                         </span>
-                      </div>
-                    )}
+                      ))}
+                      {info.subagentNames.length > 4 && (
+                        <span
+                          className="text-[9px] font-mono"
+                          style={{ color: PARCHMENT.textDim }}
+                        >
+                          +{info.subagentNames.length - 4}
+                        </span>
+                      )}
+                    </div>
+                  )}
 
-                    {/* Git branch */}
-                    {info.gitBranch && (
-                      <div
-                        className="text-[9px] font-mono truncate"
-                        style={{ color: PARCHMENT.textDim }}
-                      >
-                        &#x2387; {info.gitBranch}
-                      </div>
-                    )}
-
-                    {/* Subagent chips */}
-                    {info.subagentNames.length > 0 && (
-                      <div className="flex items-center gap-1 flex-wrap">
-                        {info.subagentNames.slice(0, 4).map((name) => (
-                          <span
-                            key={name}
-                            className="text-[9px] font-mono px-1 py-0.5 rounded-sm"
-                            style={{
-                              backgroundColor: '#5B8C3E20',
-                              color: '#3D6B26',
-                              border: '1px solid #5B8C3E30',
-                            }}
-                          >
-                            {name}
-                          </span>
-                        ))}
-                        {info.subagentNames.length > 4 && (
-                          <span
-                            className="text-[9px] font-mono"
-                            style={{ color: PARCHMENT.textDim }}
-                          >
-                            +{info.subagentNames.length - 4}
-                          </span>
-                        )}
-                      </div>
-                    )}
-
-                    {/* Quick actions for waiting */}
-                    {isWaiting && info.paneId && (
-                      <div onClick={(e) => e.stopPropagation()}>
-                        <QuickActions
-                          paneId={info.paneId}
-                          sessionStatus={info.sessionStatus!}
-                          terminalApp={info.terminalApp as any}
-                        />
-                      </div>
-                    )}
-                  </div>
-                </button>
-              );
-            })}
+                  {/* Quick actions for waiting sessions */}
+                  {info.paneId && info.sessionStatus && info.sessionStatus !== 'working' && (
+                    <div onClick={(e) => e.stopPropagation()}>
+                      <QuickActions
+                        paneId={info.paneId}
+                        sessionStatus={info.sessionStatus!}
+                        terminalApp={info.terminalApp as any}
+                      />
+                    </div>
+                  )}
+                </div>
+              </button>
+            ))}
           </div>
         </>
       )}
 
-      {/* Idle empty state — when nobody is working */}
+      {/* Idle empty state */}
       {agentData.active.length === 0 && (
         <>
           <ParchmentDivider />
@@ -493,180 +570,55 @@ export default function TeamPanel({ agentStatuses, onSelectAgent }: TeamPanelPro
         </>
       )}
 
-      {/* Slacking off — collapsible, compact */}
-      {agentData.inactive.length > 0 && (
+      {/* Loafing — org hierarchy with team groups */}
+      {teamGroups.length > 0 && (
         <>
           <ParchmentDivider ornament />
-
-          {/* Collapsible header */}
-          <button
-            type="button"
-            className="w-full flex items-center gap-1.5 py-0.5 cursor-pointer"
-            onClick={() => setOffDutyExpanded((v) => !v)}
-            style={{ background: 'none', border: 'none' }}
+          <SectionHeader
+            icon={<Fish className="h-3 w-3" />}
+            count={idleCount}
           >
-            {offDutyExpanded
-              ? <ChevronDown className="h-3 w-3" style={{ color: PARCHMENT.textDim }} />
-              : <ChevronRight className="h-3 w-3" style={{ color: PARCHMENT.textDim }} />}
-            <Fish className="h-3 w-3" style={{ color: PARCHMENT.textDim }} />
-            <span
-              className="text-[10px] font-bold font-mono uppercase tracking-wider"
-              style={{ color: PARCHMENT.textDim }}
-            >
-              Loafing
-            </span>
-            <span
-              className="text-[9px] font-bold font-mono px-1.5 py-0.5 leading-none"
-              style={{
-                backgroundColor: `${PARCHMENT.accent}20`,
-                color: PARCHMENT.accent,
-                borderRadius: '2px',
-              }}
-            >
-              {agentData.inactive.length}
-            </span>
-          </button>
+            Loafing
+          </SectionHeader>
 
-          {/* Collapsed: compact dot grid */}
-          {!offDutyExpanded && (
-            <div className="flex flex-wrap gap-1.5 px-1">
-              {agentData.inactive.map(({ agent, lastActivity }) => (
-                <button
-                  key={agent.agentName}
-                  type="button"
-                  className="flex items-center gap-1 px-1.5 py-1 font-mono cursor-pointer transition-colors"
-                  style={{
-                    backgroundColor: PARCHMENT.card,
-                    borderRadius: '2px',
-                    border: `1px solid ${PARCHMENT.border}40`,
-                  }}
-                  onClick={() => onSelectAgent?.(agent.agentName)}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundColor = PARCHMENT.cardHover;
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.backgroundColor = PARCHMENT.card;
-                  }}
-                  aria-label={`View ${agent.agentName} details`}
-                >
+          <div className="space-y-2">
+            {teamGroups.map((group) => (
+              <div key={group.name} className="space-y-1">
+                {/* Team label */}
+                <div className="flex items-center gap-1.5 px-1 py-0.5">
                   <span
                     className="h-1.5 w-1.5 rounded-full shrink-0"
-                    style={{ backgroundColor: agent.color, opacity: 0.6 }}
+                    style={{ backgroundColor: group.color }}
                   />
-                  <span className="text-[10px]" style={{ color: PARCHMENT.text }}>
-                    {agent.agentName}
+                  <span
+                    className="text-[9px] font-bold font-mono uppercase tracking-wider"
+                    style={{ color: group.color }}
+                  >
+                    {group.name}
                   </span>
-                  {lastActivity && (
-                    <span className="text-[8px] tabular-nums" style={{ color: PARCHMENT.textDim }}>
-                      {timeAgo(lastActivity)}
-                    </span>
-                  )}
-                </button>
-              ))}
-            </div>
-          )}
+                </div>
 
-          {/* Expanded: grouped by team */}
-          {offDutyExpanded && (() => {
-            const teamGroups: Record<string, typeof agentData.inactive> = {};
-            for (const item of agentData.inactive) {
-              const team = item.team ?? 'Other';
-              if (!teamGroups[team]) teamGroups[team] = [];
-              teamGroups[team].push(item);
-            }
-            const teamOrder = ['Engineering', 'Product', 'Growth', 'Operations', 'Other'];
-            const sortedTeams = Object.keys(teamGroups).sort(
-              (a, b) => (teamOrder.indexOf(a) === -1 ? 99 : teamOrder.indexOf(a)) - (teamOrder.indexOf(b) === -1 ? 99 : teamOrder.indexOf(b)),
-            );
+                {/* Leader card — full width */}
+                {group.leader && (
+                  <LoafingCard
+                    info={group.leader}
+                    isReport={false}
+                    onSelectAgent={onSelectAgent}
+                  />
+                )}
 
-            return (
-              <div className="space-y-1.5">
-                {sortedTeams.map((teamName) => (
-                  <div key={teamName} className="space-y-1">
-                    <div className="flex items-center gap-1.5 px-1 py-0.5">
-                      <Users className="h-2.5 w-2.5" style={{ color: PARCHMENT.accent }} />
-                      <span
-                        className="text-[9px] font-bold font-mono uppercase tracking-wider"
-                        style={{ color: PARCHMENT.accent }}
-                      >
-                        {teamName}
-                      </span>
-                    </div>
-
-                    {teamGroups[teamName].map(({ agent, status, lastFeature, lastActivity, fullRole, sessionCount }) => (
-                      <button
-                        key={agent.agentName}
-                        type="button"
-                        className="w-full text-left p-0 transition-all cursor-pointer"
-                        style={{
-                          ...PIXEL_CARD,
-                          position: 'relative',
-                          overflow: 'hidden',
-                        }}
-                        onClick={() => onSelectAgent?.(agent.agentName)}
-                        onMouseEnter={(e) => {
-                          e.currentTarget.style.backgroundColor = PARCHMENT.cardHover;
-                        }}
-                        onMouseLeave={(e) => {
-                          e.currentTarget.style.backgroundColor = PARCHMENT.card;
-                        }}
-                        aria-label={`View ${agent.agentName} details`}
-                      >
-                        <div
-                          className="absolute left-0 top-0 bottom-0 w-0.5"
-                          style={{
-                            backgroundColor: agent.color,
-                            opacity: status === 'idle' ? 0.6 : 0.25,
-                          }}
-                        />
-
-                        <div className="pl-2.5 pr-2 py-1.5 space-y-0.5">
-                          <div className="flex items-center gap-1.5">
-                            <span
-                              className="h-2 w-2 rounded-sm shrink-0"
-                              style={{
-                                backgroundColor: agent.color,
-                                opacity: status === 'idle' ? 0.6 : 0.25,
-                              }}
-                            />
-                            <span
-                              className="text-[11px] font-semibold font-mono truncate"
-                              style={{ color: PARCHMENT.text }}
-                            >
-                              {agent.agentName}
-                            </span>
-                            <span
-                              className="text-[9px] font-mono truncate"
-                              style={{ color: PARCHMENT.textDim }}
-                            >
-                              {fullRole ?? agent.agentRole}
-                            </span>
-                            {lastActivity && (
-                              <span
-                                className="text-[9px] font-mono tabular-nums shrink-0 ml-auto"
-                                style={{ color: PARCHMENT.textDim }}
-                              >
-                                {timeAgo(lastActivity)}
-                              </span>
-                            )}
-                          </div>
-
-                          {lastFeature && (
-                            <div
-                              className="text-[10px] font-mono truncate pl-3.5"
-                              style={{ color: PARCHMENT.textDim }}
-                            >
-                              Last: {lastFeature}
-                            </div>
-                          )}
-                        </div>
-                      </button>
-                    ))}
-                  </div>
+                {/* Report cards — indented with connector */}
+                {group.reports.map((report) => (
+                  <LoafingCard
+                    key={report.agent.agentName}
+                    info={report}
+                    isReport={true}
+                    onSelectAgent={onSelectAgent}
+                  />
                 ))}
               </div>
-            );
-          })()}
+            ))}
+          </div>
         </>
       )}
     </div>

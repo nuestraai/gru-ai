@@ -9,7 +9,7 @@ Report file format:
 
 **Date**: {today}
 **Directive**: {directive filename}
-**Planned by**: Morgan Park (COO)
+**Planned by**: COO
 
 ## Summary
 

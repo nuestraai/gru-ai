@@ -3,7 +3,6 @@
   "title": "Remove Goals Layer — Categories Replace Goals",
   "status": "completed",
   "weight": "heavyweight",
-  "category": "framework",
   "created_at": "2026-03-06",
   "started_at": "2026-03-06T23:00:00Z",
   "updated_at": "2026-03-07T00:00:00Z",
@@ -13,21 +12,59 @@
     "rationale": "Removes a core data model layer, touches CLAUDE.md, vision.md, pipeline docs, dashboard watchers, server types."
   },
   "pipeline": {
-    "triage": { "status": "completed", "agent": "CEO" },
-    "read": { "status": "completed", "agent": "CEO" },
-    "context": { "status": "completed", "agent": "CEO" },
-    "brainstorm": { "status": "completed", "agent": "Sarah, Morgan" },
-    "plan": { "status": "completed", "agent": "Morgan" },
-    "audit": { "status": "skipped" },
-    "approve": { "status": "completed", "agent": "CEO" },
-    "project-brainstorm": { "status": "completed", "agent": "Sarah" },
-    "setup": { "status": "completed" },
-    "execute": { "status": "completed", "agent": "Devon" },
-    "review-gate": { "status": "completed" },
-    "wrapup": { "status": "completed" },
-    "completion": { "status": "completed", "agent": "CEO" }
+    "triage": {
+      "status": "completed",
+      "agent": "CEO"
+    },
+    "read": {
+      "status": "completed",
+      "agent": "CEO"
+    },
+    "context": {
+      "status": "completed",
+      "agent": "CEO"
+    },
+    "brainstorm": {
+      "status": "completed",
+      "agent": "Sarah, Morgan"
+    },
+    "plan": {
+      "status": "completed",
+      "agent": "Morgan"
+    },
+    "audit": {
+      "status": "skipped"
+    },
+    "approve": {
+      "status": "completed",
+      "agent": "CEO"
+    },
+    "project-brainstorm": {
+      "status": "completed",
+      "agent": "Sarah"
+    },
+    "setup": {
+      "status": "completed"
+    },
+    "execute": {
+      "status": "completed",
+      "agent": "Devon"
+    },
+    "review-gate": {
+      "status": "completed"
+    },
+    "wrapup": {
+      "status": "completed"
+    },
+    "completion": {
+      "status": "completed",
+      "agent": "CEO"
+    }
   },
   "projects": [
-    { "id": "remove-goals-replace-with-categories", "status": "completed" }
+    {
+      "id": "remove-goals-replace-with-categories",
+      "status": "completed"
+    }
   ]
 }

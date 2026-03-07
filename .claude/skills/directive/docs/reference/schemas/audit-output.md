@@ -2,7 +2,7 @@
 
 # Audit Output JSON Schema (Architect)
 
-This is the **Architect's** output schema — the second phase of the two-agent audit flow. The Architect receives the Investigator's raw data (see [investigation-output.md](investigation-output.md)) and Morgan's plan, then produces design recommendations.
+This is the **Architect's** output schema — the second phase of the two-agent audit flow. The Architect receives the Investigator's raw data (see [investigation-output.md](investigation-output.md)) and the COO's plan, then produces design recommendations.
 
 For the Investigator's output schema (pure data, no recommendations), see [investigation-output.md](investigation-output.md).
 
@@ -10,7 +10,7 @@ For the Investigator's output schema (pure data, no recommendations), see [inves
 {
   "projects": [
     {
-      "id": "slug matching Morgan's project id",
+      "id": "slug matching the COO's project id",
       "baseline": "Carried forward from investigation data",
       "active_files": ["Carried forward from investigation data"],
       "dead_code": ["Carried forward from investigation data"],
@@ -32,7 +32,7 @@ For the Investigator's output schema (pure data, no recommendations), see [inves
 ## Two-Agent Audit Flow
 
 1. **Investigator** scans the codebase and produces investigation-output.md (pure data)
-2. **Architect** reads investigation data + Morgan's plan and produces this schema (design recommendations)
+2. **Architect** reads investigation data + the COO's plan and produces this schema (design recommendations)
 
 The separation prevents investigation findings from anchoring the design — the Architect sees raw data and forms independent recommendations.
 

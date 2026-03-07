@@ -258,12 +258,12 @@ gate_plan() {
 }
 
 gate_audit() {
-  # Requires: plan completed (morgan-plan.json exists)
-  check_json "morgan-plan.json" "plan" ".projects"
+  # Requires: plan completed (plan.json exists)
+  check_json "plan.json" "plan" ".projects"
 }
 
 gate_approve() {
-  # Requires: audit completed (audit artifact exists) + morgan-plan.json
+  # Requires: audit completed (audit artifact exists) + plan.json
   # Audit can produce audit.md, investigation.md, or conflicts-audit.md
   local found=false
   for f in audit.md investigation.md conflicts-audit.md; do
@@ -286,8 +286,8 @@ gate_approve() {
     fi
   fi
 
-  # Also require morgan-plan.json
-  check_json "morgan-plan.json" "plan" ".projects"
+  # Also require plan.json
+  check_json "plan.json" "plan" ".projects"
 }
 
 gate_challenge() {
@@ -298,8 +298,8 @@ gate_challenge() {
 gate_project_brainstorm() {
   # Requires: approve completed (approve runs before project-brainstorm)
   check_directive_field ".pipeline.approve.status" "approve"
-  # Also require morgan-plan.json (input to brainstorm)
-  check_json "morgan-plan.json" "plan" ".projects"
+  # Also require plan.json (input to brainstorm)
+  check_json "plan.json" "plan" ".projects"
 }
 
 gate_execute() {

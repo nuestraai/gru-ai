@@ -119,7 +119,7 @@ run_test \
   "true"
 
 run_test \
-  "audit gate passes (morgan-plan.json exists with .projects)" \
+  "audit gate passes (plan.json exists with .projects)" \
   "$SCRIPT_DIR/02-valid-heavyweight" \
   "audit" \
   "true"
@@ -216,7 +216,7 @@ run_test \
   "true"
 
 run_test \
-  "audit gate passes (morgan-plan.json valid)" \
+  "audit gate passes (plan.json valid)" \
   "$SCRIPT_DIR/07-valid-medium-full" \
   "audit" \
   "true"
@@ -234,13 +234,13 @@ run_test \
   "true"
 
 # ---------------------------------------------------------------------------
-# Test 08: Fail — invalid JSON in morgan-plan.json
+# Test 08: Fail — invalid JSON in plan.json
 # ---------------------------------------------------------------------------
 echo ""
 echo "08: Invalid JSON in artifact"
 
 run_test \
-  "audit gate fails (morgan-plan.json is invalid JSON)" \
+  "audit gate fails (plan.json is invalid JSON)" \
   "$SCRIPT_DIR/08-fail-invalid-json" \
   "audit" \
   "false" \

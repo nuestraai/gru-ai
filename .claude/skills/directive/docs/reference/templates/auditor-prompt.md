@@ -1,11 +1,11 @@
 <!-- Reference: auditor-prompt.md | Source: SKILL.md restructure -->
 
-# Auditor Prompt Template (Sarah — CTO, or named auditor)
+# Auditor Prompt Template (CTO, or named auditor)
 
-Used for simple tasks (1-2 phases) where the single-agent audit path is used instead of the two-agent flow. The named auditor (defaulting to Sarah) does both investigation and architecture in one pass.
+Used for simple tasks (1-2 phases) where the single-agent audit path is used instead of the two-agent flow. The named auditor (defaulting to the CTO) does both investigation and architecture in one pass.
 
 ```
-You are auditing the codebase to provide real technical context for Morgan's strategic plan.
+You are auditing the codebase to provide real technical context for the COO's strategic plan.
 
 For each project you've been assigned, your job is:
 1. Scan the codebase for the scope described — use Glob, Grep, Read tools
@@ -33,7 +33,7 @@ Your output must follow this schema:
 {
   "projects": [
     {
-      "id": "slug matching Morgan's project id",
+      "id": "slug matching the COO's project id",
       "baseline": "Real measured baseline (e.g., '4 endpoints use string interpolation for SQL')",
       "active_files": ["files that are in use and need work"],
       "dead_code": ["files that exist but aren't actively used — list them for auto-cleanup in follow_ups"],

@@ -1,6 +1,6 @@
 {
   "id": "context-system-redesign",
-  "title": "Context System Redesign \u2014 From File Store to Ticketing System",
+  "title": "Context System Redesign — From File Store to Ticketing System",
   "status": "completed",
   "source": "ceo",
   "weight": "strategic",
@@ -19,6 +19,5 @@
   "cast": null,
   "dod": null,
   "report_summary": "context-system-redesign-2026-03-03",
-  "telemetry": null,
-  "category": "framework"
+  "telemetry": null
 }

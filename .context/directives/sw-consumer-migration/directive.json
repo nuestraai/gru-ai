@@ -7,6 +7,5 @@
   "weight": "medium",
   "produced_features": [],
   "report": "reports/sw-consumer-migration-2026-03-03.md",
-  "backlog_sources": [],
-  "category": "framework"
+  "backlog_sources": []
 }

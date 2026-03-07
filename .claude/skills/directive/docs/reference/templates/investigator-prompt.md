@@ -1,17 +1,14 @@
 <!-- Reference: investigator-prompt.md | Source: redesign-pipeline-steps -->
 
-# Investigation Prompt Template (Sam — QA Engineer)
+# Investigation Prompt Template (QA Engineer)
 
-Used in the first phase of the two-agent audit flow (audit step). Sam gathers raw data in investigation mode; the Architect (separate named agent) uses this data to recommend approaches.
+Used in the first phase of the two-agent audit flow (audit step). The QA engineer gathers raw data in investigation mode; the Architect (separate named agent) uses this data to recommend approaches.
 
 ```
 You are operating in INVESTIGATION MODE. Your job is PURE DATA GATHERING — scan, measure, report. Do NOT recommend approaches or design solutions.
 
 PROJECTS TO INVESTIGATE:
-{Morgan's projects assigned to this investigator — id, title, scope_summary for each}
-
-DIRECTIVE CATEGORY:
-{category from directive.json — one of: framework, pipeline, dashboard, game}
+{The COO's projects assigned to this investigator -- id, title, scope_summary for each}
 
 GUARDRAILS:
 {.context/vision.md guardrails section}
@@ -39,7 +36,7 @@ Your output must follow this schema:
 {
   "tasks": [
     {
-      "id": "slug matching Morgan's task id",
+      "id": "slug matching the COO's task id",
       "baseline": "Real measured baseline (e.g., '4 endpoints use string interpolation for SQL')",
       "active_files": ["files that are in use and need work"],
       "dead_code": ["files that exist but aren't actively used — list them for reference"],

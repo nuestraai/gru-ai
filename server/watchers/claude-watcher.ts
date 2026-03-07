@@ -1,19 +1,21 @@
 import path from 'node:path';
 import fs from 'node:fs';
 import { watch, type FSWatcher } from 'chokidar';
-import type { Aggregator } from '../state/aggregator.js';
+import type { AggregatorHandle } from '../platform/types.js';
 
 const UUID_DIR_REGEX = /^[0-9a-f]{8}-/;
 
 export class ClaudeWatcher {
   private watcher: FSWatcher | null = null;
-  private aggregator: Aggregator;
+  private aggregator: AggregatorHandle;
   private claudeHome: string;
   private teamsDebounceTimer: ReturnType<typeof setTimeout> | null = null;
   private tasksDebounceTimers = new Map<string, ReturnType<typeof setTimeout>>();
+  private pollTimer: ReturnType<typeof setInterval> | null = null;
+  private lastTeamsMtime = 0;
   private _ready = false;
 
-  constructor(aggregator: Aggregator, claudeHome: string) {
+  constructor(aggregator: AggregatorHandle, claudeHome: string) {
     this.aggregator = aggregator;
     this.claudeHome = claudeHome;
   }
@@ -21,10 +23,11 @@ export class ClaudeWatcher {
   start(): void {
     const teamsDir = path.join(this.claudeHome, 'teams');
 
-    // Skip if the directory doesn't exist
+    // If directory doesn't exist yet, just start poll fallback (will pick it up when created)
     if (!fs.existsSync(teamsDir)) {
-      console.log(`[claude-watcher] Teams directory not found: ${teamsDir}, skipping watch`);
+      console.log(`[claude-watcher] Teams directory not found: ${teamsDir}, polling only`);
       this._ready = true;
+      this.startPollFallback();
       return;
     }
 
@@ -62,6 +65,8 @@ export class ClaudeWatcher {
     this.watcher.on('error', (err: unknown) => {
       console.error(`[claude-watcher] Error:`, err);
     });
+
+    this.startPollFallback();
   }
 
   get ready(): boolean {
@@ -72,6 +77,10 @@ export class ClaudeWatcher {
     if (this.teamsDebounceTimer) {
       clearTimeout(this.teamsDebounceTimer);
     }
+    if (this.pollTimer) {
+      clearInterval(this.pollTimer);
+      this.pollTimer = null;
+    }
     for (const timer of this.tasksDebounceTimers.values()) {
       clearTimeout(timer);
     }
@@ -80,6 +89,22 @@ export class ClaudeWatcher {
       await this.watcher.close();
       this.watcher = null;
     }
+  }
+
+  private startPollFallback(): void {
+    if (this.pollTimer) return;
+    this.pollTimer = setInterval(() => {
+      const teamsDir = path.join(this.claudeHome, 'teams');
+      try {
+        const stat = fs.statSync(teamsDir);
+        if (stat.mtimeMs !== this.lastTeamsMtime) {
+          this.lastTeamsMtime = stat.mtimeMs;
+          this.aggregator.refreshTeams();
+        }
+      } catch {
+        // teams dir may not exist yet
+      }
+    }, 5000);
   }
 
   private handleChange(filePath: string): void {

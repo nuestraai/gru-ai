@@ -1,33 +1,28 @@
-# Phase Out Dashboard UI — Migrate to Game UI
+# Game-Only UI — Remove All Non-Game Pages
 
 ## CEO Brief
 
-The dashboard UI and the game UI serve overlapping purposes. The game UI is the future — it's the CEO's primary interface for managing the autonomous AI company. The dashboard is legacy at this point.
+The game UI already covers everything the CEO needs. Remove all non-game UI: dashboard pages, sidebar, header, search palette, notifications, scheduler/autopilot. The app becomes game-only, full screen, no chrome.
 
-Phase out the dashboard UI entirely and move all its useful functionality into the game UI. The game should become the single unified interface.
+## What Gets Removed
 
-## What the Dashboard Currently Provides
+- Sidebar navigation (src/components/layout/Sidebar.tsx)
+- Header bar (src/components/layout/Header.tsx)
+- AppLayout wrapper (simplify or remove)
+- SearchCommandPalette (Cmd+K)
+- Session done notifications (useNotifications hook)
+- All dashboard components (src/components/dashboard/*)
+- Sessions page (src/components/sessions/*)
+- Projects/Directives page (src/components/projects/*)
+- Org page (src/components/org/*)
+- Prototype page (src/components/prototype/*)
+- Scheduler/Autopilot (SchedulerCard — rebuild later)
+- All routes except game
 
-- StatsBar: session counts, active agents, directive progress
-- TeamCard: agent/team status cards
-- DirectiveProgress: pipeline stepper and directive tracking
-- AttentionRequired: items needing CEO attention
-- RecentActivity: activity feed
-- WorkSummary: high-level work summary
-- CeoBrief: CEO briefing panel
-- SchedulerCard: work scheduler status
-- OrientationBanner: onboarding/orientation
+## What Stays
 
-## What the Game Currently Provides
-
-- Canvas 2D office with pixel-art characters representing agents
-- HUD panels: AgentPanel, TeamPanel, OpsPanel, BookshelfPanel, FurniturePanels
-- Real-time agent status visualization
-- Interactive office environment
-
-## Desired Outcome
-
-- Game UI becomes THE interface — all dashboard functionality accessible from within the game
-- Dashboard pages/routes removed
-- No loss of functionality — everything the dashboard showed should be accessible in the game (through panels, overlays, or HUD elements)
-- Clean removal of dead dashboard code
+- Game page (src/components/game/*) — becomes the entire app
+- Game HUD (Team, Tasks, Ops, Log panels)
+- Shared components used by game (src/components/shared/ — check which are still needed)
+- UI primitives (src/components/ui/*)
+- Stores, hooks, and libs that game depends on

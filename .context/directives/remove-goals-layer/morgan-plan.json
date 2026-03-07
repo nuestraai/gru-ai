@@ -1,6 +1,5 @@
 {
   "goal": "Remove Goals Layer — Categories Replace Goals",
-  "category": "data-model",
   "challenges": {
     "risks": [
       "Pipeline docs are LLM-interpreted instructions — a stale goals/ reference in any of the 17 docs will cause pipeline agents to read from the wrong path or produce malformed project.json. Must update ALL atomically.",
@@ -20,8 +19,12 @@
       "priority": "P0",
       "scope_summary": "Replace goal_ids/goalIds/goal_folder with category (single string enum) in directive.json schema, morgan-plan schema, and all 17 pipeline/template docs. Remove GoalWatcher and GoalArea/GoalInventory types, fold category aggregation into directive-watcher or aggregator. Update validate-project-json.sh and validate-reviews.sh. Update dashboard store, types, and components to remove goal-based data. Consolidate backlogs if actively consumed (skip if dead code). Update CLAUDE.md and vision.md. Leave goals/ directory in place as read-only archive.",
       "complexity": "complex",
-      "agent": ["devon"],
-      "reviewers": ["sarah"],
+      "agent": [
+        "devon"
+      ],
+      "reviewers": [
+        "sarah"
+      ],
       "auditor": "sarah",
       "depends_on": [],
       "touches_files_hint": [

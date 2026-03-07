@@ -3,6 +3,7 @@
 // ---------------------------------------------------------------------------
 
 import { useState, useMemo, useRef, useEffect } from 'react';
+import React from 'react';
 import {
   AlertTriangle, CheckCircle2, Play, Square, ChevronRight,
   Clock, Zap, ScrollText, ChevronDown, Users, ClipboardList,
@@ -13,7 +14,7 @@ import {
   SectionHeader, PIXEL_CARD, PARCHMENT, ParchmentDivider, shortenModel,
 } from './panelUtils';
 import type {
-  HookEvent, Session, DirectiveState, SessionActivity, Team, TeamTask,
+  HookEvent, Session, DirectiveState, SessionActivity, Team,
 } from '@/stores/types';
 
 // ---------------------------------------------------------------------------
@@ -22,6 +23,12 @@ import type {
 
 type EventPriority = 'high' | 'medium' | 'low';
 type FilterMode = 'important' | 'activity' | 'all';
+
+/** Key-value metadata shown in expanded view */
+interface MetaItem {
+  label: string;
+  value: string;
+}
 
 interface FeedEvent {
   id: string;
@@ -32,6 +39,8 @@ interface FeedEvent {
   detail?: string;
   priority: EventPriority;
   source: 'hook' | 'session' | 'directive' | 'pipeline' | 'activity' | 'subagent' | 'task' | 'team' | 'connection';
+  /** Structured metadata for expanded view */
+  meta?: MetaItem[];
 }
 
 // ---------------------------------------------------------------------------
@@ -58,12 +67,51 @@ function hookEventIcon(type: string): { icon: React.ReactNode; color: string } {
 }
 
 // ---------------------------------------------------------------------------
+// Session metadata builder
+// ---------------------------------------------------------------------------
+
+function sessionMeta(s: Session): MetaItem[] {
+  const items: MetaItem[] = [];
+  const modelShort = shortenModel(s.model);
+  if (modelShort) items.push({ label: 'Model', value: modelShort });
+  if (s.agentRole) items.push({ label: 'Role', value: s.agentRole });
+  if (s.gitBranch) items.push({ label: 'Branch', value: s.gitBranch });
+  if (s.feature) items.push({ label: 'Feature', value: s.feature });
+  if (s.subagentIds && s.subagentIds.length > 0) {
+    items.push({ label: 'Subagents', value: String(s.subagentIds.length) });
+  }
+  if (s.activeSubagentNames && s.activeSubagentNames.length > 0) {
+    items.push({ label: 'Active subs', value: s.activeSubagentNames.join(', ') });
+  }
+  if (s.cwd) {
+    const shortCwd = s.cwd.split('/').slice(-2).join('/');
+    items.push({ label: 'Dir', value: shortCwd });
+  }
+  if (s.latestPrompt) {
+    const prompt = s.latestPrompt.length > 200 ? s.latestPrompt.slice(0, 197) + '...' : s.latestPrompt;
+    items.push({ label: 'Prompt', value: prompt });
+  }
+  return items;
+}
+
+// ---------------------------------------------------------------------------
 // Event builders — static (pure functions of store data)
 // ---------------------------------------------------------------------------
 
 function buildHookEvents(events: HookEvent[]): FeedEvent[] {
   return events.map((e) => {
     const { icon, color } = hookEventIcon(e.type);
+    const meta: MetaItem[] = [];
+    if (e.project) meta.push({ label: 'Project', value: e.project });
+    if (e.type) meta.push({ label: 'Type', value: e.type });
+    if (e.sessionId) meta.push({ label: 'Session', value: e.sessionId.slice(0, 12) });
+    if (e.metadata) {
+      for (const [k, v] of Object.entries(e.metadata)) {
+        if (typeof v === 'string' || typeof v === 'number') {
+          meta.push({ label: k, value: String(v) });
+        }
+      }
+    }
     return {
       id: `hook-${e.id}`,
       timestamp: e.timestamp,
@@ -73,6 +121,7 @@ function buildHookEvents(events: HookEvent[]): FeedEvent[] {
       detail: e.project ? `Project: ${e.project}` : undefined,
       priority: classifyHookEvent(e.type),
       source: 'hook' as const,
+      meta: meta.length > 0 ? meta : undefined,
     };
   });
 }
@@ -83,14 +132,7 @@ function buildSessionEvents(sessions: Session[]): FeedEvent[] {
   for (const s of sessions) {
     if (s.isSubagent) continue;
     const agentLabel = s.agentName ?? s.slug ?? s.id.slice(0, 8);
-
-    // Build enriched detail: model, branch, feature, latestPrompt
-    const detailParts: string[] = [];
-    const modelShort = shortenModel(s.model);
-    if (modelShort) detailParts.push(modelShort);
-    if (s.gitBranch) detailParts.push(s.gitBranch);
-    if (s.feature) detailParts.push(s.feature);
-    const metaPrefix = detailParts.length > 0 ? `[${detailParts.join(' / ')}] ` : '';
+    const meta = sessionMeta(s);
 
     // Error sessions
     if (s.status === 'error') {
@@ -100,9 +142,10 @@ function buildSessionEvents(sessions: Session[]): FeedEvent[] {
         icon: <AlertTriangle className="h-3 w-3" />,
         iconColor: '#EF4444',
         description: `${agentLabel} encountered an error`,
-        detail: metaPrefix + (s.latestPrompt ?? ''),
+        detail: s.feature ?? s.latestPrompt?.slice(0, 80) ?? undefined,
         priority: 'high',
         source: 'session',
+        meta,
       });
     }
 
@@ -114,33 +157,44 @@ function buildSessionEvents(sessions: Session[]): FeedEvent[] {
         icon: <CheckCircle2 className="h-3 w-3" />,
         iconColor: '#22C55E',
         description: `${agentLabel} finished work`,
-        detail: metaPrefix + (s.feature ?? s.latestPrompt ?? ''),
+        detail: s.feature ?? undefined,
         priority: 'high',
         source: 'session',
+        meta,
       });
     }
 
-    // Working sessions (low priority — show truncated latestPrompt)
+    // Waiting sessions — elevated priority (CEO needs to act)
+    if (s.status === 'waiting-approval' || s.status === 'waiting-input') {
+      items.push({
+        id: `sess-wait-${s.id}`,
+        timestamp: s.lastActivity,
+        icon: <Clock className="h-3 w-3" />,
+        iconColor: '#EAB308',
+        description: `${agentLabel} waiting for ${s.status === 'waiting-approval' ? 'approval' : 'input'}`,
+        detail: s.feature ?? undefined,
+        priority: 'high',
+        source: 'session',
+        meta,
+      });
+    }
+
+    // Working sessions
     if (s.status === 'working') {
-      let promptSnippet = '';
-      if (s.latestPrompt) {
-        promptSnippet = s.latestPrompt.length > 80
-          ? s.latestPrompt.slice(0, 77) + '...'
-          : s.latestPrompt;
-      }
       items.push({
         id: `sess-work-${s.id}`,
         timestamp: s.lastActivity,
         icon: <Play className="h-3 w-3" />,
         iconColor: '#3B82F6',
         description: `${agentLabel} is working`,
-        detail: metaPrefix + promptSnippet,
+        detail: s.feature ?? undefined,
         priority: 'low',
         source: 'session',
+        meta,
       });
     }
 
-    // Idle/paused (low priority)
+    // Idle/paused
     if (s.status === 'idle' || s.status === 'paused') {
       items.push({
         id: `sess-idle-${s.id}`,
@@ -148,9 +202,9 @@ function buildSessionEvents(sessions: Session[]): FeedEvent[] {
         icon: <Square className="h-3 w-3" />,
         iconColor: '#9CA3AF',
         description: `${agentLabel} went idle`,
-        detail: metaPrefix || undefined,
         priority: 'low',
         source: 'session',
+        meta: meta.length > 0 ? meta : undefined,
       });
     }
   }
@@ -169,8 +223,27 @@ function buildDirectiveEvents(
 
   for (const ds of allDirectives) {
     const name = ds.title || ds.directiveName;
-    const weightCat = [ds.weight, ds.category].filter(Boolean).join('/');
-    const badge = weightCat ? `[${weightCat}] ` : '';
+    const badge = ds.weight ? `[${ds.weight}] ` : '';
+
+    // Build meta for this directive
+    const meta: MetaItem[] = [];
+    if (ds.weight) meta.push({ label: 'Weight', value: ds.weight });
+    if (ds.totalProjects > 0) meta.push({ label: 'Projects', value: `${ds.currentProject}/${ds.totalProjects}` });
+    if (ds.currentStepId) meta.push({ label: 'Step', value: ds.currentStepId });
+    if (ds.currentPhase) meta.push({ label: 'Phase', value: ds.currentPhase });
+    if (ds.pipelineSteps) {
+      const done = ds.pipelineSteps.filter((s) => s.status === 'completed' || s.status === 'skipped').length;
+      meta.push({ label: 'Pipeline', value: `${done}/${ds.pipelineSteps.length} steps` });
+    }
+    if (ds.brainstormSummary) meta.push({ label: 'Brainstorm', value: ds.brainstormSummary });
+    if (ds.planSummary) meta.push({ label: 'Plan', value: ds.planSummary });
+    if (ds.triageRationale) meta.push({ label: 'Triage', value: ds.triageRationale });
+    if (ds.projects && ds.projects.length > 0) {
+      for (const p of ds.projects) {
+        const taskInfo = p.totalTasks ? ` (${p.completedTasks ?? 0}/${p.totalTasks} tasks)` : '';
+        meta.push({ label: 'Project', value: `${p.title} — ${p.status}${taskInfo}` });
+      }
+    }
 
     // Directive started
     if (ds.startedAt) {
@@ -185,6 +258,7 @@ function buildDirectiveEvents(
           description: `${badge}Directive started: ${name}`,
           priority: 'high',
           source: 'directive',
+          meta,
         });
       }
     }
@@ -204,6 +278,7 @@ function buildDirectiveEvents(
           description: `${badge}Directive ${ds.status}: ${name}`,
           priority: 'high',
           source: 'directive',
+          meta,
         });
       }
     }
@@ -221,6 +296,7 @@ function buildDirectiveEvents(
           description: `${badge}Awaiting completion: ${name}`,
           priority: 'medium',
           source: 'directive',
+          meta,
         });
       }
     }
@@ -233,6 +309,7 @@ function buildPipelineEvents(directiveState: DirectiveState | null): FeedEvent[]
   if (!directiveState?.pipelineSteps) return [];
 
   const items: FeedEvent[] = [];
+  const dirName = directiveState.title || directiveState.directiveName;
 
   for (const step of directiveState.pipelineSteps) {
     if (!step.startedAt) continue;
@@ -250,6 +327,17 @@ function buildPipelineEvents(directiveState: DirectiveState | null): FeedEvent[]
       : step.status === 'active' ? '#EAB308'
       : PARCHMENT.textDim;
 
+    const meta: MetaItem[] = [
+      { label: 'Directive', value: dirName },
+      { label: 'Step', value: step.label },
+      { label: 'Status', value: step.status },
+    ];
+    if (step.artifacts) {
+      for (const [k, v] of Object.entries(step.artifacts)) {
+        meta.push({ label: k, value: v });
+      }
+    }
+
     items.push({
       id: `pipe-${step.id}`,
       timestamp: step.startedAt,
@@ -259,6 +347,7 @@ function buildPipelineEvents(directiveState: DirectiveState | null): FeedEvent[]
       detail: step.status === 'active' ? 'In progress' : step.status,
       priority: 'medium',
       source: 'pipeline',
+      meta,
     });
   }
 
@@ -291,6 +380,17 @@ function diffSubagentEvents(
       const child = sessionMap.get(childId);
       const childLabel = child?.agentName ?? child?.slug ?? childId.slice(0, 8);
 
+      const meta: MetaItem[] = [
+        { label: 'Parent', value: parentLabel },
+        { label: 'Child', value: childLabel },
+      ];
+      if (child) {
+        const modelShort = shortenModel(child.model);
+        if (modelShort) meta.push({ label: 'Model', value: modelShort });
+        if (child.agentRole) meta.push({ label: 'Role', value: child.agentRole });
+        if (child.feature) meta.push({ label: 'Feature', value: child.feature });
+      }
+
       // New subagent spawn
       if (!knownSubagentIds.current.has(childId)) {
         knownSubagentIds.current.add(childId);
@@ -300,8 +400,10 @@ function diffSubagentEvents(
           icon: <Users className="h-3 w-3" />,
           iconColor: '#3B82F6',
           description: `${parentLabel} spawned subagent ${childLabel}`,
+          detail: child?.feature ?? undefined,
           priority: 'medium',
           source: 'subagent',
+          meta,
         });
       }
 
@@ -316,8 +418,10 @@ function diffSubagentEvents(
               icon: <CheckCircle2 className="h-3 w-3" />,
               iconColor: '#22C55E',
               description: `Subagent ${childLabel} completed (parent: ${parentLabel})`,
+              detail: child.feature ?? undefined,
               priority: 'medium',
               source: 'subagent',
+              meta,
             });
           } else if (child.status === 'error') {
             items.push({
@@ -326,8 +430,10 @@ function diffSubagentEvents(
               icon: <AlertTriangle className="h-3 w-3" />,
               iconColor: '#EF4444',
               description: `Subagent ${childLabel} error (parent: ${parentLabel})`,
+              detail: child.feature ?? undefined,
               priority: 'high',
               source: 'subagent',
+              meta,
             });
           }
         }
@@ -343,6 +449,16 @@ function buildTeamEvents(teams: Team[]): FeedEvent[] {
   const items: FeedEvent[] = [];
 
   for (const team of teams) {
+    const meta: MetaItem[] = [
+      { label: 'Team', value: team.name },
+      { label: 'Members', value: String(team.members.length) },
+      { label: 'Lead', value: team.leadAgentId },
+    ];
+    if (team.description) meta.push({ label: 'Description', value: team.description });
+    for (const m of team.members) {
+      meta.push({ label: m.name, value: `${m.agentType} (${m.model})` });
+    }
+
     // Team creation event
     items.push({
       id: `team-create-${team.name}`,
@@ -353,19 +469,21 @@ function buildTeamEvents(teams: Team[]): FeedEvent[] {
       detail: `${team.members.length} members, lead: ${team.leadAgentId}`,
       priority: 'medium',
       source: 'team',
+      meta,
     });
 
     // Stale team warning
     if (team.stale) {
       items.push({
         id: `team-stale-${team.name}`,
-        timestamp: new Date().toISOString(),
+        timestamp: team.createdAt,
         icon: <AlertTriangle className="h-3 w-3" />,
         iconColor: '#EAB308',
         description: `Team stale: ${team.name}`,
         detail: 'Team has gone inactive',
         priority: 'medium',
         source: 'team',
+        meta,
       });
     }
   }
@@ -452,79 +570,148 @@ function FilterToggle({
 }
 
 // ---------------------------------------------------------------------------
-// Single feed entry
+// Single feed entry (always expandable when meta exists)
 // ---------------------------------------------------------------------------
 
 function FeedEntry({ event }: { event: FeedEvent }) {
   const [expanded, setExpanded] = useState(false);
+  const hasExpandable = (event.meta && event.meta.length > 0) || (event.detail && event.detail.length >= 50);
+  const hasShortDetail = event.detail && event.detail.length > 0 && event.detail.length < 50 && !hasExpandable;
 
   return (
     <div
-      className="flex gap-2 px-2 py-1.5 font-mono"
       style={PIXEL_CARD}
     >
-      {/* Icon */}
-      <span
-        className="flex items-center justify-center shrink-0 mt-0.5"
-        style={{ color: event.iconColor }}
-        aria-hidden="true"
-      >
-        {event.icon}
-      </span>
-
-      {/* Content */}
-      <div className="flex-1 min-w-0">
-        <div className="flex items-start gap-1">
-          <p
-            className="text-[11px] leading-snug flex-1"
-            style={{ color: PARCHMENT.text }}
-          >
-            {event.description}
-          </p>
+      {/* Clickable header area */}
+      {hasExpandable ? (
+        <button
+          type="button"
+          onClick={() => setExpanded((v) => !v)}
+          className="w-full text-left flex gap-2 px-2 py-1.5 font-mono transition-colors"
+          onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = PARCHMENT.cardHover; }}
+          onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = ''; }}
+          aria-expanded={expanded}
+        >
+          {/* Icon */}
           <span
-            className="text-[9px] tabular-nums shrink-0 mt-0.5"
-            style={{ color: PARCHMENT.textDim }}
+            className="flex items-center justify-center shrink-0 mt-0.5"
+            style={{ color: event.iconColor }}
+            aria-hidden="true"
           >
-            {formatTime(event.timestamp)}
+            {event.icon}
           </span>
-        </div>
 
-        {/* Detail — inline for short text, expandable for long */}
-        {event.detail && event.detail.length > 0 && event.detail.length < 50 && (
-          <p
-            className="text-[10px] mt-0.5 leading-snug"
-            style={{ color: PARCHMENT.textDim }}
-          >
-            {event.detail}
-          </p>
-        )}
-        {event.detail && event.detail.length >= 50 && (
-          <>
-            <button
-              type="button"
-              className="flex items-center gap-0.5 text-[9px] mt-0.5 cursor-pointer"
-              style={{ color: PARCHMENT.accent }}
-              onClick={() => setExpanded((v) => !v)}
-              aria-expanded={expanded}
-              aria-label={expanded ? 'Collapse details' : 'Expand details'}
-            >
-              <ChevronDown
-                className="h-2.5 w-2.5 transition-transform"
-                style={{ transform: expanded ? 'rotate(0deg)' : 'rotate(-90deg)' }}
-              />
-              <span>{expanded ? 'hide' : 'details'}</span>
-            </button>
-            {expanded && (
+          {/* Content */}
+          <div className="flex-1 min-w-0">
+            <div className="flex items-start gap-1">
               <p
-                className="text-[10px] mt-0.5 leading-snug pl-3"
+                className="text-[11px] leading-snug flex-1"
+                style={{ color: PARCHMENT.text }}
+              >
+                {event.description}
+              </p>
+              <div className="flex items-center gap-1 shrink-0 mt-0.5">
+                <span
+                  className="text-[9px] tabular-nums"
+                  style={{ color: PARCHMENT.textDim }}
+                >
+                  {formatTime(event.timestamp)}
+                </span>
+                <ChevronDown
+                  className="h-2.5 w-2.5 transition-transform"
+                  style={{
+                    color: PARCHMENT.accent,
+                    transform: expanded ? 'rotate(0deg)' : 'rotate(-90deg)',
+                  }}
+                />
+              </div>
+            </div>
+            {/* Inline short detail preview */}
+            {event.detail && !expanded && (
+              <p
+                className="text-[9px] mt-0.5 leading-snug truncate"
                 style={{ color: PARCHMENT.textDim }}
               >
                 {event.detail}
               </p>
             )}
-          </>
-        )}
-      </div>
+          </div>
+        </button>
+      ) : (
+        <div className="flex gap-2 px-2 py-1.5 font-mono">
+          <span
+            className="flex items-center justify-center shrink-0 mt-0.5"
+            style={{ color: event.iconColor }}
+            aria-hidden="true"
+          >
+            {event.icon}
+          </span>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-start gap-1">
+              <p
+                className="text-[11px] leading-snug flex-1"
+                style={{ color: PARCHMENT.text }}
+              >
+                {event.description}
+              </p>
+              <span
+                className="text-[9px] tabular-nums shrink-0 mt-0.5"
+                style={{ color: PARCHMENT.textDim }}
+              >
+                {formatTime(event.timestamp)}
+              </span>
+            </div>
+            {hasShortDetail && (
+              <p
+                className="text-[10px] mt-0.5 leading-snug"
+                style={{ color: PARCHMENT.textDim }}
+              >
+                {event.detail}
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Expanded content */}
+      {expanded && (
+        <div
+          className="px-2 pb-2 font-mono"
+          style={{ borderTop: `1px solid ${PARCHMENT.border}30` }}
+        >
+          {/* Full detail text */}
+          {event.detail && (
+            <p
+              className="text-[10px] mt-1.5 leading-snug"
+              style={{ color: PARCHMENT.textDim }}
+            >
+              {event.detail}
+            </p>
+          )}
+
+          {/* Structured metadata table */}
+          {event.meta && event.meta.length > 0 && (
+            <div className="mt-1.5 space-y-0.5">
+              {event.meta.map((item, i) => (
+                <div key={i} className="flex gap-2">
+                  <span
+                    className="text-[9px] font-bold shrink-0 w-[60px] text-right"
+                    style={{ color: PARCHMENT.accent }}
+                  >
+                    {item.label}
+                  </span>
+                  <span
+                    className="text-[9px] flex-1 break-words"
+                    style={{ color: PARCHMENT.textDim }}
+                  >
+                    {item.value}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -613,6 +800,13 @@ export default function LogPanel() {
         description += ' activity changed';
       }
 
+      const meta: MetaItem[] = [];
+      if (activity.tool) meta.push({ label: 'Tool', value: activity.tool });
+      if (activity.detail) meta.push({ label: 'Detail', value: activity.detail });
+      const modelShort = shortenModel(activity.model);
+      if (modelShort) meta.push({ label: 'Model', value: modelShort });
+      if (session?.feature) meta.push({ label: 'Feature', value: session.feature });
+
       activityBufferRef.current.push({
         id: `act-${sessionId}-${now}`,
         timestamp: activity.lastSeen || new Date().toISOString(),
@@ -622,6 +816,7 @@ export default function LogPanel() {
         detail: activity.detail ?? undefined,
         priority: 'low',
         source: 'activity',
+        meta: meta.length > 0 ? meta : undefined,
       });
 
       activityLastEmitRef.current[sessionId] = now;
@@ -638,7 +833,6 @@ export default function LogPanel() {
   // -- Effect: diff connection state --
   useEffect(() => {
     if (prevConnectedRef.current === null) {
-      // Initial — don't emit, just record
       prevConnectedRef.current = connected;
       return;
     }
@@ -659,12 +853,12 @@ export default function LogPanel() {
     }
   }, [connected]);
 
-  // -- Effect: seed known subagent IDs on first render (prevents initial spam) --
+  // -- Effect: seed known subagent IDs once data arrives (prevents initial spam) --
   const subagentSeededRef = useRef(false);
   useEffect(() => {
     if (subagentSeededRef.current) return;
+    if (sessions.length === 0) return;
     subagentSeededRef.current = true;
-    // Seed all existing subagent IDs so they don't appear as "new spawns"
     for (const s of sessions) {
       if (!s.subagentIds) continue;
       for (const childId of s.subagentIds) {
@@ -673,8 +867,7 @@ export default function LogPanel() {
         if (child) prevSubagentStatusesRef.current[childId] = child.status;
       }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [sessions]);
 
   // -- Effect: diff subagent state (after seeding) --
   useEffect(() => {
@@ -686,25 +879,24 @@ export default function LogPanel() {
     );
     if (newEvents.length > 0) {
       subagentBufferRef.current.push(...newEvents);
-      // Cap
       if (subagentBufferRef.current.length > ACTIVITY_BUFFER_MAX) {
         subagentBufferRef.current = subagentBufferRef.current.slice(-ACTIVITY_BUFFER_MAX);
       }
     }
   }, [sessions]);
 
-  // -- Effect: seed task statuses on first render --
+  // -- Effect: seed task statuses once data arrives --
   const taskSeededRef = useRef(false);
   useEffect(() => {
     if (taskSeededRef.current) return;
+    if (Object.keys(tasksBySession).length === 0) return;
     taskSeededRef.current = true;
     for (const [sessionId, tasks] of Object.entries(tasksBySession)) {
       for (const task of tasks) {
         prevTaskStatusesRef.current[`${sessionId}:${task.id}`] = task.status;
       }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [tasksBySession]);
 
   // -- Effect: diff task statuses --
   useEffect(() => {
@@ -721,9 +913,16 @@ export default function LogPanel() {
         nextStatuses[taskKey] = task.status;
 
         const prevStatus = prevStatuses[taskKey];
-        if (!prevStatus) continue; // First time seeing this task — don't emit
+        if (!prevStatus) continue;
 
         if (prevStatus !== task.status) {
+          const meta: MetaItem[] = [
+            { label: 'Task', value: task.subject },
+            { label: 'Owner', value: task.owner || ownerLabel },
+            { label: 'Status', value: `${prevStatus} → ${task.status}` },
+          ];
+          if (task.description) meta.push({ label: 'Description', value: task.description });
+
           if (task.status === 'in_progress') {
             taskBufferRef.current.push({
               id: `task-prog-${task.id}-${Date.now()}`,
@@ -734,6 +933,7 @@ export default function LogPanel() {
               detail: `Owner: ${task.owner || ownerLabel}`,
               priority: 'medium',
               source: 'task',
+              meta,
             });
           } else if (task.status === 'completed') {
             taskBufferRef.current.push({
@@ -745,13 +945,13 @@ export default function LogPanel() {
               detail: `Owner: ${task.owner || ownerLabel}`,
               priority: 'high',
               source: 'task',
+              meta,
             });
           }
         }
       }
     }
 
-    // Cap buffer
     if (taskBufferRef.current.length > ACTIVITY_BUFFER_MAX) {
       taskBufferRef.current = taskBufferRef.current.slice(-ACTIVITY_BUFFER_MAX);
     }
@@ -773,7 +973,6 @@ export default function LogPanel() {
     const subEvts = subagentBufferRef.current;
     const taskEvts = taskBufferRef.current;
 
-    // Combine and sort newest-first
     return [
       ...hook, ...sess, ...dir, ...pipe, ...teamEvts,
       ...activityEvts, ...connEvts, ...subEvts, ...taskEvts,
@@ -787,13 +986,11 @@ export default function LogPanel() {
   const filteredEvents = useMemo(() => {
     if (filter === 'all') return allEvents;
     if (filter === 'activity') {
-      // Agent-related events: session, activity, subagent, task sources
       const activitySources = new Set<FeedEvent['source']>([
         'session', 'activity', 'subagent', 'task',
       ]);
       return allEvents.filter((e) => activitySources.has(e.source));
     }
-    // "Important" = high + medium priority
     return allEvents.filter((e) => e.priority === 'high' || e.priority === 'medium');
   }, [allEvents, filter]);
 
@@ -831,7 +1028,6 @@ export default function LogPanel() {
     );
   }
 
-  // Filtered-empty state (events exist but none pass filter)
   const showFilteredEmpty = filteredEvents.length === 0 && allEvents.length > 0;
 
   return (
@@ -861,7 +1057,6 @@ export default function LogPanel() {
       {/* Date-grouped feed */}
       {groupedEvents.map((group, gi) => (
         <div key={group.label} className="space-y-1.5">
-          {/* Date separator */}
           {gi > 0 && <ParchmentDivider ornament />}
           <div
             className="text-[10px] font-bold font-mono uppercase tracking-widest text-center py-0.5"
@@ -870,7 +1065,6 @@ export default function LogPanel() {
             {group.label}
           </div>
 
-          {/* Events in this group */}
           {group.events.map((event) => (
             <FeedEntry key={event.id} event={event} />
           ))}

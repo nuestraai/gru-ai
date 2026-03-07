@@ -157,7 +157,7 @@ export const LINGER_MAX_SEC = 5.0
 
 // ── Brainstorm Meeting ──────────────────────────────────────
 /** Minimum active (non-despawning) subagents before parent triggers meeting room routing */
-export const MEETING_SUBAGENT_THRESHOLD = 3
+export const MEETING_SUBAGENT_THRESHOLD = 2
 
 // ── CEO Visual Distinction ──────────────────────────────────
 export const CEO_CROWN_COLOR = '#FFD700'

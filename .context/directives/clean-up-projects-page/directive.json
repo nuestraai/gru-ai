@@ -1,6 +1,6 @@
 {
   "id": "clean-up-projects-page",
-  "title": "Clean Up Projects Page \u2014 Fix Conductor Grouping and Counts",
+  "title": "Clean Up Projects Page — Fix Conductor Grouping and Counts",
   "status": "completed",
   "source": "ceo",
   "weight": "quick-fix",
@@ -19,6 +19,5 @@
   "cast": null,
   "dod": null,
   "report_summary": null,
-  "telemetry": null,
-  "category": "dashboard"
+  "telemetry": null
 }

@@ -1,5 +1,5 @@
 #!/bin/bash
-# Agent Conductor — Scheduled Runs
+# gruai — Scheduled Runs
 #
 # Run /scout and /report skills on a schedule using cron or launchd.
 #
@@ -10,25 +10,25 @@
 #
 # Cron examples (add with `crontab -e`):
 #   # Daily scout at 8am
-#   0 8 * * * /Users/yangyang/Repos/agent-conductor/scripts/scheduled-runs.sh scout
+#   0 8 * * * /Users/yangyang/Repos/gruai/scripts/scheduled-runs.sh scout
 #
 #   # Daily report at 6pm
-#   0 18 * * * /Users/yangyang/Repos/agent-conductor/scripts/scheduled-runs.sh report
+#   0 18 * * * /Users/yangyang/Repos/gruai/scripts/scheduled-runs.sh report
 #
 #   # Weekly report on Monday at 9am
-#   0 9 * * 1 /Users/yangyang/Repos/agent-conductor/scripts/scheduled-runs.sh report weekly
+#   0 9 * * 1 /Users/yangyang/Repos/gruai/scripts/scheduled-runs.sh report weekly
 #
 # LaunchAgent setup (macOS):
 #   See scripts/launchd/ for plist templates.
 #   Copy to ~/Library/LaunchAgents/ and load with:
-#   launchctl load ~/Library/LaunchAgents/com.agent-conductor.scout.plist
+#   launchctl load ~/Library/LaunchAgents/com.gruai.scout.plist
 
 set -euo pipefail
 
 SKILL="${1:-}"
 MODE="${2:-daily}"
 SW_DIR="/Users/yangyang/Repos/sw"
-LOG_DIR="/Users/yangyang/Repos/agent-conductor/logs"
+LOG_DIR="/Users/yangyang/Repos/gruai/logs"
 TIMESTAMP=$(date +%Y-%m-%d_%H%M%S)
 
 mkdir -p "$LOG_DIR"

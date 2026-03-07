@@ -1,0 +1,111 @@
+{
+  "id": "agent-status-visual-behaviors",
+  "title": "Agent Status Visual Behaviors",
+  "status": "completed",
+  "created": "2026-03-07",
+  "completed": null,
+  "weight": "medium",
+  "produced_features": [
+    "paused-agent-status",
+    "done-agent-status"
+  ],
+  "report": null,
+  "backlog_sources": [],
+  "started_at": "2026-03-07T17:05:00Z",
+  "updated_at": "2026-03-07T18:00:00Z",
+  "current_step": "completion",
+  "pipeline": {
+    "triage": {
+      "status": "completed",
+      "agent": "CEO",
+      "output": {
+        "weight": "medium",
+        "summary": "Medium weight -- single game domain, clear spec."
+      }
+    },
+    "read": {
+      "status": "completed",
+      "agent": "CEO",
+      "output": {
+        "summary": "Read directive.md -- add paused/done as distinct visual states."
+      }
+    },
+    "context": {
+      "status": "completed",
+      "agent": "CEO",
+      "output": {
+        "summary": "Read vision.md, lessons. Category: game. Reopened to add fix-status-detection project."
+      }
+    },
+    "challenge": {
+      "status": "skipped",
+      "agent": "C-suite",
+      "output": {
+        "summary": "Skipped for medium weight"
+      }
+    },
+    "plan": {
+      "status": "completed",
+      "agent": "CEO",
+      "output": {
+        "summary": "Superseded — CEO implemented working/idle simplification directly."
+      }
+    },
+    "audit": {
+      "status": "pending"
+    },
+    "approve": {
+      "status": "skipped",
+      "agent": "CEO",
+      "output": {
+        "summary": "Auto-approved for medium weight"
+      }
+    },
+    "project-brainstorm": {
+      "status": "pending"
+    },
+    "setup": {
+      "status": "completed",
+      "agent": "CEO",
+      "output": {
+        "summary": "Working on game branch directly."
+      }
+    },
+    "execute": {
+      "status": "pending"
+    },
+    "review-gate": {
+      "status": "pending"
+    },
+    "wrapup": {
+      "status": "pending"
+    },
+    "completion": {
+      "status": "pending"
+    }
+  },
+  "projects": [
+    {
+      "id": "agent-status-visual-behaviors",
+      "status": "completed"
+    },
+    {
+      "id": "fix-status-detection",
+      "status": "pending"
+    }
+  ],
+  "planning": {
+    "coo_plan": {},
+    "ceo_approval": {
+      "status": "auto-approved",
+      "modifications": []
+    },
+    "worktree_path": null
+  },
+  "wrapup": {
+    "okrs_persisted": false,
+    "follow_ups_processed": false,
+    "digest_path": null,
+    "lessons_updated": true
+  }
+}

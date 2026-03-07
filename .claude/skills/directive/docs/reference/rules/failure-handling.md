@@ -7,7 +7,7 @@
 | Challenger's output doesn't parse as JSON | Log the error, continue. Challenge is advisory, not blocking. |
 | All challengers endorse | Note in approval presentation, proceed normally. |
 | A challenger challenges the directive | Highlight prominently in approval presentation. CEO decides whether to proceed. |
-| Morgan's plan doesn't parse as JSON | Stop, show the raw output, ask CEO to intervene |
+| The COO's plan doesn't parse as JSON | Stop, show the raw output, ask CEO to intervene |
 | Worktree creation fails | Warn CEO, work in the main repo instead. All changes are uncommitted, CEO can review with `git diff`. |
 | Audit finds nothing for ALL tasks | Skip to stale doc detection, generate digest noting "no issues found", recommend CEO review the directive scope. |
 | CEO rejects the plan | Stop. CEO can re-run with adjusted directive or manually edit the plan |

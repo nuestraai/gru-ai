@@ -101,31 +101,33 @@ const fileStates = new Map<string, SessionFileState>();
 
 // --- Public API ---
 
-export function getFileState(filePath: string): SessionFileState | undefined {
-  return fileStates.get(filePath);
+export function getFileState(filePath: string, stateMap?: Map<string, SessionFileState>): SessionFileState | undefined {
+  return (stateMap ?? fileStates).get(filePath);
 }
 
-export function getAllFileStates(): Map<string, SessionFileState> {
-  return fileStates;
+export function getAllFileStates(stateMap?: Map<string, SessionFileState>): Map<string, SessionFileState> {
+  return stateMap ?? fileStates;
 }
 
-export function removeFileState(filePath: string): void {
-  fileStates.delete(filePath);
+export function removeFileState(filePath: string, stateMap?: Map<string, SessionFileState>): void {
+  (stateMap ?? fileStates).delete(filePath);
 }
 
 /**
  * Get or bootstrap state for a file. If not in the map, does a cold-start bootstrap.
  */
-export function getOrBootstrap(filePath: string): SessionFileState | null {
-  const existing = fileStates.get(filePath);
+export function getOrBootstrap(filePath: string, stateMap?: Map<string, SessionFileState>): SessionFileState | null {
+  const map = stateMap ?? fileStates;
+  const existing = map.get(filePath);
   if (existing) return existing;
-  return bootstrapFromTail(filePath);
+  return bootstrapFromTail(filePath, map);
 }
 
 /**
  * Cold start: read last 64KB, feed through state machine, set byteOffset = fileSize.
  */
-export function bootstrapFromTail(filePath: string): SessionFileState | null {
+export function bootstrapFromTail(filePath: string, stateMap?: Map<string, SessionFileState>): SessionFileState | null {
+  const map = stateMap ?? fileStates;
   let fd: number | null = null;
   try {
     fd = fs.openSync(filePath, 'r');
@@ -201,7 +203,7 @@ export function bootstrapFromTail(filePath: string): SessionFileState | null {
       }
     }
 
-    fileStates.set(filePath, state);
+    map.set(filePath, state);
     return state;
   } catch {
     if (fd !== null) {
@@ -215,12 +217,13 @@ export function bootstrapFromTail(filePath: string): SessionFileState | null {
  * Main entry: read new bytes from file, feed through state machine, return updated state.
  * Returns null if no new data.
  */
-export function processFileUpdate(filePath: string): SessionFileState | null {
-  const state = fileStates.get(filePath);
+export function processFileUpdate(filePath: string, stateMap?: Map<string, SessionFileState>): SessionFileState | null {
+  const map = stateMap ?? fileStates;
+  const state = map.get(filePath);
 
   // New file — bootstrap
   if (!state) {
-    return bootstrapFromTail(filePath);
+    return bootstrapFromTail(filePath, map);
   }
 
   let stat: fs.Stats;
@@ -228,14 +231,14 @@ export function processFileUpdate(filePath: string): SessionFileState | null {
     stat = fs.statSync(filePath);
   } catch {
     // File gone
-    fileStates.delete(filePath);
+    map.delete(filePath);
     return null;
   }
 
   // File truncated (e.g., recreated) — re-bootstrap
   if (stat.size < state.byteOffset) {
-    fileStates.delete(filePath);
-    return bootstrapFromTail(filePath);
+    map.delete(filePath);
+    return bootstrapFromTail(filePath, map);
   }
 
   // No new data
@@ -299,7 +302,8 @@ export function processFileUpdate(filePath: string): SessionFileState | null {
  */
 const RECENT_THRESHOLD_MS = 24 * 60 * 60 * 1000; // 24 hours
 
-export function initializeAllFileStates(claudeHome: string, projectFilter?: string): Map<string, DiscoveredFile> {
+export function initializeAllFileStates(claudeHome: string, projectFilter?: string, stateMap?: Map<string, SessionFileState>): Map<string, DiscoveredFile> {
+  const map = stateMap ?? fileStates;
   const discovered = discoverSessionFiles(claudeHome, projectFilter);
   const now = Date.now();
   let fullCount = 0;
@@ -315,7 +319,7 @@ export function initializeAllFileStates(claudeHome: string, projectFilter?: stri
 
     if (now - mtime < RECENT_THRESHOLD_MS) {
       // Recent file — full parse
-      bootstrapFromTail(filePath);
+      bootstrapFromTail(filePath, map);
       fullCount++;
     } else {
       // Old file — lightweight stub (skip expensive JSONL parsing)
@@ -337,7 +341,7 @@ export function initializeAllFileStates(claudeHome: string, projectFilter?: stri
         stub.agentName = identity.name;
         stub.agentRole = identity.role;
       }
-      fileStates.set(filePath, stub);
+      map.set(filePath, stub);
       stubCount++;
     }
   }

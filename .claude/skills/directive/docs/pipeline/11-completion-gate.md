@@ -34,7 +34,7 @@ Then ask the CEO:
 Directive {name} is ready for completion review.
 
 - Approve: Mark as completed. All work is satisfactory.
-- Reopen: Provide feedback on what's missing. Morgan will plan new projects.
+- Reopen: Provide feedback on what's missing. The COO will plan new projects.
 ```
 
 ### Approve Flow
@@ -56,9 +56,9 @@ When the CEO reopens with feedback:
    - Set `status` to `"reopened"`
    - Increment `revision` counter
    - Add new entry to `iterations[]` with `opened_at` timestamp and CEO feedback
-2. Restart the pipeline from the plan step (Morgan planning) for NEW projects only
+2. Restart the pipeline from the plan step (COO planning) for NEW projects only
    - Existing completed projects are untouched
-   - Morgan plans additional projects to address CEO feedback
+   - The COO plans additional projects to address CEO feedback
    - Same approval flow applies to new projects
 3. Log: `[REOPENED] Directive {name} -- CEO feedback: {summary}`
 

@@ -59,19 +59,13 @@ export const PIXEL_CARD_RAISED = {
 export function statusBadgeVariant(status: AgentStatus): string {
   switch (status) {
     case 'working': return 'bg-green-100 text-green-700';
-    case 'waiting': return 'bg-yellow-100 text-yellow-700';
     case 'idle':    return 'bg-gray-100 text-gray-600';
-    case 'error':   return 'bg-red-100 text-red-700';
-    case 'offline': return 'bg-gray-50 text-gray-400';
   }
 }
 
 export function statusDotColor(status: string): string {
   switch (status) {
     case 'working': return 'bg-green-500';
-    case 'waiting-approval':
-    case 'waiting-input': return 'bg-yellow-500';
-    case 'error': return 'bg-red-500';
     default: return 'bg-gray-400';
   }
 }
@@ -79,10 +73,7 @@ export function statusDotColor(status: string): string {
 export function statusPriority(status: string): number {
   switch (status) {
     case 'working': return 0;
-    case 'waiting-approval': return 1;
-    case 'waiting-input': return 2;
-    case 'error': return 3;
-    default: return 4;
+    default: return 1;
   }
 }
 
@@ -275,20 +266,9 @@ export function StatusChip({ status, animated = false }: { status: string; anima
     case 'working':
       bg = '#22C55E'; text = '#052E16'; label = 'Working';
       break;
-    case 'waiting-approval':
-      bg = '#EAB308'; text = '#422006'; label = 'Approval';
-      break;
-    case 'waiting-input':
-      bg = '#3B82F6'; text = '#1E3A5F'; label = 'Input';
-      break;
-    case 'error':
-      bg = '#EF4444'; text = '#fff'; label = 'Error';
-      break;
     case 'idle':
+    default:
       bg = '#9CA3AF'; text = '#1F2937'; label = 'Idle';
-      break;
-    case 'done':
-      bg = '#10B981'; text = '#064E3B'; label = 'Done';
       break;
   }
 

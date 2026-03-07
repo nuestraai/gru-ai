@@ -12,4 +12,16 @@ dist
 public/assets/Modern_Office_Revamped_v1.2/
 public/assets/office/furniture.png
 public/assets/office/room-builder.png
+public/assets/office/generic.png
+public/assets/office/livingroom.png
+public/assets/office/kitchen.png
+public/assets/office/conference.png
+public/assets/office/classroom.png
+public/assets/office/music-sport.png
+
+# Tiled editor files (local project/session state)
+public/*.tsx
+public/*.tiled-project
+public/*.tiled-session
+public/office.tmx
 

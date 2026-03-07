@@ -1,8 +1,7 @@
 {
   "id": "repo-separation",
-  "title": "Separate agent-conductor from sw \u2014 own repo, flattened .context/, no symlink dependencies",
+  "title": "Separate agent-conductor from sw — own repo, flattened .context/, no symlink dependencies",
   "status": "completed",
-  "category": "framework",
   "weight": "tactical",
   "created": "2026-03-02T00:00:00Z",
   "completed": "2026-03-03T00:00:00Z"

@@ -5,6 +5,12 @@ description: "CEO dashboard with progressive disclosure — 3 tiers: headline (5
 
 # CEO Report
 
+## Role Resolution
+
+Read `.claude/agent-registry.json` to map roles to agent names. Domain labels in this report use role titles (CTO, CPO, CMO, COO) -- resolve to actual agent names from the registry when generating output.
+
+---
+
 Generate a CEO report. Tier: $ARGUMENTS (default: headline)
 
 ## Step 1: Determine Tier
@@ -19,9 +25,9 @@ Parse `$ARGUMENTS`:
 What to read depends on the tier. Higher tiers include everything from lower tiers.
 
 ### Headline Tier Data (minimal — fast)
-- `.context/goals/*/goal.json` — count active goals
-- `.context/goals/*/projects/*/project.json` — count active/completed/blocked projects, identify recently completed
-- `.context/goals/*/backlog.json` — count P0 items needing CEO
+- `.context/directives/*/directive.json` — count active goals
+- `.context/directives/*/projects/*/project.json` — count active/completed/blocked projects, identify recently completed
+- `.context/backlog.json` — count P0 items needing CEO
 - `.context/directives/*.json` — count pending directives (filter by status: pending)
 - `.context/reports/` — scan 3 most recent for unaddressed high-risk follow-ups
 - `.context/healthchecks/latest/*.json` — quick health status (pass/fail)
@@ -45,7 +51,7 @@ find .context/ -name "*.md" -mtime -1 -type f | head -20
 ```
 - Active projects with no recent progress
 - Failed/blocked initiatives from recent directives
-- OKR progress from `.context/goals/*/goal.json`
+- OKR progress from `.context/directives/*/directive.json`
 
 ### Deep Tier Data (adds weekly analysis)
 All summary data, PLUS:
@@ -85,10 +91,10 @@ If the CEO wants more detail: "Run `/report summary` for per-goal detail or `/re
 # Summary Report — {date}
 
 ## External Intelligence (from latest /scout)
-- **Technology (Sarah)**: {summary + any act_now/this_week items}
-- **Product (Marcus)**: {summary + competitor moves}
-- **Growth (Priya)**: {summary + channel opportunities}
-- **Ecosystem (Morgan)**: {summary + framework updates}
+- **Technology (CTO)**: {summary + any act_now/this_week items}
+- **Product (CPO)**: {summary + competitor moves}
+- **Growth (CMO)**: {summary + channel opportunities}
+- **Ecosystem (COO)**: {summary + framework updates}
 {If no scout data: "No scout data yet — run /scout to gather external intelligence."}
 
 ## Internal Health (from latest /healthcheck)
@@ -118,7 +124,7 @@ If the CEO wants more detail: "Run `/report summary` for per-goal detail or `/re
 
 ## Project Inventory
 
-{Read all .context/goals/*/goal.json and .context/goals/*/projects/*/project.json for project inventory.}
+{Read all .context/directives/*/directive.json and .context/directives/*/projects/*/project.json for project inventory.}
 
 ### Active Goals ({count})
 | Goal | Active Projects | Done | Backlog | Status |
@@ -158,13 +164,13 @@ Warning: **{feature name}** ({goal}) — {X}% complete, stale {N} days
 ### From Recent Directives
 {Scan .context/reports/ for the last 3 directive reports.
 For each, check the "Follow-Up Actions" section for high-risk backlogged items.
-Cross-reference with .context/goals/*/backlog.json to see if they've been addressed.}
+Cross-reference with .context/backlog.json to see if they've been addressed.}
 
 - **{action}** — Backlogged from {directive name} ({date})
   Risk: {high} | Status: {addressed/pending}
 
 ### From Backlogs
-{Scan all .context/goals/*/backlog.json for items explicitly marked as needing CEO decision
+{Scan all .context/backlog.json for items explicitly marked as needing CEO decision
 or items with Priority P0 that are not yet started}
 
 ### From Healthchecks
@@ -188,10 +194,10 @@ or items with Priority P0 that are not yet started}
 {3-5 bullet overview of the week: what shipped, what's in progress, what needs attention}
 
 ## External Intelligence (from latest /scout)
-- **Technology (Sarah)**: {summary + action items}
-- **Product (Marcus)**: {summary + competitor moves}
-- **Growth (Priya)**: {summary + opportunities}
-- **Ecosystem (Morgan)**: {summary + framework updates}
+- **Technology (CTO)**: {summary + action items}
+- **Product (CPO)**: {summary + competitor moves}
+- **Growth (CMO)**: {summary + opportunities}
+- **Ecosystem (COO)**: {summary + framework updates}
 - **Intelligence gathered this week**: {count by urgency level}
 {If no scout data: "No scout data yet — run /scout."}
 
@@ -217,7 +223,7 @@ or items with Priority P0 that are not yet started}
 
 ## Project Inventory
 
-{Read all .context/goals/*/goal.json and .context/goals/*/projects/*/project.json for project inventory.}
+{Read all .context/directives/*/directive.json and .context/directives/*/projects/*/project.json for project inventory.}
 
 ### Active Goals ({count})
 | Goal | Active Projects | Done | Backlog | Status |
@@ -252,13 +258,13 @@ Warning: **{feature name}** ({goal}) — {X}% complete, stale {N} days
 ### From Recent Directives
 {Scan .context/reports/ for the last 3 directive reports.
 For each, check the "Follow-Up Actions" section for high-risk backlogged items.
-Cross-reference with .context/goals/*/backlog.json to see if they've been addressed.}
+Cross-reference with .context/backlog.json to see if they've been addressed.}
 
 - **{action}** — Backlogged from {directive name} ({date})
   Risk: {high} | Status: {addressed/pending}
 
 ### From Backlogs
-{Scan all .context/goals/*/backlog.json for items explicitly marked as needing CEO decision
+{Scan all .context/backlog.json for items explicitly marked as needing CEO decision
 or items with Priority P0 that are not yet started}
 
 ### From Healthchecks
@@ -292,10 +298,10 @@ in .context/reports/weekly-*.md}
 {From recent scout reports in .context/intel/latest/:}
 - **Proposals this week**: {count} ({count} approved, {count} rejected, {count} deferred)
 - **By agent**:
-  - Sarah: {proposed} proposed, {accepted} accepted ({rate}%)
-  - Marcus: {proposed} proposed, {accepted} accepted ({rate}%)
-  - Priya: {proposed} proposed, {accepted} accepted ({rate}%)
-  - Morgan: {proposed} proposed, {accepted} accepted ({rate}%)
+  - CTO: {proposed} proposed, {accepted} accepted ({rate}%)
+  - CPO: {proposed} proposed, {accepted} accepted ({rate}%)
+  - CMO: {proposed} proposed, {accepted} accepted ({rate}%)
+  - COO: {proposed} proposed, {accepted} accepted ({rate}%)
 
 {From directive reports:}
 - **Directives completed**: {count}
@@ -304,15 +310,15 @@ in .context/reports/weekly-*.md}
 
 {From directive reports this week:}
 - **Corrections enforced**: {total corrections checked across all directives}
-- **Violations caught**: {count} (by agent: Sarah {N}, Marcus {N}, Morgan {N})
+- **Violations caught**: {count} (by role: CTO {N}, CPO {N}, COO {N})
 - **Violation types**: {which standing corrections were violated most}
 
 ## Corrections Caught This Week
 {Aggregate corrections_check data from all directive reports this week:}
 
-| Correction | Directive | Caught By | Resolution |
-|------------|-----------|-----------|------------|
-| {correction} | {directive} | {reviewer} | {fixed/noted} |
+| Correction | Directive | Caught By (role) | Resolution |
+|------------|-----------|-------------------|------------|
+| {correction} | {directive} | {reviewer role} | {fixed/noted} |
 
 - **Trend**: {more/fewer/same violations as last week}
 {If no violations: "Clean week — all standing corrections respected across all directives."}
@@ -322,7 +328,7 @@ in .context/reports/weekly-*.md}
 {If none: "No new lessons captured this week."}
 
 ## Recommendations
-{Morgan-style operational recommendations:}
+{COO-style operational recommendations:}
 - What should the CEO focus on next week?
 - Any goals that need re-prioritization?
 - Any process improvements to consider?

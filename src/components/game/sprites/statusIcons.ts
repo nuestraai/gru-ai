@@ -221,7 +221,4 @@ const offlineFrame0 = expand([
 export const STATUS_ICON_SPRITES: Record<string, SpriteData[]> = {
   working: [gearFrame0, gearFrame1, gearFrame2, gearFrame3],
   idle: [coffeeFrame0, coffeeFrame1],
-  error: [errorFrame0, errorFrame1, errorFrame2, errorFrame3],
-  waiting: [hourglassFrame0, hourglassFrame1],
-  offline: [offlineFrame0],
 }

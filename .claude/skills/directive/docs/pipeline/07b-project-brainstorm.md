@@ -2,17 +2,17 @@
 
 ## Project-Brainstorm: Task Decomposition
 
-After the CEO approves Morgan's plan (approve step), each project needs task decomposition before execution. Morgan defined WHAT projects to create and WHO works on them. This step defines HOW -- breaking each project into concrete tasks with DOD.
+After the CEO approves the COO's plan (approve step), each project needs task decomposition before execution. The COO defined WHAT projects to create and WHO works on them. This step defines HOW -- breaking each project into concrete tasks with DOD.
 
 ### Participants
 
-- **Sarah** (CTO) -- owns technical decomposition, DOD quality, sequencing
+- **The CTO** -- owns technical decomposition, DOD quality, sequencing
 - **The assigned builder** from the project's `agent` field -- provides implementation perspective, file-level scope awareness
 
 ### Inputs
 
 The brainstorm participants receive:
-- **Morgan's plan** (the approved project entry from morgan-plan.json) -- scope_summary, priority, cast
+- **The COO's plan** (the approved project entry from plan.json) -- scope_summary, priority, cast
 - **Audit findings** (from audit step) -- active_files, baseline, recommended_approach per task scope area
 - **Directive brainstorm** (if it exists, from `.context/directives/{directive-id}/brainstorm.md`) -- approach decisions made during strategic/heavyweight brainstorm
 - **Vision guardrails** (`.context/vision.md`) and **CEO preferences** (`.context/preferences.md`)
@@ -20,9 +20,9 @@ The brainstorm participants receive:
 
 ### Process
 
-**For simple projects** (complexity = `simple`): Sarah produces the task breakdown solo. Spawn Sarah with the inputs above and the project brainstorm prompt below.
+**For simple projects** (complexity = `simple`): The CTO produces the task breakdown solo. Spawn the CTO with the inputs above and the project brainstorm prompt below.
 
-**For moderate/complex projects**: Spawn Sarah + the assigned builder in sequence. Sarah produces the initial task breakdown, then the builder reviews and suggests adjustments based on implementation knowledge.
+**For moderate/complex projects**: Spawn the CTO + the assigned builder in sequence. The CTO produces the initial task breakdown, then the builder reviews and suggests adjustments based on implementation knowledge.
 
 ### Project Brainstorm Prompt
 
@@ -30,7 +30,7 @@ The brainstorm participants receive:
 You are decomposing a project into executable tasks. The project scope and cast are already decided. Your job is to define the TASKS -- what gets built, in what order, with what acceptance criteria.
 
 PROJECT:
-{project entry from Morgan's plan -- id, title, scope_summary, agent, reviewers, auditor}
+{project entry from the COO's plan -- id, title, scope_summary, agent, reviewers, auditor}
 
 AUDIT FINDINGS:
 {audit output for this project's scope area -- active_files, baseline, recommended_approach}
@@ -77,7 +77,7 @@ CRITICAL: First character `{`, last `}`. JSON only.
 
 ### When to Skip
 
-- **Lightweight directives** skip this step entirely -- they have no Morgan plan and no project.json.
+- **Lightweight directives** skip this step entirely -- they have no COO plan and no project.json.
 - If the project already has a `tasks` array populated (e.g., from a prior partial run or manual creation), skip the brainstorm and proceed to execution.
 
 ### Update directive.json

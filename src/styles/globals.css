@@ -63,20 +63,6 @@
 
   --color-sidebar: hsl(220 10% 8%);
 
-  /* Legacy aliases for existing components (migrate then remove) */
-  --color-bg: hsl(var(--background));
-  --color-bg-card: hsl(var(--card));
-  --color-bg-card-hover: hsl(220 10% 14%);
-  --color-bg-sidebar: hsl(220 10% 8%);
-  --color-bg-input: hsl(var(--input));
-  --color-border-subtle: hsl(220 10% 14%);
-  --color-text: hsl(var(--foreground));
-  --color-text-muted: hsl(var(--muted-foreground));
-  --color-text-dim: hsl(0 0% 44%);
-  --color-status-blue: hsl(217 91% 60%);
-  --color-accent-hover: hsl(231 70% 74%);
-  --color-ring-offset: hsl(var(--background));
-
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -135,4 +121,9 @@
 @keyframes flash {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.4; }
+}
+
+@keyframes tickerFadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
 }

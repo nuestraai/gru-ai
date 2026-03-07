@@ -1,11 +1,17 @@
 ---
 name: "healthcheck"
-description: "Internal codebase and operations health check — Sarah scans technical health, Morgan checks operational health. Run bi-weekly to catch internal issues. Lightweight maintenance, not the main event."
+description: "Internal codebase and operations health check — the CTO scans technical health, the COO checks operational health. Run bi-weekly to catch internal issues. Lightweight maintenance, not the main event."
 ---
 
 # Healthcheck — Internal Maintenance
 
-Run a healthcheck: Sarah scans codebase health, Morgan checks operational health. Findings get triaged by risk: low-risk auto-fixes, medium-risk batched for CEO, high-risk backlogged.
+## Role Resolution
+
+Read `.claude/agent-registry.json` to map roles to agent names. Use each agent's `id` as the `subagent_type` when spawning. The CTO handles technical health; the COO handles operational health.
+
+---
+
+Run a healthcheck: the CTO scans codebase health, the COO checks operational health. Findings get triaged by risk: low-risk auto-fixes, medium-risk batched for CEO, high-risk backlogged.
 
 **This is maintenance, not strategy.** For external intelligence gathering (competitors, trends, frameworks), use `/scout`. Healthcheck is the janitor, not the executive.
 
@@ -14,30 +20,29 @@ Run a healthcheck: Sarah scans codebase health, Morgan checks operational health
 Read these before spawning agents:
 - `.context/vision.md` — guardrails (what NOT to break)
 - `.context/preferences.md` — CEO standing orders
-- `.context/goals/*/goal.json` — current goals (to check for staleness)
+- `.context/directives/*/directive.json` — current directives (to check for staleness)
 - `.context/lessons/orchestration.md`
-- All `.context/goals/*/goal.json` for okrs field — current OKR status
-- All `.context/goals/*/backlog.json` — what's already queued
+- `.context/backlog.json` — what's already queued
 - Recent directive reports in `.context/reports/` — what was recently done
 
 ## Step 2: Spawn Healthcheck Agents (Parallel)
 
-Spawn **2 agents** in parallel: Sarah (technical) and Morgan (operational).
+Spawn **2 agents** in parallel: the CTO (technical) and the COO (operational).
 
 Each agent receives:
 - Their full personality from `.claude/agents/{name}.md`
 - `.context/vision.md` (guardrails are critical)
 - `.context/preferences.md`
-- `.context/goals/*/goal.json`
-- Current OKR status and backlogs summary
+- `.context/directives/*/directive.json`
+- `.context/backlog.json` summary
 - Recent directive report summaries (filenames + dates)
 
 **Both agents**: `subagent_type: "general-purpose"`, `model: "opus"`
 
-### Sarah (CTO) — Technical Health
+### CTO — Technical Health
 
 ```
-You are Sarah Chen, CTO. You are running a standing healthcheck of the codebase.
+You are the CTO. You are running a standing healthcheck of the codebase.
 
 Your job: scan the codebase and infrastructure for internal issues.
 
@@ -55,37 +60,37 @@ DO NOT fix anything. Report findings only.
 {JSON output instructions below}
 ```
 
-### Morgan (COO) — Operational Health
+### COO — Operational Health
 
 ```
-You are Morgan Park, COO. You are running a standing healthcheck of project operations.
+You are the COO. You are running a standing healthcheck of project operations.
 
 Your job: audit project operations for stale goals, blocked work, and resource gaps.
 
 CHECK THESE AREAS:
-1. **Goal freshness**: Read all goals in `.context/goals/*/goal.json`. Are any stale (no progress in 2+ weeks)? Are OKRs being tracked?
-2. **Backlog health**: Read all backlogs. Are items prioritized? Are there items marked done that should be cleaned up? Any duplicates?
-3. **Active work**: Check `.context/goals/*/projects/*/project.json` for active projects. Is anything in progress but stuck? Any projects without recent file changes?
+1. **Directive freshness**: Read all directives in `.context/directives/*/directive.json`. Are any stale (no progress in 2+ weeks)?
+2. **Backlog health**: Read `.context/backlog.json`. Are items prioritized? Are there items marked done that should be cleaned up? Any duplicates?
+3. **Active work**: Check `.context/directives/*/projects/*/project.json` for active projects. Is anything in progress but stuck? Any projects without recent file changes?
 4. **Recent directives**: Read `.context/reports/`. Were there failures or follow-ups that haven't been addressed?
 5. **Process gaps**: Check if lessons.md is up to date. Are there patterns emerging from recent work that should be captured?
 6. **Backlog health (structured checks)**:
-   - Read all `.context/goals/*/backlog.json` — check for `<!-- last-reviewed: YYYY-MM-DD -->` comment. Flag if missing or older than 30 days.
-   - Count items per priority (P0/P1/P2). Flag any goal with 0 prioritized items.
-   - Check for duplicate items across backlogs (same item title in multiple goals).
+   - Read `.context/backlog.json` — check for stale items older than 30 days.
+   - Count items per priority (P0/P1/P2). Flag any category with 0 prioritized items.
+   - Check for duplicate items (same item title appearing multiple times).
 7. **Partially-done project detection**:
-   - Read ALL `.context/goals/*/projects/*/project.json` files (tasks are embedded)
+   - Read ALL `.context/directives/*/projects/*/project.json` files (tasks are embedded)
    - For each: count completed vs total tasks, compute completion percentage
    - Flag if completion > 50% but the project's most recently modified file is > 14 days old
    - Flag if completion is 100% but project status is still "active" (should be "completed")
 8. **Index accuracy**:
    - Verify that project statuses in project.json match actual task completion
-   - Flag any mismatches between goal status and project statuses
+   - Flag any mismatches between directive status and project statuses
    - Verify project.json files match filesystem structure
 9. **Active/done duplicates**:
    - Check for projects with contradictory status vs task completion
    - Flag as: "project {name} has status {status} but tasks show {completion}% complete"
 
-USE THESE TOOLS: Read (context files, reports), Glob (goal structure, projects), Grep (stale dates, TODO items)
+USE THESE TOOLS: Read (context files, reports), Glob (directive structure, projects), Grep (stale dates, TODO items)
 
 DO NOT fix anything. Report findings only.
 
@@ -102,7 +107,7 @@ CRITICAL OUTPUT FORMAT: Your response must contain ONLY valid JSON. No prose, no
 Your output must follow this schema:
 
 {
-  "agent": "sarah | morgan",
+  "agent": "cto-id | coo-id",
   "domain": "technical | operations",
   "healthcheck_date": "YYYY-MM-DD",
   "findings": [
@@ -152,7 +157,7 @@ After both agents return, triage all findings by risk level:
 
 ### High-risk (CEO decides)
 - Security patches, architectural changes, goal modifications
-- Add to relevant backlog in `.context/goals/*/backlog.json`
+- Add to `.context/backlog.json`
 - Flag for CEO attention in the next `/report`
 
 ## Step 4: Present Results
@@ -161,8 +166,8 @@ After both agents return, triage all findings by risk level:
 # Healthcheck Report — {date}
 
 ## Summary
-- **Technical (Sarah)**: {summary}
-- **Operational (Morgan)**: {summary}
+- **Technical (CTO)**: {summary}
+- **Operational (COO)**: {summary}
 
 ## Auto-Fixed (low-risk)
 {list of low-risk items that were automatically fixed, or "None"}
@@ -199,7 +204,7 @@ Create directories if needed: `mkdir -p .context/healthchecks/latest .context/he
 
 ### NEVER
 - Fix high-risk issues without CEO approval
-- Skip Sarah (always run technical health)
+- Skip the CTO (always run technical health)
 - Propose strategic initiatives (that's /scout's job)
 - Overwrite previous healthcheck results without archiving
 

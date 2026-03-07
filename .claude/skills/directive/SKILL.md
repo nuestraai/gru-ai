@@ -7,6 +7,26 @@ description: "Execute work through the directive pipeline — evaluate, plan, ca
 
 Execute the CEO directive: $ARGUMENTS
 
+## Role Resolution — Read First
+
+Before executing, read `.claude/agent-registry.json` to map roles to agent names. The pipeline uses role-based language throughout. Resolve roles to concrete agent names using the registry:
+
+- **COO** = the agent with `"title": "COO"` (plans projects, orchestrates execution)
+- **CTO** = the agent with `"title": "CTO"` (architecture, audits, reviews, technical decomposition)
+- **CPO** = the agent with `"title": "CPO"` (product strategy, UX review, user perspective)
+- **CMO** = the agent with `"title": "CMO"` (growth, SEO, content strategy)
+- **Frontend Developer** = the agent with `"title": "FE"` (React, Tailwind, components)
+- **Backend Developer** = the agent with `"title": "BE"` (server, API, infrastructure)
+- **Full-Stack Engineer** = the agent with `"title": "FS"` (cross-domain work)
+- **Data Engineer** = the agent with `"title": "DE"` (pipelines, parsers, indexing)
+- **Content Builder** = the agent with `"title": "CB"` (MDX, documentation, copywriting)
+- **QA Engineer** = the agent with `"title": "QA"` (testing, investigation, validation)
+- **UI/UX Designer** = the agent with `"title": "UX"` (design review, wireframes, visual quality)
+
+Use each agent's `id` field as the `subagent_type` value when spawning. Use the `agentFile` field to locate personality files. The registry is the single source of truth for who fills each role.
+
+---
+
 ## MANDATORY: Start with Triage — DO NOT SKIP
 
 **YOU MUST read and execute [00-delegation-and-triage.md](docs/pipeline/00-delegation-and-triage.md) BEFORE doing anything else.**
@@ -15,7 +35,7 @@ DO NOT read source code. DO NOT edit files. DO NOT start solving the problem. Th
 
 Your FIRST action must be: Read the triage doc, classify the directive weight, output the triage block, and create directive.json. Only then proceed to the next pipeline step.
 
-If you catch yourself wanting to "just fix it quickly" — STOP. That impulse is exactly what the pipeline prevents. Even lightweight directives have a defined process (triage → context → plan → audit → build → review → digest → completion). Morgan plans for ALL weights.
+If you catch yourself wanting to "just fix it quickly" — STOP. That impulse is exactly what the pipeline prevents. Even lightweight directives have a defined process (triage → context → plan → audit → build → review → digest → completion). The COO plans for ALL weights.
 
 ---
 
@@ -27,7 +47,7 @@ This file is a routing table. Each row points to a modular doc containing full i
 
 **After completing each pipeline step**, update `.context/directives/{id}/directive.json`:
 1. Set `pipeline.{stepId}.status` to `"completed"` with:
-   - `agent`: who performed this step (e.g. "CEO", "Morgan", "Sarah, Devon")
+   - `agent`: who performed this step (e.g. "CEO", "COO", "CTO, full-stack engineer")
    - `output`: REQUIRED object with at least a `summary` string (1-2 sentences of what happened/decided). Add other keys as relevant (e.g. `decision`, `weight`, `projects`).
    - `artifacts`: array of file paths produced (if any)
 2. Set `current_step` to the next step's ID
@@ -49,10 +69,10 @@ The server's directive-watcher reads `directive.json` directly (NOT `current.jso
 | 3 | read | [02-read-directive.md](docs/pipeline/02-read-directive.md) | Read directive file + create directive.json | triage |
 | 4 | context | [03-read-context.md](docs/pipeline/03-read-context.md) | Read all context files before planning | read |
 | 5 | challenge | [04-challenge.md](docs/pipeline/04-challenge.md) | C-suite challenge (heavyweight only) | context |
-| 6 | plan | [05-morgan-planning.md](docs/pipeline/05-morgan-planning.md) | Morgan strategic planning | context |
+| 6 | plan | [05-planning.md](docs/pipeline/05-planning.md) | COO strategic planning | context |
 | 7 | audit | [06-technical-audit.md](docs/pipeline/06-technical-audit.md) | Technical codebase audit | plan |
 | 8 | approve | [07-plan-approval.md](docs/pipeline/07-plan-approval.md) | Present plan to CEO for approval | audit |
-| 9 | project-brainstorm | [07b-project-brainstorm.md](docs/pipeline/07b-project-brainstorm.md) | Sarah + builder decompose projects into tasks with DOD | approve |
+| 9 | project-brainstorm | [07b-project-brainstorm.md](docs/pipeline/07b-project-brainstorm.md) | CTO + builder decompose projects into tasks with DOD | approve |
 | 10 | setup | [08-worktree-and-state.md](docs/pipeline/08-worktree-and-state.md) | Worktree isolation + directive state init | project-brainstorm |
 | 11 | execute | [09-execute-projects.md](docs/pipeline/09-execute-projects.md) | Execute all tasks (phases, agents, UX) | setup |
 | 12 | review-gate | [09-execute-projects.md](docs/pipeline/09-execute-projects.md) | Review verification gate (end of doc) | execute |
@@ -63,9 +83,9 @@ The server's directive-watcher reads `directive.json` directly (NOT `current.jso
 
 | Doc | Content |
 |-----|---------|
-| [morgan-plan.md](docs/reference/schemas/morgan-plan.md) | Morgan plan output JSON schema |
+| [plan-schema.md](docs/reference/schemas/plan-schema.md) | COO plan output JSON schema |
 | [audit-output.md](docs/reference/schemas/audit-output.md) | Architect output JSON schema (design recommendations — second phase of two-agent audit) |
-| [investigation-output.md](docs/reference/schemas/investigation-output.md) | Sam's investigation output JSON schema (pure data — first phase of two-agent audit) |
+| [investigation-output.md](docs/reference/schemas/investigation-output.md) | QA Engineer's investigation output JSON schema (pure data — first phase of two-agent audit) |
 | [checkpoint.md](docs/reference/schemas/checkpoint.md) | Checkpoint JSON schema (includes dod_verification field) |
 | [directive-json.md](docs/reference/schemas/directive-json.md) | Directive JSON schema (THE source of truth — includes pipeline progress for dashboard) |
 | [challenger-output.md](docs/reference/schemas/challenger-output.md) | Challenger output JSON schema |
@@ -75,10 +95,10 @@ The server's directive-watcher reads `directive.json` directly (NOT `current.jso
 
 | Doc | Content |
 |-----|---------|
-| [morgan-prompt.md](docs/reference/templates/morgan-prompt.md) | Full Morgan planning prompt |
-| [investigator-prompt.md](docs/reference/templates/investigator-prompt.md) | Investigation prompt template for Sam (pure data gathering — first phase of audit) |
+| [planner-prompt.md](docs/reference/templates/planner-prompt.md) | Full COO planning prompt |
+| [investigator-prompt.md](docs/reference/templates/investigator-prompt.md) | Investigation prompt template for the QA Engineer (pure data gathering — first phase of audit) |
 | [architect-prompt.md](docs/reference/templates/architect-prompt.md) | Architect prompt template (design recommendations — second phase of audit) |
-| [auditor-prompt.md](docs/reference/templates/auditor-prompt.md) | Combined audit prompt for Sarah (single-agent path for simple tasks) |
+| [auditor-prompt.md](docs/reference/templates/auditor-prompt.md) | Combined audit prompt for the CTO (single-agent path for simple tasks) |
 | [challenger-prompt.md](docs/reference/templates/challenger-prompt.md) | Challenger prompt template |
 | [brainstorm-prompt.md](docs/reference/templates/brainstorm-prompt.md) | Brainstorm agent prompt template (Phase 1 proposals + Phase 2 deliberation) |
 | [digest.md](docs/reference/templates/digest.md) | Digest report template |

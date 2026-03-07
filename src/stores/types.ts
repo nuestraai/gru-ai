@@ -113,6 +113,8 @@ export interface DirectiveProject {
   phase: 'audit' | 'design' | 'build' | 'review' | null;
   totalTasks?: number;
   completedTasks?: number;
+  agent?: string[];
+  reviewers?: string[];
   tasks?: DirectiveProjectTask[];
 }
 
@@ -142,7 +144,6 @@ export interface DirectiveState {
   pipelineSteps?: PipelineStep[];
   currentStepId?: string;
   weight?: string;
-  category?: string;
   triageRationale?: string;
   approvalStatus?: string;
   brainstormSummary?: string;
@@ -155,7 +156,6 @@ export interface DashboardState {
   teams: Team[];
   sessions: Session[];
   projects: ProjectGroup[];
-  tasksByTeam: Record<string, TeamTask[]>;
   tasksBySession: Record<string, TeamTask[]>;
   events: HookEvent[];
   sessionActivities: Record<string, SessionActivity>;
@@ -163,54 +163,6 @@ export interface DashboardState {
   directiveHistory: DirectiveState[];
   activeDirectives: DirectiveState[];
   lastUpdated: string;
-}
-
-// --- Insights types ---
-
-export interface StatsCache {
-  version: number;
-  lastComputedDate: string;
-  dailyActivity: DailyActivity[];
-  dailyModelTokens: { date: string; tokensByModel: Record<string, number> }[];
-  modelUsage: Record<string, ModelUsageEntry>;
-  totalSessions: number;
-  totalMessages: number;
-  longestSession: { sessionId: string; duration: number; messageCount: number; timestamp: string };
-  firstSessionDate: string;
-  hourCounts: Record<string, number>;
-  totalSpeculationTimeSavedMs: number;
-}
-
-export interface DailyActivity {
-  date: string;
-  messageCount: number;
-  sessionCount: number;
-  toolCallCount: number;
-}
-
-export interface ModelUsageEntry {
-  inputTokens: number;
-  outputTokens: number;
-  cacheReadInputTokens: number;
-  cacheCreationInputTokens: number;
-  webSearchRequests: number;
-  costUSD: number;
-  contextWindow: number;
-  maxOutputTokens: number;
-}
-
-export interface PromptEntry {
-  display: string;
-  timestamp: number;
-  project: string;
-  sessionId: string;
-}
-
-export interface PlanEntry {
-  slug: string;
-  title: string;
-  content: string;
-  modifiedAt: string;
 }
 
 export type WsMessageType =
@@ -222,8 +174,6 @@ export type WsMessageType =
   | 'event_added'
   | 'events_updated'
   | 'session_activities_updated'
-  | 'config_updated'
-  | 'notification_fired'
   | 'directive_updated'
   | 'state_updated';
 
@@ -247,7 +197,6 @@ export interface BaseWorkItem {
   title: string;
   status: LifecycleState;
   parentId?: string;
-  category?: string;
   createdAt: string;
   updatedAt: string;
   tags?: string[];
@@ -255,7 +204,6 @@ export interface BaseWorkItem {
 
 export interface FeatureRecord extends BaseWorkItem {
   type: 'feature';
-  category?: string;
   taskCount: number;
   completedTaskCount: number;
   hasSpec: boolean;
@@ -267,7 +215,6 @@ export interface FeatureRecord extends BaseWorkItem {
 
 export interface BacklogRecord extends BaseWorkItem {
   type: 'backlog-item';
-  category?: string;
   priority?: Priority;
   description?: string;
   trigger?: string;
@@ -292,7 +239,6 @@ export interface DirectiveRecord extends BaseWorkItem {
   reportPath?: string;
   // Structured fields from directive.json
   weight?: string;
-  category?: string;
   producedFeatures?: string[];
   report?: string | null;
   backlogSources?: string[];
@@ -351,57 +297,3 @@ export interface FullWorkState {
   index: IndexState | null;
 }
 
-export interface SearchResult {
-  q: string;
-  count: number;
-  results: WorkItem[];
-}
-
-// --- Intelligence Trends types ---
-
-export interface IntelligenceAgentStats {
-  agent: string;
-  domain: string;
-  totalFindings: number;
-  findingsByUrgency: Record<string, number>;
-  findingsByType: Record<string, number>;
-  proposalsSubmitted: number;
-  proposalsAccepted: number;
-  acceptanceRate: number;
-  topProducts: string[];
-}
-
-export interface IntelligenceTopicCluster {
-  topic: string;
-  keywords: string[];
-  mentionCount: number;
-  agents: string[];
-  urgencyMax: string;
-  items: Array<{ id: string; title: string; agent: string; urgency: string }>;
-}
-
-export interface IntelligenceCrossScoutSignal {
-  topic: string;
-  agentCount: number;
-  agents: string[];
-  totalMentions: number;
-  highestUrgency: string;
-  items: Array<{ id: string; title: string; agent: string; urgency: string }>;
-  strength: 'strong' | 'moderate' | 'weak';
-  shouldPromote: boolean;
-}
-
-export interface IntelligenceTrendsResult {
-  generated: string;
-  scoutDate: string | null;
-  totalFindings: number;
-  totalProposals: number;
-  totalAccepted: number;
-  overallAcceptanceRate: number;
-  agentStats: IntelligenceAgentStats[];
-  topTopics: IntelligenceTopicCluster[];
-  crossScoutSignals: IntelligenceCrossScoutSignal[];
-  urgencyBreakdown: Record<string, number>;
-  typeBreakdown: Record<string, number>;
-  productHeatmap: Record<string, number>;
-}

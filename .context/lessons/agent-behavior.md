@@ -1,7 +1,7 @@
 # Lessons: Agent Behavior
 
 > How agents behave, what they get wrong, and how to correct it.
-> Relevant to: ALL agents (especially Morgan, Sarah)
+> Relevant to: ALL agents (especially COO, CTO)
 
 ## Core Patterns
 
@@ -16,7 +16,7 @@
 - **"Does it compile" is not "does it work."** Type-check passing gives false confidence. A component can compile perfectly but have no click handler, show wrong data, or display nothing useful. Browser testing catches what type-checking can't.
 - **Engineers don't propose improvements unless instructed.** Default agent behavior is to complete assigned tasks and stop. Added explicit "propose what's MISSING" instruction to engineer prompts — every build must include a `proposed_improvements` section with gaps, edge cases, and UX issues found during implementation.
 - **Chrome MCP tools only work in the main session.** Spawned agents cannot use browser tools. UX verification must be done by the orchestrator (main session), not delegated to subagents. Plan accordingly: assign Chrome visual work to yourself, code review to agents.
-- **The orchestrator delegates — it does not code, review, or verify DOD.** The directive session's job is to read directives, spawn Morgan for planning, spawn engineers for building, spawn Sarah/reviewers for verification, collect results, and produce summaries. When the orchestrator does the coding itself, it bypasses the pipeline's quality gates (auditor, reviewer, clarification phase). If a task is small enough for one person to code, spawn one engineer — don't become the engineer. If DOD needs verification, spawn the reviewer — don't self-certify.
+- **The orchestrator delegates — it does not code, review, or verify DOD.** The directive session's job is to read directives, spawn the COO for planning, spawn engineers for building, spawn the CTO/reviewers for verification, collect results, and produce summaries. When the orchestrator does the coding itself, it bypasses the pipeline's quality gates (auditor, reviewer, clarification phase). If a task is small enough for one person to code, spawn one engineer — don't become the engineer. If DOD needs verification, spawn the reviewer — don't self-certify.
 
 ## Verification Failures (Phase 3 Post-Mortem)
 

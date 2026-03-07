@@ -12,7 +12,7 @@ import { useBadgeCounts, type BadgeCounts } from './hooks/useBadgeCounts';
 import {
   TeamPanel,
   ActionPanel,
-  OpsPanel,
+  StatusPanel,
   LogPanel,
   AgentPanel,
   CeoDeskPanel,
@@ -37,25 +37,25 @@ interface SidePanelProps {
   variant?: 'side' | 'bottom';
 }
 
-type HudTab = 'team' | 'tasks' | 'ops' | 'log';
+type HudTab = 'team' | 'tasks' | 'status' | 'log';
 
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
 
-const HUD_TYPES = new Set(['hud-team', 'hud-tasks', 'hud-ops', 'hud-log']);
+const HUD_TYPES = new Set(['hud-team', 'hud-tasks', 'hud-status', 'hud-log']);
 
 const TAB_ICONS: Record<HudTab, React.ReactNode> = {
   team: <Users className="h-3 w-3" />,
   tasks: <Zap className="h-3 w-3" />,
-  ops: <Activity className="h-3 w-3" />,
+  status: <Activity className="h-3 w-3" />,
   log: <ScrollText className="h-3 w-3" />,
 };
 
 const TAB_LIST: { id: HudTab; label: string }[] = [
   { id: 'team', label: 'Team' },
   { id: 'tasks', label: 'Tasks' },
-  { id: 'ops', label: 'Ops' },
+  { id: 'status', label: 'Status' },
   { id: 'log', label: 'Log' },
 ];
 
@@ -65,7 +65,7 @@ function hudTypeToTab(type: string): HudTab | null {
     case 'hud-tasks': return 'tasks';
     case 'hud-action': return 'tasks'; // backward compat
     case 'hud-directive': return 'tasks'; // merged into tasks
-    case 'hud-ops': return 'ops';
+    case 'hud-status': return 'status';
     case 'hud-log': return 'log';
     default: return null;
   }
@@ -200,8 +200,8 @@ function PanelContent({
         return <TeamPanel agentStatuses={agentStatuses} onSelectAgent={onSelectAgent} />;
       case 'tasks':
         return <ActionPanel />;
-      case 'ops':
-        return <OpsPanel />;
+      case 'status':
+        return <StatusPanel />;
       case 'log':
         return <LogPanel />;
     }

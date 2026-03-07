@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { useDashboardStore } from '@/stores/dashboard-store';
-import type { WsMessage, DashboardState, DirectiveState, Session, HookEvent, Team, TeamTask, SessionActivity, NotificationConfig, ProjectGroup, FullWorkState } from '@/stores/types';
+import type { WsMessage, DashboardState, DirectiveState, Session, HookEvent, Team, TeamTask, SessionActivity, ProjectGroup, FullWorkState } from '@/stores/types';
 import { API_BASE, WS_URL } from '@/lib/api';
 const MAX_RECONNECT_DELAY = 30000;
 
@@ -21,8 +21,6 @@ export function useWebSocket() {
     updateSessionActivities,
     updateDirectiveState,
     setWorkState,
-    updateNotificationConfig,
-    addNotificationFired,
   } = useDashboardStore();
 
   useEffect(() => {
@@ -35,14 +33,6 @@ export function useWebSocket() {
       ws.onopen = () => {
         setConnected(true);
         reconnectDelayRef.current = 1000;
-
-        // Fetch notification config (not included in full_state)
-        fetch(`${API_BASE}/api/config`)
-          .then((res) => res.json())
-          .then((data: { notifications?: NotificationConfig }) => {
-            if (data.notifications) updateNotificationConfig(data.notifications);
-          })
-          .catch(() => {});
 
         // Fetch initial work state
         Promise.all([
@@ -76,8 +66,7 @@ export function useWebSocket() {
               break;
             case 'tasks_updated':
               updateTasks(
-                payload.tasksByTeam as Record<string, TeamTask[]>,
-                payload.tasksBySession as Record<string, TeamTask[]> | undefined
+                payload.tasksBySession as Record<string, TeamTask[]>
               );
               break;
             case 'event_added': {
@@ -100,12 +89,6 @@ export function useWebSocket() {
               break;
             case 'state_updated':
               setWorkState(payload.workState as FullWorkState);
-              break;
-            case 'config_updated':
-              updateNotificationConfig(payload.notifications as NotificationConfig);
-              break;
-            case 'notification_fired':
-              addNotificationFired(payload.sessionId as string);
               break;
           }
         } catch {
@@ -149,5 +132,5 @@ export function useWebSocket() {
         wsRef.current = null;
       }
     };
-  }, [setFullState, updateSessions, updateProjects, updateTeams, updateTasks, addEvent, updateEvents, setConnected, updateSessionActivities, updateDirectiveState, setWorkState, updateNotificationConfig, addNotificationFired]);
+  }, [setFullState, updateSessions, updateProjects, updateTeams, updateTasks, addEvent, updateEvents, setConnected, updateSessionActivities, updateDirectiveState, setWorkState]);
 }

@@ -1,6 +1,6 @@
 {
   "id": "conductor-ceo-experience",
-  "title": "Directive: Conductor CEO Experience \u2014 Make It Actually Usable",
+  "title": "Directive: Conductor CEO Experience — Make It Actually Usable",
   "status": "completed",
   "source": "ceo",
   "weight": "tactical",
@@ -19,6 +19,5 @@
   "cast": null,
   "dod": null,
   "report_summary": "conductor-ceo-experience-2026-03-02",
-  "telemetry": null,
-  "category": "dashboard"
+  "telemetry": null
 }

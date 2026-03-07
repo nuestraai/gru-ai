@@ -23,7 +23,7 @@ Ask the CEO using AskUserQuestion: **Resume** or **Restart**.
 **If Restart:** Remove the pipeline/execution fields from directive.json (keep metadata). Delete project artifacts (`rm -rf .context/directives/{id}/projects/`). Proceed to the read step.
 
 **If Resume:** Load directive.json data and skip to the appropriate step:
-- `current_step` is `plan` or `audit` → Load `planning.morgan_plan`, skip to approve (CEO approval)
+- `current_step` is `plan` or `audit` → Load `planning.coo_plan`, skip to approve (CEO approval)
 - `current_step` is `approve` → Re-present plan for CEO approval. Previous approval carries over — show it and ask CEO to confirm: "Plan was previously approved. Confirm to continue?"
 - `current_step` is `project-brainstorm` or `setup` → Load `planning.worktree_path`, verify `directive.json` pipeline state is consistent, then skip to execute
 - `current_step` is `execute` or `review-gate` → Load tasks array. Skip tasks with `status: "completed"` or `status: "skipped"`. Restart any `in_progress` task from its first phase (do not attempt partial phase resume). Continue with `pending` tasks.

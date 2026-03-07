@@ -104,7 +104,7 @@ case "$COMMAND" in
         updated_at: $updated_at,
         current_step: "step-0",
         planning: {
-          morgan_plan: null,
+          coo_plan: null,
           ceo_approval: null,
           worktree_path: null
         },

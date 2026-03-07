@@ -1,21 +1,17 @@
 import http from 'node:http';
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import { WebSocketServer, WebSocket } from 'ws';
-import { loadConfig, saveConfig } from './config.js';
+import { loadConfig } from './config.js';
 import { getDb, closeDb } from './db.js';
 import { Aggregator } from './state/aggregator.js';
-import { ClaudeWatcher } from './watchers/claude-watcher.js';
-import { SessionWatcher } from './watchers/session-watcher.js';
+import { ClaudeCodeAdapter } from './platform/claude-code.js';
 import { DirectiveWatcher } from './watchers/directive-watcher.js';
 import { StateWatcher } from './watchers/state-watcher.js';
 import { processEvent } from './hooks/event-receiver.js';
 import { focusPane } from './actions/terminal.js';
 import { sendInput } from './actions/send-input.js';
-import { deleteTeam } from './actions/cleanup.js';
 import { Notifier } from './notifications/notifier.js';
-import { analyzeIntelligence } from '../scripts/intelligence-trends.js';
 import type { WsMessage, WsMessageType, SendInputRequest } from './types.js';
 
 // --- Load config and initialize ---
@@ -25,8 +21,9 @@ const PORT = config.server.port;
 // Initialize DB (creates table if needed)
 getDb();
 
-// Create aggregator and parse initial state
-const aggregator = new Aggregator(config);
+// Create platform adapter and aggregator
+const adapter = new ClaudeCodeAdapter(config.claudeHome);
+const aggregator = new Aggregator(config, adapter);
 aggregator.initialize();
 
 // Create and start notifier
@@ -48,11 +45,11 @@ notifier.on('notification_fired', (payload: { sessionId: string; suppressBrowser
   }
 });
 
-// Start file watchers
-const claudeWatcher = new ClaudeWatcher(aggregator, config.claudeHome);
+// Start file watchers (created via adapter factory methods)
+const claudeWatcher = adapter.createMetadataWatcher(aggregator)!;
 claudeWatcher.start();
 
-const sessionWatcher = new SessionWatcher(aggregator, config.claudeHome, aggregator.projectFilter);
+const sessionWatcher = adapter.createSessionWatcher(aggregator, aggregator.projectFilter);
 sessionWatcher.start();
 
 const directiveWatcher = new DirectiveWatcher(aggregator, config.claudeHome);
@@ -124,11 +121,6 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  if (url.pathname === '/api/state/search' && req.method === 'GET') {
-    handleStateSearch(url, res);
-    return;
-  }
-
   if (url.pathname === '/api/state/artifact-content' && req.method === 'GET') {
     handleArtifactContent(url, res);
     return;
@@ -149,58 +141,11 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  if (url.pathname === '/api/config' && req.method === 'GET') {
-    handleGetConfig(res);
-    return;
-  }
-
-  if (url.pathname === '/api/config' && req.method === 'PATCH') {
-    handlePatchConfig(req, res);
-    return;
-  }
-
-  // --- Insights API routes ---
-  if (url.pathname === '/api/insights/stats' && req.method === 'GET') {
-    handleInsightsStats(res);
-    return;
-  }
-
-  if (url.pathname === '/api/insights/history' && req.method === 'GET') {
-    handleInsightsHistory(res);
-    return;
-  }
-
-  if (url.pathname === '/api/insights/plans' && req.method === 'GET') {
-    handleInsightsPlans(res);
-    return;
-  }
-
-  // DELETE /api/teams/:name
-  if (url.pathname.startsWith('/api/teams/') && req.method === 'DELETE') {
-    const teamName = decodeURIComponent(url.pathname.slice('/api/teams/'.length));
-    handleDeleteTeam(teamName, res);
-    return;
-  }
-
-  // --- Intelligence API route ---
-  if (url.pathname === '/api/intelligence' && req.method === 'GET') {
-    handleGetIntelligence(res);
-    return;
-  }
-
-  // --- Scheduler API routes ---
-  if (url.pathname === '/api/scheduler' && req.method === 'GET') {
-    handleGetScheduler(res);
-    return;
-  }
-
-  if (url.pathname === '/api/scheduler/toggle' && req.method === 'POST') {
-    handleToggleScheduler(req, res);
-    return;
-  }
-
   // --- Static file serving for production ---
-  const distDir = path.join(import.meta.dirname, '..', 'dist');
+  // In prod (dist-server/server/index.js): up 2 to repo root. In dev: up 1.
+  const distDirProd = path.join(import.meta.dirname, '..', '..', 'dist');
+  const distDirDev = path.join(import.meta.dirname, '..', 'dist');
+  const distDir = fs.existsSync(distDirProd) ? distDirProd : distDirDev;
   if (fs.existsSync(distDir)) {
     serveStatic(url.pathname, distDir, res);
     return;
@@ -359,12 +304,8 @@ function handleGetDirective(res: http.ServerResponse): void {
 
 function handleStateFeatures(url: URL, res: http.ServerResponse): void {
   const ws = aggregator.getWorkState();
-  const category = url.searchParams.get('category');
 
-  let features = ws.features?.features ?? [];
-  if (category) {
-    features = features.filter(f => f.category === category);
-  }
+  const features = ws.features?.features ?? [];
 
   res.writeHead(200, { 'Content-Type': 'application/json' });
   res.end(JSON.stringify({ generated: ws.features?.generated ?? null, features }));
@@ -372,12 +313,8 @@ function handleStateFeatures(url: URL, res: http.ServerResponse): void {
 
 function handleStateBacklogs(url: URL, res: http.ServerResponse): void {
   const ws = aggregator.getWorkState();
-  const category = url.searchParams.get('category');
 
-  let items = ws.backlogs?.items ?? [];
-  if (category) {
-    items = items.filter(b => b.category === category);
-  }
+  const items = ws.backlogs?.items ?? [];
 
   res.writeHead(200, { 'Content-Type': 'application/json' });
   res.end(JSON.stringify({ generated: ws.backlogs?.generated ?? null, items }));
@@ -387,19 +324,6 @@ function handleStateConductor(res: http.ServerResponse): void {
   const ws = aggregator.getWorkState();
   res.writeHead(200, { 'Content-Type': 'application/json' });
   res.end(JSON.stringify(ws.conductor));
-}
-
-function handleStateSearch(url: URL, res: http.ServerResponse): void {
-  const q = url.searchParams.get('q') ?? '';
-  if (!q || q.length < 2) {
-    res.writeHead(400, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ error: 'Query must be at least 2 characters' }));
-    return;
-  }
-
-  const results = aggregator.getWorkItems({ q });
-  res.writeHead(200, { 'Content-Type': 'application/json' });
-  res.end(JSON.stringify({ q, count: results.length, results: results.slice(0, 50) }));
 }
 
 function handleArtifactContent(url: URL, res: http.ServerResponse): void {
@@ -585,10 +509,10 @@ function handleDirectiveComplete(req: http.IncomingMessage, res: http.ServerResp
 
         // Watcher picks up directive.json change directly — no current.json needed
 
-        console.log(`[api] Directive ${state.directiveName} ${parsed.action === 'approve' ? 'approved' : 'rejected'}${parsed.feedback ? ` (feedback: ${parsed.feedback})` : ''}`);
+        console.log(`[api] Directive ${targetDirectiveName} ${parsed.action === 'approve' ? 'approved' : 'rejected'}${parsed.feedback ? ` (feedback: ${parsed.feedback})` : ''}`);
 
         res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ ok: true, action: parsed.action, directive: state.directiveName }));
+        res.end(JSON.stringify({ ok: true, action: parsed.action, directive: targetDirectiveName }));
       } catch (err) {
         console.error(`[api] Failed to update directive:`, err);
         res.writeHead(500, { 'Content-Type': 'application/json' });
@@ -600,297 +524,6 @@ function handleDirectiveComplete(req: http.IncomingMessage, res: http.ServerResp
     }
   });
   req.on('error', (err) => {
-    console.error(`[api] Request error:`, err);
-    res.writeHead(500, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ error: 'Internal error' }));
-  });
-}
-
-function handleDeleteTeam(teamName: string, res: http.ServerResponse): void {
-  if (!teamName) {
-    res.writeHead(400, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ error: 'Missing team name' }));
-    return;
-  }
-
-  const result = deleteTeam(config.claudeHome, teamName);
-  if (result.success) {
-    aggregator.refreshTeams();
-    aggregator.refreshTasks();
-    res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ success: true }));
-  } else {
-    res.writeHead(400, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ success: false, error: result.error }));
-  }
-}
-
-function handleGetConfig(res: http.ServerResponse): void {
-  res.writeHead(200, { 'Content-Type': 'application/json' });
-  res.end(JSON.stringify({ notifications: config.notifications }));
-}
-
-function handlePatchConfig(req: http.IncomingMessage, res: http.ServerResponse): void {
-  let body = '';
-  req.on('data', (chunk) => {
-    body += chunk;
-  });
-  req.on('end', () => {
-    try {
-      const parsed = JSON.parse(body) as Record<string, unknown>;
-
-      // Only allow patching 'notifications' field
-      if (!parsed.notifications || typeof parsed.notifications !== 'object') {
-        res.writeHead(400, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: 'Missing or invalid notifications field' }));
-        return;
-      }
-
-      const incoming = parsed.notifications as Record<string, unknown>;
-
-      // Validate booleans if present
-      if ('macOS' in incoming && typeof incoming.macOS !== 'boolean') {
-        res.writeHead(400, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: 'notifications.macOS must be a boolean' }));
-        return;
-      }
-      if ('browser' in incoming && typeof incoming.browser !== 'boolean') {
-        res.writeHead(400, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: 'notifications.browser must be a boolean' }));
-        return;
-      }
-
-      // Merge into config.notifications
-      config.notifications = {
-        ...config.notifications,
-        ...('macOS' in incoming ? { macOS: incoming.macOS as boolean } : {}),
-        ...('browser' in incoming ? { browser: incoming.browser as boolean } : {}),
-      };
-
-      // Persist to disk
-      saveConfig(config);
-
-      // Update notifier
-      notifier.updateConfig(config.notifications);
-
-      // Broadcast config_updated via WebSocket
-      const message: WsMessage = {
-        version: 1,
-        type: 'config_updated',
-        payload: { notifications: config.notifications },
-      };
-      const data = JSON.stringify(message);
-      for (const client of wss.clients) {
-        if (client.readyState === WebSocket.OPEN) {
-          client.send(data);
-        }
-      }
-
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ ok: true, notifications: config.notifications }));
-    } catch (err) {
-      console.error(`[api] Error patching config:`, err);
-      res.writeHead(400, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: 'Invalid JSON' }));
-    }
-  });
-  req.on('error', (err) => {
-    console.error(`[api] Request error:`, err);
-    res.writeHead(500, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ error: 'Internal error' }));
-  });
-}
-
-// --- Insights Handlers ---
-
-function handleInsightsStats(res: http.ServerResponse): void {
-  const statsPath = path.join(config.claudeHome, 'stats-cache.json');
-  try {
-    const data = fs.readFileSync(statsPath, 'utf-8');
-    res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(data);
-  } catch {
-    res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify(null));
-  }
-}
-
-function handleInsightsHistory(res: http.ServerResponse): void {
-  const historyPath = path.join(config.claudeHome, 'history.jsonl');
-  try {
-    const raw = fs.readFileSync(historyPath, 'utf-8');
-    const entries = raw
-      .split('\n')
-      .filter((line) => line.trim())
-      .map((line) => {
-        const parsed = JSON.parse(line);
-        return {
-          display: parsed.display,
-          timestamp: parsed.timestamp,
-          project: parsed.project,
-          sessionId: parsed.sessionId,
-        };
-      })
-      .reverse(); // newest first
-    res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify(entries));
-  } catch {
-    res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify([]));
-  }
-}
-
-function handleInsightsPlans(res: http.ServerResponse): void {
-  const plansDir = path.join(config.claudeHome, 'plans');
-  try {
-    const files = fs.readdirSync(plansDir).filter((f) => f.endsWith('.md'));
-    const plans = files.map((filename) => {
-      const filePath = path.join(plansDir, filename);
-      const content = fs.readFileSync(filePath, 'utf-8');
-      const stat = fs.statSync(filePath);
-      const slug = filename.replace(/\.md$/, '');
-      // Extract title from first heading or use slug
-      const titleMatch = content.match(/^#\s+(.+)/m);
-      const title = titleMatch ? titleMatch[1].trim() : slug;
-      return { slug, title, content, modifiedAt: stat.mtime.toISOString() };
-    });
-    // Sort by most recently modified
-    plans.sort((a, b) => new Date(b.modifiedAt).getTime() - new Date(a.modifiedAt).getTime());
-    res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify(plans));
-  } catch {
-    res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify([]));
-  }
-}
-
-// --- Intelligence Handlers ---
-
-function handleGetIntelligence(res: http.ServerResponse): void {
-  try {
-    const projectPaths = config.projects.map((p) => p.path);
-    if (projectPaths.length === 0) {
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(null));
-      return;
-    }
-    const result = analyzeIntelligence(projectPaths);
-    res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify(result));
-  } catch (err) {
-    console.error(`[api] Error analyzing intelligence:`, err);
-    res.writeHead(500, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ error: 'Failed to analyze intelligence' }));
-  }
-}
-
-// --- Scheduler Handlers ---
-
-const SCHEDULER_CONFIG_PATH = path.join(os.homedir(), '.conductor', 'scheduler.json');
-const SCHEDULER_LOG_PATH = path.join(os.homedir(), '.conductor', 'scheduler.log');
-
-function handleGetScheduler(res: http.ServerResponse): void {
-  try {
-    // Read config
-    let config = null;
-    if (fs.existsSync(SCHEDULER_CONFIG_PATH)) {
-      config = JSON.parse(fs.readFileSync(SCHEDULER_CONFIG_PATH, 'utf-8'));
-    }
-
-    // Read today's log entries
-    const today = new Date().toISOString().slice(0, 10);
-    const recentEntries: unknown[] = [];
-    let todaySpend = 0;
-
-    if (fs.existsSync(SCHEDULER_LOG_PATH)) {
-      const raw = fs.readFileSync(SCHEDULER_LOG_PATH, 'utf-8');
-      for (const line of raw.split('\n')) {
-        if (!line.trim()) continue;
-        try {
-          const entry = JSON.parse(line);
-          if (entry.timestamp?.startsWith(today)) {
-            recentEntries.push(entry);
-            if (entry.action === 'launch' && entry.estimated_cost_usd) {
-              todaySpend += entry.estimated_cost_usd;
-            }
-          }
-        } catch {
-          // skip malformed
-        }
-      }
-    }
-
-    // Find last run time from log (most recent entry regardless of date)
-    let lastRun: string | null = null;
-    if (fs.existsSync(SCHEDULER_LOG_PATH)) {
-      const raw = fs.readFileSync(SCHEDULER_LOG_PATH, 'utf-8');
-      const lines = raw.trim().split('\n').filter(l => l.trim());
-      if (lines.length > 0) {
-        try {
-          const last = JSON.parse(lines[lines.length - 1]);
-          lastRun = last.timestamp ?? null;
-        } catch {
-          // skip
-        }
-      }
-    }
-
-    res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({
-      config,
-      todaySpend,
-      lastRun,
-      recentEntries: recentEntries.slice(-20), // last 20 entries today
-    }));
-  } catch (err) {
-    console.error(`[api] Error reading scheduler state:`, err);
-    res.writeHead(500, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ error: 'Failed to read scheduler state' }));
-  }
-}
-
-function handleToggleScheduler(req: http.IncomingMessage, res: http.ServerResponse): void {
-  let body = '';
-  req.on('data', (chunk: string) => {
-    body += chunk;
-  });
-  req.on('end', () => {
-    try {
-      const parsed = JSON.parse(body) as { enabled?: boolean };
-      if (typeof parsed.enabled !== 'boolean') {
-        res.writeHead(400, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: 'Missing or invalid "enabled" boolean field' }));
-        return;
-      }
-
-      // Read existing config or create defaults
-      const conductorDir = path.join(os.homedir(), '.conductor');
-      fs.mkdirSync(conductorDir, { recursive: true });
-
-      let config: Record<string, unknown> = {
-        enabled: true,
-        check_interval_minutes: 15,
-        daily_budget: { max_cost_usd: 50 },
-        quiet_hours: { start: '23:00', end: '07:00' },
-        project_path: '/Users/yangyang/Repos/sw',
-      };
-
-      if (fs.existsSync(SCHEDULER_CONFIG_PATH)) {
-        config = JSON.parse(fs.readFileSync(SCHEDULER_CONFIG_PATH, 'utf-8'));
-      }
-
-      config.enabled = parsed.enabled;
-      fs.writeFileSync(SCHEDULER_CONFIG_PATH, JSON.stringify(config, null, 2), 'utf-8');
-
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ ok: true, enabled: parsed.enabled }));
-    } catch (err) {
-      console.error(`[api] Error toggling scheduler:`, err);
-      res.writeHead(400, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: 'Invalid JSON' }));
-    }
-  });
-  req.on('error', (err: Error) => {
     console.error(`[api] Request error:`, err);
     res.writeHead(500, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ error: 'Internal error' }));
@@ -934,288 +567,6 @@ function serveStatic(pathname: string, distDir: string, res: http.ServerResponse
   res.end(content);
 }
 
-// --- Foreman (background work scheduler) ---
-import { spawn } from 'node:child_process';
-
-let foremanInterval: ReturnType<typeof setInterval> | null = null;
-
-// Skip markers — directives containing these are skipped by the foreman
-const SKIP_MARKERS = ['<!-- foreman:skip -->', '**Requires**: manual', 'DEFERRED', '**Status**: deferred', '**Status**: needs-human'];
-
-// Priority categories — backlogs from these categories are boosted to match inbox priority
-const PRIORITY_CATEGORIES = ['pipeline'];
-
-interface WorkItem {
-  name: string;
-  priority: string;
-  source: 'inbox' | 'backlog';
-  path: string;
-  category?: string;
-  trigger?: string;
-  sortOrder: number; // lower = higher priority
-}
-
-function foremanCheck(trigger?: string): void {
-  try {
-    const schedulerConfig = fs.existsSync(SCHEDULER_CONFIG_PATH)
-      ? JSON.parse(fs.readFileSync(SCHEDULER_CONFIG_PATH, 'utf-8'))
-      : null;
-
-    if (!schedulerConfig?.enabled) return;
-
-    const now = new Date();
-
-    // Quiet hours check
-    const currentMinutes = now.getHours() * 60 + now.getMinutes();
-    const [startH, startM] = (schedulerConfig.quiet_hours?.start ?? '23:00').split(':').map(Number);
-    const [endH, endM] = (schedulerConfig.quiet_hours?.end ?? '07:00').split(':').map(Number);
-    const startMin = startH * 60 + startM;
-    const endMin = endH * 60 + endM;
-    const inQuiet = startMin <= endMin
-      ? (currentMinutes >= startMin && currentMinutes < endMin)
-      : (currentMinutes >= startMin || currentMinutes < endMin);
-    if (inQuiet) {
-      foremanLog({ timestamp: now.toISOString(), action: 'skip', reason: 'quiet_hours', trigger });
-      return;
-    }
-
-    // Active session check — two sessions editing the same working directory = git conflicts
-    const activeSessions = aggregator.getActiveSessions().length;
-    if (activeSessions > 0) {
-      foremanLog({ timestamp: now.toISOString(), action: 'skip', reason: 'session_active', sessions: activeSessions, trigger });
-      return;
-    }
-
-    // Budget check
-    const maxBudget = schedulerConfig.daily_budget?.max_cost_usd ?? 50;
-    const todaySpend = foremanTodaySpend();
-    if (todaySpend >= maxBudget) {
-      foremanLog({ timestamp: now.toISOString(), action: 'skip', reason: 'over_budget', spent: todaySpend, trigger });
-      return;
-    }
-
-    // Find all ready work
-    const projectPath = schedulerConfig.project_path ?? config.projects[0]?.path;
-    if (!projectPath) return;
-
-    const work: WorkItem[] = [
-      ...findInboxWork(projectPath),
-      ...findBacklogWork(projectPath),
-    ].sort((a, b) => a.sortOrder - b.sortOrder);
-
-    if (work.length === 0) {
-      foremanLog({ timestamp: now.toISOString(), action: 'check', reason: 'no_ready_work', trigger });
-      return;
-    }
-
-    const next = work[0];
-    console.log(`[foreman] Launching: ${next.name} (${next.priority}, ${next.source}${next.category ? `, ${next.category}` : ''})`);
-
-    foremanLaunch(next, projectPath, now);
-  } catch (err) {
-    console.error('[foreman] Error:', err);
-  }
-}
-
-function findInboxWork(projectPath: string): WorkItem[] {
-  const directivesDir = path.join(projectPath, '.context', 'directives');
-  if (!fs.existsSync(directivesDir)) return [];
-
-  const items: WorkItem[] = [];
-  for (const file of fs.readdirSync(directivesDir).filter(f => f.endsWith('.json'))) {
-    // Skip checkpoint directories
-    const filePath = path.join(directivesDir, file);
-    try {
-      if (fs.statSync(filePath).isDirectory()) continue;
-    } catch { continue; }
-
-    let dirJson: Record<string, unknown>;
-    try {
-      dirJson = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
-    } catch { continue; }
-
-    // Only consider pending directives
-    if (dirJson.status !== 'pending') continue;
-
-    const name = file.replace('.json', '');
-
-    // Check companion .md for skip markers
-    const mdPath = path.join(directivesDir, `${name}.md`);
-    if (fs.existsSync(mdPath)) {
-      const content = fs.readFileSync(mdPath, 'utf-8');
-      if (SKIP_MARKERS.some(marker => content.includes(marker))) continue;
-    }
-
-    const priority = typeof dirJson.priority === 'string' ? dirJson.priority : 'P2';
-
-    items.push({
-      name,
-      priority,
-      source: 'inbox',
-      path: mdPath,
-      sortOrder: priorityToOrder(priority),
-    });
-  }
-  return items;
-}
-
-function findBacklogWork(projectPath: string): WorkItem[] {
-  const backlogPath = path.join(projectPath, '.context', 'backlog.json');
-  if (!fs.existsSync(backlogPath)) return [];
-
-  const items: WorkItem[] = [];
-  let backlogItems: Array<Record<string, unknown>>;
-  try {
-    const raw = JSON.parse(fs.readFileSync(backlogPath, 'utf-8'));
-    if (!Array.isArray(raw)) return [];
-    backlogItems = raw;
-  } catch { return []; }
-
-  for (const bi of backlogItems) {
-    // Skip done/deferred items
-    const status = String(bi.status ?? 'pending');
-    if (status === 'done' || status === 'deferred') continue;
-
-    const trigger = bi.trigger ? String(bi.trigger) : '';
-    if (!trigger) continue; // Only items with triggers can be auto-launched
-
-    const triggerMet = checkTriggerFired(trigger, projectPath);
-    if (!triggerMet) continue;
-
-    const title = String(bi.title ?? 'unknown');
-    const category = String(bi.category ?? 'uncategorized');
-    const rawPriority = String(bi.priority ?? 'P2').toUpperCase();
-    const currentPriority = ['P0', 'P1', 'P2'].includes(rawPriority) ? rawPriority : 'P2';
-    const isPriorityCategory = PRIORITY_CATEGORIES.includes(category);
-    const effectivePriority = isPriorityCategory && currentPriority === 'P2' ? 'P1' : currentPriority;
-
-    items.push({
-      name: title,
-      priority: effectivePriority,
-      source: 'backlog',
-      path: backlogPath,
-      category,
-      trigger,
-      sortOrder: priorityToOrder(effectivePriority) + 0.5, // inbox wins ties
-    });
-  }
-  return items;
-}
-
-function checkTriggerFired(trigger: string, projectPath: string): boolean {
-  const lower = trigger.toLowerCase();
-  if (lower.includes('not fired')) return false;
-  if (lower.includes('fired') && !lower.includes('not fired')) return true;
-
-  // Check done-state markers by looking at directive.json status
-  if (lower.includes('done') || lower.includes('implemented') || lower.includes('complete')) {
-    const directivesDir = path.join(projectPath, '.context', 'directives');
-    if (fs.existsSync(directivesDir)) {
-      const keywords = (lower.match(/\b\w{4,}\b/g) ?? []).filter(
-        kw => !['when', 'after', 'once', 'done', 'implemented', 'complete', 'that', 'been', 'with', 'used', 'times'].includes(kw)
-      );
-      const jsonFiles = fs.readdirSync(directivesDir).filter(f => f.endsWith('.json'));
-      for (const kw of keywords) {
-        for (const file of jsonFiles) {
-          if (file.toLowerCase().includes(kw)) {
-            try {
-              const dirJson = JSON.parse(fs.readFileSync(path.join(directivesDir, file), 'utf-8'));
-              if (dirJson.status === 'completed' || dirJson.status === 'done') return true;
-            } catch { /* skip */ }
-          }
-        }
-      }
-    }
-  }
-  return false;
-}
-
-function priorityToOrder(p: string): number {
-  if (p === 'P0') return 0;
-  if (p === 'P1') return 1;
-  if (p === 'P2') return 2;
-  return 3;
-}
-
-function foremanLaunch(work: WorkItem, projectPath: string, now: Date): void {
-  let prompt: string;
-  if (work.source === 'inbox') {
-    prompt = `/directive ${work.name}`;
-  } else {
-    prompt = `/directive Execute backlog item "${work.name}" [${work.category ?? 'uncategorized'}] (trigger: ${work.trigger ?? 'unknown'}). Backlog file: ${work.path}`;
-  }
-
-  const logDir = path.join(import.meta.dirname, '..', 'logs');
-  fs.mkdirSync(logDir, { recursive: true });
-  const timestamp = now.toISOString().replace(/[:.]/g, '-');
-  const logFile = path.join(logDir, `foreman-${work.name.replace(/\s+/g, '-').toLowerCase()}-${timestamp}.log`);
-  const outStream = fs.openSync(logFile, 'w');
-
-  const child = spawn('claude', ['-p', '--dangerously-skip-permissions', prompt], {
-    cwd: projectPath,
-    stdio: ['ignore', outStream, outStream],
-    detached: true,
-    env: { ...process.env, PATH: `/Users/yangyang/.local/bin:/usr/local/bin:/usr/bin:/bin:${process.env.PATH ?? ''}` },
-  });
-  child.unref();
-
-  foremanLog({
-    timestamp: now.toISOString(),
-    action: 'launch',
-    directive: work.name,
-    priority: work.priority,
-    source: work.source,
-    category: work.category,
-    estimated_cost_usd: 5,
-  });
-  console.log(`[foreman] Launched ${work.name}, PID ${child.pid}, log: ${logFile}`);
-
-  // Broadcast to dashboard
-  const msg = JSON.stringify({ version: 1, type: 'scheduler_update', payload: { action: 'launch', directive: work.name } });
-  for (const client of wss.clients) {
-    if (client.readyState === WebSocket.OPEN) client.send(msg);
-  }
-}
-
-function foremanLog(entry: Record<string, unknown>): void {
-  fs.mkdirSync(path.dirname(SCHEDULER_LOG_PATH), { recursive: true });
-  fs.appendFileSync(SCHEDULER_LOG_PATH, JSON.stringify(entry) + '\n', 'utf-8');
-}
-
-function foremanTodaySpend(): number {
-  if (!fs.existsSync(SCHEDULER_LOG_PATH)) return 0;
-  const today = new Date().toISOString().slice(0, 10);
-  let total = 0;
-  for (const line of fs.readFileSync(SCHEDULER_LOG_PATH, 'utf-8').split('\n')) {
-    if (!line.trim()) continue;
-    try {
-      const entry = JSON.parse(line);
-      if (entry.timestamp?.startsWith(today) && entry.action === 'launch' && entry.estimated_cost_usd) {
-        total += entry.estimated_cost_usd;
-      }
-    } catch { /* skip */ }
-  }
-  return total;
-}
-
-function startForeman(): void {
-  const schedulerConfig = fs.existsSync(SCHEDULER_CONFIG_PATH)
-    ? JSON.parse(fs.readFileSync(SCHEDULER_CONFIG_PATH, 'utf-8'))
-    : null;
-  const intervalMs = (schedulerConfig?.check_interval_minutes ?? 15) * 60 * 1000;
-
-  // Pure interval-based: check every N minutes for available work
-  foremanInterval = setInterval(() => foremanCheck('interval'), intervalMs);
-
-  console.log(`  Foreman: checking every ${schedulerConfig?.check_interval_minutes ?? 15}m (${schedulerConfig?.enabled ? 'enabled' : 'disabled'})`);
-}
-
-function stopForeman(): void {
-  if (foremanInterval) {
-    clearInterval(foremanInterval);
-    foremanInterval = null;
-  }
-}
 
 // --- Start Server ---
 server.listen(PORT, () => {
@@ -1229,16 +580,12 @@ server.listen(PORT, () => {
       console.log(`    - ${p.name}: ${p.path}`);
     }
   }
-  startForeman();
   console.log('');
 });
 
 // --- Graceful shutdown ---
 function shutdown(): void {
   console.log('\n[shutdown] Shutting down...');
-
-  // Stop foreman
-  stopForeman();
 
   // Stop notifier
   notifier.stop();

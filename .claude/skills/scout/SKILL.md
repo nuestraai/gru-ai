@@ -5,7 +5,13 @@ description: "External intelligence gathering — C-suite agents research the ou
 
 # Scout — External Intelligence Gathering
 
-Run a scout: each C-suite member researches their external domain, brings back intelligence, and proposes initiatives. Morgan consolidates, CEO reviews, approved proposals become directives.
+## Role Resolution
+
+Read `.claude/agent-registry.json` to map roles to agent names. Use each agent's `id` as the `subagent_type` when spawning. The CTO = technology scout, the CPO = product/user scout, the CMO = market/growth scout, the COO = process/ecosystem scout + consolidation.
+
+---
+
+Run a scout: each C-suite member researches their external domain, brings back intelligence, and proposes initiatives. The COO consolidates, CEO reviews, approved proposals become directives.
 
 **Key principle:** Agents look OUTWARD. They use WebSearch and WebFetch to research the world — competitors, market trends, frameworks, user sentiment. They do NOT scan the codebase. That's `/healthcheck`.
 
@@ -14,8 +20,8 @@ Run a scout: each C-suite member researches their external domain, brings back i
 Read ALL of these before spawning agents:
 - `.context/vision.md` — north star + guardrails (agents need to know what's relevant)
 - `.context/preferences.md` — CEO standing orders
-- `.context/goals/*/goal.json` — current goals and priorities (so agents focus research on what matters)
-- All `backlog.json` files in `.context/goals/*/` — so agents don't propose what's already queued, AND so Morgan can check trigger conditions during consolidation
+- `.context/directives/*/directive.json` — current directives and priorities (so agents focus research on what matters)
+- `.context/backlog.json` — so agents don't propose what's already queued, AND so the COO can check trigger conditions during consolidation
 - `.context/lessons/orchestration.md`
 - Recent scout archive in `.context/intel/archive/` — so agents don't re-report known intelligence (just filenames + dates, not full content)
 - `.context/reports/ (proposals tracked in reports)` — so agents know what's been proposed and approved/rejected before
@@ -28,16 +34,16 @@ Each agent receives:
 - Their full personality from `.claude/agents/{name}.md`
 - `.context/vision.md` (full file — guardrails help agents assess relevance)
 - `.context/preferences.md`
-- `.context/goals/*/goal.json`
+- `.context/directives/*/directive.json`
 - Current backlogs summary (what's already planned)
 - List of recent intelligence reports (filenames only — so they skip known topics)
 
 **All agents**: `subagent_type: "general-purpose"`, `model: "opus"`
 
-### Sarah (CTO) — Technology Scout
+### CTO — Technology Scout
 
 ```
-You are Sarah Chen, CTO. You are running a standing intelligence scout of your technology domain.
+You are the CTO. You are running a standing intelligence scout of your technology domain.
 
 Your job: research the OUTSIDE WORLD for technology developments relevant to our products and stack. Use WebSearch and WebFetch to find real, current information.
 
@@ -55,10 +61,10 @@ DO NOT scan the codebase. DO NOT grep files. DO NOT run npm commands. You resear
 {JSON output instructions below}
 ```
 
-### Marcus (CPO) — Product & User Scout
+### CPO — Product & User Scout
 
 ```
-You are Marcus Rivera, CPO. You are running a standing intelligence scout of your product domain.
+You are the CPO. You are running a standing intelligence scout of your product domain.
 
 Your job: research the OUTSIDE WORLD for product developments, competitor moves, and user sentiment relevant to our products (BuyWisely, SellWisely, PricesAPI).
 
@@ -76,10 +82,10 @@ DO NOT scan the codebase. DO NOT grep files. You research users and markets, not
 {JSON output instructions below}
 ```
 
-### Priya (CMO) — Market & Growth Scout
+### CMO — Market & Growth Scout
 
 ```
-You are Priya Sharma, CMO. You are running a standing intelligence scout of your growth domain.
+You are the CMO. You are running a standing intelligence scout of your growth domain.
 
 Your job: research the OUTSIDE WORLD for marketing trends, competitor strategies, and growth opportunities relevant to our products (BuyWisely, SellWisely, PricesAPI).
 
@@ -97,10 +103,10 @@ DO NOT scan the codebase. DO NOT grep for meta tags. You research markets and ch
 {JSON output instructions below}
 ```
 
-### Morgan (COO) — Process & Ecosystem Scout
+### COO — Process & Ecosystem Scout
 
 ```
-You are Morgan Park, COO. You are running a standing intelligence scout of your operations and ecosystem domain.
+You are the COO. You are running a standing intelligence scout of your operations and ecosystem domain.
 
 Your job: research the OUTSIDE WORLD for developments in AI agent frameworks, developer productivity tools, and workflow patterns that could improve our conductor system and development process.
 
@@ -128,7 +134,7 @@ CRITICAL OUTPUT FORMAT: Your response must contain ONLY valid JSON. No prose, no
 Your output must follow this schema:
 
 {
-  "agent": "sarah | marcus | priya | morgan",
+  "agent": "cto-id | cpo-id | cmo-id | coo-id",
   "domain": "technology | product | growth | operations",
   "scout_date": "YYYY-MM-DD",
   "intelligence": [
@@ -154,7 +160,7 @@ Your output must follow this schema:
       "estimated_complexity": "simple | moderate | complex",
       "recommended_process": "fix | design-then-build | research-then-build | full-pipeline | research-only",
       "related_intelligence": ["intel-slug-1", "intel-slug-2"],
-      "goal_alignment": "Which .context/goals/ area this advances"
+      "goal_alignment": "Which strategic area this advances"
     }
   ],
   "summary": "2-3 sentence overview of what's happening in this domain"
@@ -177,26 +183,26 @@ PROPOSAL RULES:
 
 **Parse each agent's response** as JSON (extract between first `{` and last `}`). If any fails to parse, log the error and continue with the others.
 
-## Step 3: Morgan Consolidation
+## Step 3: COO Consolidation
 
-After all scout agents return, spawn Morgan again with a consolidation task.
+After all scout agents return, spawn the COO again with a consolidation task.
 
-**Morgan receives:**
-- Her personality file
+**The COO receives:**
+- Their personality file
 - All 4 scout outputs (parsed JSON)
 - Current goals index and backlogs
 - These instructions:
 
 ```
-You are Morgan Park, COO. The team has completed their intelligence scout. Your job: consolidate, deduplicate, cross-reference, and prioritize.
+You are the COO. The team has completed their intelligence scout. Your job: consolidate, deduplicate, cross-reference, and prioritize.
 
 CONSOLIDATION RULES:
-1. **Cross-reference**: If multiple agents found related intelligence (e.g., Sarah found a security advisory AND Marcus found competitors just patched it), link them together. Cross-domain insights are the most valuable.
+1. **Cross-reference**: If multiple agents found related intelligence (e.g., the CTO found a security advisory AND the CPO found competitors just patched it), link them together. Cross-domain insights are the most valuable.
 2. **Merge duplicate proposals**: If multiple agents propose similar initiatives, merge them. The scope should incorporate all perspectives.
 3. **Prioritize**: Rank all proposals. Break ties using: act_now urgency > revenue impact > competitive threat > strategic alignment.
-4. **Filter already-planned**: Remove proposals for work that's already in a backlog or OKR. Note them in the summary.
+4. **Filter already-planned**: Remove proposals for work that's already in a backlog or directive. Note them in the summary.
 5. **Validate urgency**: If an agent rated something act_now but the evidence is weak, downgrade it. If something rated this_month has stronger implications, upgrade it.
-6. **Backlog promotion check**: Read all `.context/goals/*/backlog.json` files. For each backlog item that has a **Trigger** condition, check if any intelligence finding satisfies that trigger. If yes, promote it — add it to `promotable_backlog_items` with the matching intelligence. This is how backlog items come alive instead of rotting.
+6. **Backlog promotion check**: Read `.context/backlog.json`. For each backlog item that has a **Trigger** condition, check if any intelligence finding satisfies that trigger. If yes, promote it — add it to `promotable_backlog_items` with the matching intelligence. This is how backlog items come alive instead of rotting.
 7. **Cross-scout pattern detection**: After consolidation, identify topics/entities that appear in findings from 2+ different agents. These cross-scout signals are the highest-confidence intelligence. Classify signal strength: **strong** (3+ agents OR 4+ total mentions), **moderate** (2 agents + 3+ mentions), **weak** (2 agents, few mentions). Strong signals with `act_now` or `this_week` urgency should be flagged for automatic promotion to inbox directives — they represent validated, multi-perspective intelligence that doesn't need CEO approval to queue. Include cross-scout signals in the `cross_scout_signals` field of your output.
 
 CRITICAL OUTPUT FORMAT: Your response must contain ONLY valid JSON. The very first character must be `{` and the very last must be `}`.
@@ -204,10 +210,10 @@ CRITICAL OUTPUT FORMAT: Your response must contain ONLY valid JSON. The very fir
 {
   "scout_date": "YYYY-MM-DD",
   "domain_summaries": {
-    "technology": "Sarah's summary",
-    "product": "Marcus's summary",
-    "growth": "Priya's summary",
-    "operations": "Morgan's summary"
+    "technology": "CTO's summary",
+    "product": "CPO's summary",
+    "growth": "CMO's summary",
+    "operations": "COO's summary"
   },
   "consolidated_intelligence": [
     {
@@ -217,7 +223,7 @@ CRITICAL OUTPUT FORMAT: Your response must contain ONLY valid JSON. The very fir
       "title": "title",
       "detail": "combined detail from all reporting agents",
       "source": "URL or source",
-      "reported_by": ["sarah", "marcus"],
+      "reported_by": ["cto-id", "cpo-id"],
       "products_affected": ["buywisely"],
       "cross_references": ["other-intel-slug if related"]
     }
@@ -231,7 +237,7 @@ CRITICAL OUTPUT FORMAT: Your response must contain ONLY valid JSON. The very fir
       "rationale": "Why — combined reasoning from all agents who contributed",
       "scope": "What needs to happen",
       "estimated_complexity": "simple | moderate | complex",
-      "proposed_by": ["sarah"],
+      "proposed_by": ["cto-id"],
       "related_intelligence": ["intel-slug-1"],
       "recommended_process": "fix | design-then-build | research-then-build | full-pipeline | research-only",
       "goal_alignment": "Which goal area this advances"
@@ -240,7 +246,7 @@ CRITICAL OUTPUT FORMAT: Your response must contain ONLY valid JSON. The very fir
   "promotable_backlog_items": [
     {
       "backlog_item": "Title from backlog",
-      "source_file": ".context/goals/{goal}/backlog.json",
+      "source_file": ".context/backlog.json",
       "trigger_condition": "The trigger text from the backlog item",
       "matching_intelligence": ["intel-slug-1"],
       "why_triggered": "How the intelligence satisfies the trigger condition",
@@ -250,7 +256,7 @@ CRITICAL OUTPUT FORMAT: Your response must contain ONLY valid JSON. The very fir
   "cross_scout_signals": [
     {
       "topic": "topic-slug",
-      "agents": ["sarah", "marcus"],
+      "agents": ["cto-id", "cpo-id"],
       "agent_count": 2,
       "total_mentions": 4,
       "highest_urgency": "this_week",
@@ -266,7 +272,7 @@ CRITICAL OUTPUT FORMAT: Your response must contain ONLY valid JSON. The very fir
 }
 ```
 
-**Parse Morgan's response** as JSON.
+**Parse the COO's response** as JSON.
 
 ## Step 4: Present to CEO
 
@@ -276,13 +282,13 @@ Present the consolidated intelligence to the CEO in a readable format:
 # Scout Report — {date}
 
 ## TL;DR
-{Morgan's overall_assessment — the one thing the CEO should know}
+{COO's overall_assessment — the one thing the CEO should know}
 
 ## Domain Intelligence
-- **Technology (Sarah)**: {summary}
-- **Product (Marcus)**: {summary}
-- **Growth (Priya)**: {summary}
-- **Ecosystem (Morgan)**: {summary}
+- **Technology (CTO)**: {summary}
+- **Product (CPO)**: {summary}
+- **Growth (CMO)**: {summary}
+- **Ecosystem (COO)**: {summary}
 
 ## Action Required ({count} act_now + this_week items)
 
@@ -420,7 +426,7 @@ Append approved/rejected proposals to `.context/reports/ (proposals tracked in r
 | An agent's output doesn't parse as JSON | Log the error, continue with other agents. Include raw output in report. |
 | WebSearch returns no results for an agent | Include their "no notable developments" summary. No proposals from that domain. |
 | An agent finds only fyi-level intelligence | Include their summary. No proposals needed — this is fine. |
-| Morgan consolidation fails | Present raw agent outputs to CEO without consolidation. |
+| COO consolidation fails | Present raw agent outputs to CEO without consolidation. |
 | CEO rejects all proposals | Log rejections. Scout still recorded as completed. |
 | No intelligence across all agents | Report "quiet week" — this is a valid outcome. |
 | intel/latest/ directory doesn't exist | Create it with mkdir -p. |

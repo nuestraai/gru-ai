@@ -92,6 +92,8 @@ export interface DirectiveProject {
   phase: 'audit' | 'design' | 'build' | 'review' | null;
   totalTasks?: number;
   completedTasks?: number;
+  agent?: string[];
+  reviewers?: string[];
   tasks?: DirectiveProjectTask[];
 }
 
@@ -110,7 +112,7 @@ export interface DirectiveState {
   directiveName: string;
   /** Human-readable title (from directive .json or .md heading) */
   title?: string;
-  status: 'in_progress' | 'awaiting_completion' | 'completed' | 'failed';
+  status: 'pending' | 'in_progress' | 'awaiting_completion' | 'completed' | 'failed';
   totalProjects: number;
   currentProject: number;
   currentPhase: string;
@@ -123,8 +125,6 @@ export interface DirectiveState {
   currentStepId?: string;
   /** Directive weight class */
   weight?: string;
-  /** Directive category (e.g. game, ui, framework) */
-  category?: string;
   /** Triage rationale — why this weight was assigned */
   triageRationale?: string;
   /** CEO approval status */
@@ -200,7 +200,6 @@ export type WsMessageType =
   | 'event_added'
   | 'events_updated'
   | 'session_activities_updated'
-  | 'config_updated'
   | 'notification_fired'
   | 'directive_updated'
   | 'state_updated';
