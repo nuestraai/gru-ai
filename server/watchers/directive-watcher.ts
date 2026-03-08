@@ -146,6 +146,8 @@ export class DirectiveWatcher {
   private _ready = false;
   /** Snapshot of last emitted state hash for change detection in poll fallback */
   private lastStateHash = '';
+  /** Track which directives have already fired a stall warning (fire once) */
+  private stalledWarned = new Set<string>();
 
   /** mtime-based cache: dirId -> { mtimeMs, state } */
   private historyCache = new Map<string, { mtimeMs: number; state: DirectiveState }>();
@@ -399,10 +401,47 @@ export class DirectiveWatcher {
       pipelineSteps = derivePipelineSteps(directive.weight ?? 'medium', directive.status);
     }
 
+    // -----------------------------------------------------------------------
+    // Stall detection: all tasks done but pipeline stuck (not at CEO-action step)
+    // -----------------------------------------------------------------------
+    const mappedStatus = mapStatus(directive.status);
+    const ceoActionSteps = new Set(['approve', 'completion']);
+    const terminalTaskStatuses = new Set(['completed', 'done', 'skipped', 'cancelled']);
+    const ONE_HOUR_MS = 60 * 60 * 1000;
+
+    let stalledAt: string | null = null;
+
+    const allTasksDone = projects.length > 0 && projects.every(p => {
+      const tasks = p.tasks ?? [];
+      return tasks.length === 0 || tasks.every(t => terminalTaskStatuses.has(t.status));
+    });
+
+    const updatedAtStr: string = directive.updated_at ?? '';
+    const updatedAtMs = updatedAtStr ? new Date(updatedAtStr).getTime() : 0;
+    const isOlderThanOneHour = updatedAtMs > 0 && (Date.now() - updatedAtMs) > ONE_HOUR_MS;
+
+    if (
+      mappedStatus === 'in_progress' &&
+      allTasksDone &&
+      !ceoActionSteps.has(currentStep) &&
+      isOlderThanOneHour
+    ) {
+      stalledAt = updatedAtStr;
+      if (!this.stalledWarned.has(dirId)) {
+        console.warn(`[directive-watcher] STALLED: ${dirId} — all tasks done but stuck at step '${currentStep}' since ${updatedAtStr}`);
+        this.stalledWarned.add(dirId);
+      }
+    } else {
+      stalledAt = null;
+      if (this.stalledWarned.has(dirId)) {
+        this.stalledWarned.delete(dirId);
+      }
+    }
+
     return {
       directiveName: dirId,
       title: directive.title ?? dirId,
-      status: mapStatus(directive.status),
+      status: mappedStatus,
       totalProjects: projects.length,
       currentProject: completedCount,
       currentPhase,
@@ -418,6 +457,7 @@ export class DirectiveWatcher {
       planSummary: directive.pipeline?.plan?.output?.summary ?? directive.pipeline?.plan?.output?.projects,
       brainstormContent: this.readTextFile(path.join(this.directivesDir, dirId, 'brainstorm.md')),
       directiveBrief: this.readTextFile(path.join(this.directivesDir, dirId, 'directive.md')),
+      stalledAt,
     };
   }
 

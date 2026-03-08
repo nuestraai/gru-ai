@@ -60,6 +60,17 @@ This file is a routing table. Each row points to a modular doc containing full i
 
 The server's directive-watcher reads `directive.json` directly (NOT `current.json`) and pushes pipeline state to the dashboard via WebSocket. Keeping `pipeline` updated is what makes the stepper UI show real-time progress.
 
+### Step Execution Loop
+
+After completing a step and updating directive.json, **immediately** read the next step's doc from the routing table below and execute it. Do NOT stop, do NOT pause, do NOT ask for confirmation between steps. The pipeline is designed to run end-to-end in a single pass.
+
+**STOP gates — the only two points where you must stop and wait for the CEO:**
+
+1. **`approve`** — heavyweight/strategic directives only. Lightweight and medium directives auto-approve and skip this gate entirely.
+2. **`completion`** — all weights. The CEO must approve the final result or reopen the directive.
+
+At every other step, transition directly to the next step without delay. If a step is skipped for the current weight class, advance past it and continue to the next applicable step.
+
 ### Pipeline Steps
 
 | # | Step ID | Doc | Purpose | Depends On |

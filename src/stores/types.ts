@@ -127,6 +127,8 @@ export interface DirectiveState {
   planSummary?: string;
   brainstormContent?: string;
   directiveBrief?: string;
+  /** ISO timestamp when stall was first detected (all tasks done but pipeline stuck) */
+  stalledAt?: string | null;
 }
 
 export interface DashboardState {

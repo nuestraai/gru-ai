@@ -6,8 +6,7 @@ import { adjustSprite } from '../colorize'
 const _ = '' // transparent
 
 // ── Furniture Sprite Placeholders ────────────────────────────────
-// Minimal fallbacks shown until LimeZu sprites load. Replaced at runtime
-// by applyTilesetToFurniture() from tileset-loader.ts.
+// Minimal fallbacks shown when TMX tileset rendering is unavailable.
 
 const PLACEHOLDER_1x1: SpriteData = [['#808080']]
 const PLACEHOLDER_2x1: SpriteData = [new Array(32).fill('#808080')]
@@ -110,6 +109,7 @@ export const CHARACTER_PALETTES = [
   { skin: '#FFCC99', shirt: '#DD7733', pants: '#443322', hair: '#994411', shoes: '#333333' }, // 9: Taylor (burnt orange shirt)
   { skin: '#C4956A', shirt: '#66CC55', pants: '#334433', hair: '#222222', shoes: '#222222' }, // 10: Sam (lime green shirt)
   { skin: '#FFCC99', shirt: '#7766DD', pants: '#333355', hair: '#553322', shoes: '#333333' }, // 11: Devon (indigo shirt)
+  { skin: '#C4956A', shirt: '#AA7744', pants: '#3D3322', hair: '#332211', shoes: '#222222' }, // 12: Spare (brown shirt, MetroCity pre-colored)
 ] as const
 
 // ════════════════════════════════════════════════════════════════

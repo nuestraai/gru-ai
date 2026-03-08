@@ -45,9 +45,7 @@ interface AgentRegistryStore {
   fetchRegistry: () => Promise<void>;
 }
 
-const API_BASE = typeof window !== 'undefined' && window.location.port === '5173'
-  ? 'http://localhost:4444'
-  : '';
+const API_BASE = '';
 
 export const useAgentRegistryStore = create<AgentRegistryStore>((set, get) => ({
   registry: null,

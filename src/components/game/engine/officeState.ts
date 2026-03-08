@@ -12,6 +12,7 @@ import {
   CHARACTER_SITTING_OFFSET_PX,
   CHARACTER_HIT_HALF_WIDTH,
   CHARACTER_HIT_HEIGHT,
+  CHARACTER_SPRITE_SCALE,
   STATUS_CHANGE_DEBOUNCE_SEC,
   LINGER_MIN_SEC,
   LINGER_MAX_SEC,
@@ -39,12 +40,15 @@ import {
   getSeatTiles,
 } from '../layout/layoutSerializer'
 import { getCatalogEntry, getOnStateType } from '../layout/furnitureCatalog'
+import { WALL_GIDS } from '../office-layout'
 
 export class OfficeState {
   layout: OfficeLayout
   tileMap: TileTypeVal[][]
   seats: Map<string, Seat>
   blockedTiles: Set<string>
+  /** Tiles currently occupied by characters (rebuilt each update tick) */
+  occupiedTiles: Set<string> = new Set()
   furniture: FurnitureInstance[]
   walkableTiles: Array<{ col: number; row: number }>
   characters: Map<number, Character> = new Map()
@@ -85,8 +89,9 @@ export class OfficeState {
 
     const seatTileKeys = getSeatTiles(this.seats)
     if (this.layout.gidLayers && this.layout.gidLayers.length > 0) {
-      // Layers 1 (Furniture) and 2 (Tables) block movement; seats excluded
-      this.blockedTiles = getBlockedTilesFromGids(this.layout.gidLayers, this.layout.cols, [1, 2, 3], seatTileKeys)
+      // Layers 1 (furniture_base) + 2 (furniture_top) block movement; seats + neighbors excluded.
+      // Layer 3 (deco) is NOT blocked — it contains animated doors, decorations, and visual overlays.
+      this.blockedTiles = getBlockedTilesFromGids(this.layout.gidLayers, this.layout.cols, [1, 2], seatTileKeys)
     } else {
       this.blockedTiles = getBlockedTiles(this.layout.furniture, seatTileKeys)
     }
@@ -343,7 +348,7 @@ export class OfficeState {
     ch.seatId = seatId
     // Pathfind to new seat (unblock own seat tile for this query)
     const path = this.withOwnSeatUnblocked(ch, () =>
-      findPath(ch.tileCol, ch.tileRow, seat.seatCol, seat.seatRow, this.tileMap, this.blockedTiles)
+      findPath(ch.tileCol, ch.tileRow, seat.seatCol, seat.seatRow, this.tileMap, this.blockedTiles, this.occupiedTiles)
     )
     if (path.length > 0) {
       ch.path = path
@@ -370,7 +375,7 @@ export class OfficeState {
     const seat = this.seats.get(ch.seatId)
     if (!seat) return
     const path = this.withOwnSeatUnblocked(ch, () =>
-      findPath(ch.tileCol, ch.tileRow, seat.seatCol, seat.seatRow, this.tileMap, this.blockedTiles)
+      findPath(ch.tileCol, ch.tileRow, seat.seatCol, seat.seatRow, this.tileMap, this.blockedTiles, this.occupiedTiles)
     )
     if (path.length > 0) {
       ch.path = path
@@ -465,7 +470,7 @@ export class OfficeState {
       }
     }
     const path = this.withOwnSeatUnblocked(ch, () =>
-      findPath(ch.tileCol, ch.tileRow, col, row, this.tileMap, this.blockedTiles)
+      findPath(ch.tileCol, ch.tileRow, col, row, this.tileMap, this.blockedTiles, this.occupiedTiles)
     )
     if (path.length === 0) {
       // Trigger collision flash for player-controlled characters when pathfinding fails
@@ -487,7 +492,7 @@ export class OfficeState {
     // Check walkability with own seat unblocked (target may be own seat tile)
     const path = this.withOwnSeatUnblocked(ch, () => {
       if (!isWalkable(col, row, this.tileMap, this.blockedTiles)) return []
-      return findPath(ch.tileCol, ch.tileRow, col, row, this.tileMap, this.blockedTiles)
+      return findPath(ch.tileCol, ch.tileRow, col, row, this.tileMap, this.blockedTiles, this.occupiedTiles)
     })
     if (path.length === 0) return false
     ch.path = path
@@ -1090,7 +1095,7 @@ export class OfficeState {
       this.meetingActive = true
 
       // Collect reachable conference room seats
-      const meetingBounds = { minCol: 17, maxCol: 30, minRow: 2, maxRow: 10 }
+      const meetingBounds = { minCol: 23, maxCol: 29, minRow: 0, maxRow: 11 }
       const adjDirs = [{ dc: 0, dr: -1 }, { dc: 0, dr: 1 }, { dc: -1, dr: 0 }, { dc: 1, dr: 0 }]
       const confSeats: string[] = []
       for (const [seatId, seat] of this.seats) {
@@ -1121,7 +1126,7 @@ export class OfficeState {
             const confKey = `${confSeat.seatCol},${confSeat.seatRow}`
             if (deskKey) this.blockedTiles.delete(deskKey)
             this.blockedTiles.delete(confKey)
-            const path = findPath(ch.tileCol, ch.tileRow, confSeat.seatCol, confSeat.seatRow, this.tileMap, this.blockedTiles)
+            const path = findPath(ch.tileCol, ch.tileRow, confSeat.seatCol, confSeat.seatRow, this.tileMap, this.blockedTiles, this.occupiedTiles)
             if (deskKey) this.blockedTiles.add(deskKey)
             this.blockedTiles.add(confKey)
             if (path.length > 0) {
@@ -1170,6 +1175,15 @@ export class OfficeState {
       this.meetingActive = false
     }
 
+    // Build set of tiles occupied by characters (for inter-character collision)
+    this.occupiedTiles.clear()
+    for (const ch of this.characters.values()) {
+      if (!ch.matrixEffect) {
+        this.occupiedTiles.add(`${ch.tileCol},${ch.tileRow}`)
+      }
+    }
+    const occupiedTiles = this.occupiedTiles
+
     const toDelete: number[] = []
     for (const ch of this.characters.values()) {
       // Handle matrix effect animation
@@ -1189,12 +1203,19 @@ export class OfficeState {
         continue // skip normal FSM while effect is active
       }
 
+      // Remove this character's own tile from occupied set so it doesn't block itself
+      const ownKey = `${ch.tileCol},${ch.tileRow}`
+      occupiedTiles.delete(ownKey)
+
       // Temporarily unblock own seat so character can pathfind to it
       // Pass heldKeys only for player-controlled characters
       const keys = ch.isPlayerControlled ? this.heldKeys : undefined
       this.withOwnSeatUnblocked(ch, () =>
-        updateCharacter(ch, dt, this.walkableTiles, this.seats, this.tileMap, this.blockedTiles, keys)
+        updateCharacter(ch, dt, this.walkableTiles, this.seats, this.tileMap, this.blockedTiles, keys, occupiedTiles)
       )
+
+      // Re-add this character's tile (may have changed if it moved)
+      occupiedTiles.add(`${ch.tileCol},${ch.tileRow}`)
 
       // Consume blockedTile signal from player character → collision flash
       if (ch.isPlayerControlled && ch.blockedTile) {
@@ -1210,7 +1231,7 @@ export class OfficeState {
         const dest = this.pickWanderDestination(ch)
         if (dest) {
           const path = this.withOwnSeatUnblocked(ch, () =>
-            findPath(ch.tileCol, ch.tileRow, dest.col, dest.row, this.tileMap, this.blockedTiles)
+            findPath(ch.tileCol, ch.tileRow, dest.col, dest.row, this.tileMap, this.blockedTiles, occupiedTiles)
           )
           if (path.length > 0) {
             ch.path = path
@@ -1374,7 +1395,7 @@ export class OfficeState {
    * Checks GID layers to determine if there's furniture/desk/server at the tile.
    * Returns a description of the tile content, or null for empty floor.
    */
-  getTileInfoAt(worldX: number, worldY: number): { type: 'desk' | 'furniture' | 'server' | 'conference' | 'wall' | 'whiteboard' | 'bookshelf'; col: number; row: number; seatId?: string; agentId?: number } | null {
+  getTileInfoAt(worldX: number, worldY: number): { type: 'desk' | 'furniture' | 'conference' | 'wall' | 'whiteboard' | 'bookshelf'; col: number; row: number; seatId?: string; agentId?: number } | null {
     const col = Math.floor(worldX / TILE_SIZE)
     const row = Math.floor(worldY / TILE_SIZE)
 
@@ -1386,17 +1407,14 @@ export class OfficeState {
 
     // Check floor layer for wall
     const floorGid = gidLayers[0]?.[idx] ?? 0
-    // Wall GIDs from office-layout.ts
-    const WALL_GIDS = new Set([12, 24, 26, 28, 40, 42, 56, 57, 58, 146, 162, 177, 178, 185, 193, 194, 201])
     if (WALL_GIDS.has(floorGid)) return { type: 'wall', col, row }
 
-    // Check furniture/chair/tables/laptop layers (indices 1-4) for non-zero GIDs
-    const furnitureGid = gidLayers[1]?.[idx] ?? 0
-    const chairGid = gidLayers[2]?.[idx] ?? 0
-    const tablesGid = gidLayers[3]?.[idx] ?? 0
-    const laptopGid = gidLayers[4]?.[idx] ?? 0
+    // Check furniture_base and furniture_top layers (indices 1-2) for non-zero GIDs
+    const furnitureBaseGid = gidLayers[1]?.[idx] ?? 0
+    const furnitureTopGid = gidLayers[2]?.[idx] ?? 0
+    const decoGid = gidLayers[3]?.[idx] ?? 0
 
-    const hasFurniture = furnitureGid !== 0 || chairGid !== 0 || tablesGid !== 0 || laptopGid !== 0
+    const hasFurniture = furnitureBaseGid !== 0 || furnitureTopGid !== 0 || decoGid !== 0
 
     if (!hasFurniture) return null
 
@@ -1407,15 +1425,17 @@ export class OfficeState {
       return { type: 'desk', col, row, seatId: nearSeatId, agentId }
     }
 
-    // Check if it's in a conference-like area (tables layer with desk GIDs)
-    // Conference tables use GIDs 709-730 range
-    if (tablesGid >= 709 && tablesGid <= 730) {
+    // Conference table detection (Modern Office desk GIDs 10292-10310)
+    if (furnitureBaseGid >= 10292 && furnitureBaseGid <= 10310) {
+      return { type: 'conference', col, row }
+    }
+    if (furnitureTopGid >= 10292 && furnitureTopGid <= 10310) {
       return { type: 'conference', col, row }
     }
 
-    // Server rack detection (GIDs 885, 1021, 1022, 1037, 1038)
-    if (furnitureGid === 885 || furnitureGid === 1021 || furnitureGid === 1022 || furnitureGid === 1037 || furnitureGid === 1038) {
-      return { type: 'server', col, row }
+    // Meeting room shelf/rack detection (Modern Office shelf GIDs 9999-10018)
+    if (furnitureBaseGid >= 9999 && furnitureBaseGid <= 10018) {
+      return { type: 'furniture', col, row }
     }
 
     // Whiteboard / bookshelf detection: check if this tile overlaps a known furniture instance
@@ -1464,9 +1484,9 @@ export class OfficeState {
       // Apply sitting offset to match visual position
       const sittingOffset = ch.state === CharacterState.TYPE ? CHARACTER_SITTING_OFFSET_PX : 0
       const anchorY = ch.y + sittingOffset
-      const left = ch.x - CHARACTER_HIT_HALF_WIDTH
-      const right = ch.x + CHARACTER_HIT_HALF_WIDTH
-      const top = anchorY - CHARACTER_HIT_HEIGHT
+      const left = ch.x - CHARACTER_HIT_HALF_WIDTH * CHARACTER_SPRITE_SCALE
+      const right = ch.x + CHARACTER_HIT_HALF_WIDTH * CHARACTER_SPRITE_SCALE
+      const top = anchorY - CHARACTER_HIT_HEIGHT * CHARACTER_SPRITE_SCALE
       const bottom = anchorY
       if (worldX >= left && worldX <= right && worldY >= top && worldY <= bottom) {
         return ch.id

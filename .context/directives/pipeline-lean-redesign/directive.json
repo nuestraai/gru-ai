@@ -1,0 +1,59 @@
+{
+  "id": "pipeline-lean-redesign",
+  "title": "Pipeline Lean Redesign — Context Engineering Overhaul",
+  "status": "active",
+  "created": "2026-03-09",
+  "weight": "strategic",
+  "revision": 1,
+  "produced_features": [],
+  "backlog_sources": [],
+  "started_at": "2026-03-09T15:00:00Z",
+  "updated_at": "2026-03-09T15:45:00Z",
+  "current_step": "brainstorm",
+  "iterations": [],
+  "pipeline": {
+    "triage": {
+      "status": "completed",
+      "agent": "CEO",
+      "output": {
+        "weight": "strategic",
+        "summary": "Strategic — process-level change to pipeline context engineering. Research + gap analysis + CEO clarification before changes."
+      }
+    },
+    "read": {
+      "status": "completed",
+      "agent": "CEO",
+      "output": {
+        "summary": "Read directive.md — 4 requirements: research best practices, internal gap analysis, CEO clarification, lean implementation."
+      }
+    },
+    "context": {
+      "status": "completed",
+      "agent": "CEO",
+      "output": {
+        "summary": "Read vision.md, agent registry, previous pipeline-quality-and-trim directive (completed). No preferences.md found."
+      }
+    },
+    "challenge": {
+      "status": "skipped",
+      "output": {
+        "summary": "Challenge deferred — CEO clarification is built into this directive's R3."
+      }
+    },
+    "brainstorm": {
+      "status": "completed",
+      "agent": "CTO, COO, CPO",
+      "output": {
+        "summary": "External research (6 Anthropic + 2 OpenAI articles) + internal gap analysis (29K words, 40 files). Found 7 conflicts, 10 missing enforcement gates. Key insight: docs are 81% signal but enforcement is all in prose — agents skip gates that don't produce errors. CEO clarifying questions presented.",
+        "findings": "Context rot confirmed — performance degrades 15-30% at 8K-16K instruction tokens. Harness engineering (mechanical enforcement) > context engineering (more docs). 3-7 examples > 20 rules."
+      },
+      "artifacts": [".context/directives/pipeline-lean-redesign/brainstorm.md"]
+    }
+  },
+  "projects": [],
+  "planning": {
+    "coo_plan": null,
+    "ceo_approval": null,
+    "worktree_path": null
+  }
+}

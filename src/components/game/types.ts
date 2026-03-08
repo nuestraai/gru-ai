@@ -21,13 +21,12 @@ export type TileType =
   | 'whiteboard'
   | 'mailbox'
   | 'bell'
-  | 'server-room'
   | 'door'
   | 'bookshelf'
   | 'hud-team'
   | 'hud-tasks'
   | 'hud-action'
-  | 'hud-ops'
+  | 'hud-status'
   | 'hud-directive'
   | 'hud-log';
 
@@ -99,6 +98,5 @@ export const INTERACTIVE_TILES: Set<TileType> = new Set([
   'whiteboard',
   'mailbox',
   'bell',
-  'server-room',
   'door',
 ]);

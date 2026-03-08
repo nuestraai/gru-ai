@@ -1,6 +1,5 @@
 import { FurnitureType } from '../pixel-types'
 import type { FurnitureCatalogEntry, SpriteData } from '../pixel-types'
-import type { LimeZuSprites } from '../tileset-loader'
 import {
   DESK_SQUARE_SPRITE,
   BOOKSHELF_SPRITE,
@@ -67,39 +66,6 @@ export const FURNITURE_CATALOG: CatalogEntryWithCategory[] = [
   { type: FurnitureType.TV_SCREEN,  label: 'TV Screen',  footprintW: 1, footprintH: 1, sprite: WHITEBOARD_SPRITE,   isDesk: false, category: 'wall', canPlaceOnWalls: true },
   { type: FurnitureType.PRINTER,    label: 'Printer',    footprintW: 1, footprintH: 1, sprite: FILING_CABINET_SPRITE, isDesk: false, category: 'electronics' },
 ]
-
-/** Replace hardcoded sprites with LimeZu sprites. Called after LimeZu singles load. */
-export function applyTilesetToFurniture(sprites: LimeZuSprites): void {
-  const map: Record<string, SpriteData> = {
-    [FurnitureType.DESK]: sprites.desk_wide,
-    [FurnitureType.PLANT]: sprites.plant_medium,
-    [FurnitureType.COOLER]: sprites.water_cooler,
-    [FurnitureType.WHITEBOARD]: sprites.whiteboard,
-    [FurnitureType.LAMP]: sprites.desk_lamp,
-    [FurnitureType.COUCH]: sprites.plant_tall,     // no couch single — placeholder
-    [FurnitureType.CHAIR]: sprites.chair_front,
-    [FurnitureType.BOOKSHELF]: sprites.bookshelf,
-    [FurnitureType.PC]: sprites.monitor_front,
-    [FurnitureType.SERVER_RACK]: sprites.server_rack,
-    [FurnitureType.COFFEE_TABLE]: sprites.desk_wood,
-    [FurnitureType.FILING_CABINET]: sprites.filing_cabinet,
-    // New LimeZu types
-    [FurnitureType.MONITOR]: sprites.monitor_front,
-    [FurnitureType.LAPTOP]: sprites.laptop,
-    [FurnitureType.EXEC_CHAIR]: sprites.exec_chair_front,
-    [FurnitureType.VENDING_MACHINE]: sprites.vending_machine,
-    [FurnitureType.AC_UNIT]: sprites.ac_unit,
-    [FurnitureType.WALL_ART]: sprites.wall_art,
-    [FurnitureType.COPIER]: sprites.copier,
-    [FurnitureType.TV_SCREEN]: sprites.tv_screen,
-    [FurnitureType.PRINTER]: sprites.printer,
-  }
-  for (const entry of FURNITURE_CATALOG) {
-    const newSprite = map[entry.type]
-    if (newSprite) entry.sprite = newSprite
-  }
-  console.log('✓ Applied LimeZu sprites to all furniture catalog entries')
-}
 
 // ── Rotation groups ──────────────────────────────────────────────
 // Flexible rotation: supports 2+ orientations (not just all 4)

@@ -48,7 +48,7 @@ interface TooltipState {
 
 /** Item click info passed up to GamePage */
 export interface ClickedItem {
-  type: 'desk' | 'furniture' | 'server' | 'conference' | 'wall' | 'whiteboard' | 'bookshelf'
+  type: 'desk' | 'furniture' | 'conference' | 'wall' | 'whiteboard' | 'bookshelf'
   col: number
   row: number
   agentName?: string
@@ -647,7 +647,6 @@ export default function CanvasOffice({
       const tileInfo = state.getTileInfoAt(worldX, worldY)
       const isInteractiveItem = tileInfo && (
         (tileInfo.type === 'desk' && tileInfo.agentId !== undefined) ||
-        tileInfo.type === 'server' ||
         tileInfo.type === 'conference' ||
         tileInfo.type === 'whiteboard' ||
         tileInfo.type === 'bookshelf'

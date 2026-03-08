@@ -23,14 +23,16 @@ export const FurnitureActivityType = {
 export type FurnitureActivityType = (typeof FurnitureActivityType)[keyof typeof FurnitureActivityType]
 
 // ── Grid & Layout ────────────────────────────────────────────
-export const TILE_SIZE = 16
-export const DEFAULT_COLS = 24
-export const DEFAULT_ROWS = 14
+export const TILE_SIZE = 48
+/** Character sprites are 16x32px pixel art. Scale them up to match the tile grid. */
+export const CHARACTER_SPRITE_SCALE = TILE_SIZE / 16  // 3 for 48px tiles
+export const DEFAULT_COLS = 30
+export const DEFAULT_ROWS = 20
 export const MAX_COLS = 64
 export const MAX_ROWS = 64
 
 // ── Character Animation ─────────────────────────────────────
-export const WALK_SPEED_PX_PER_SEC = 48
+export const WALK_SPEED_PX_PER_SEC = 144
 export const WALK_FRAME_DURATION_SEC = 0.15
 export const TYPE_FRAME_DURATION_SEC = 0.3
 
@@ -68,7 +70,7 @@ export const MATRIX_TRAIL_MID_THRESHOLD = 0.33
 export const MATRIX_TRAIL_DIM_THRESHOLD = 0.66
 
 // ── Rendering ────────────────────────────────────────────────
-export const CHARACTER_SITTING_OFFSET_PX = 6
+export const CHARACTER_SITTING_OFFSET_PX = 18
 export const CHARACTER_Z_SORT_OFFSET = 0.5
 export const OUTLINE_Z_SORT_OFFSET = 0.001
 export const SELECTED_OUTLINE_ALPHA = 1.0
@@ -83,7 +85,7 @@ export const BUTTON_LINE_WIDTH_MIN = 1.5
 export const BUTTON_LINE_WIDTH_ZOOM_FACTOR = 0.5
 export const BUBBLE_FADE_DURATION_SEC = 0.5
 export const BUBBLE_SITTING_OFFSET_PX = 10
-export const BUBBLE_VERTICAL_OFFSET_PX = 24
+export const BUBBLE_VERTICAL_OFFSET_PX = 40
 export const FALLBACK_FLOOR_COLOR = '#808080'
 
 // ── Rendering - Overlay Colors (canvas, not CSS) ─────────────
@@ -134,17 +136,23 @@ export const NOTIFICATION_NOTE_DURATION_SEC = 0.18
 export const NOTIFICATION_VOLUME = 0.14
 
 // ── Identity Plates & Status Indicators ─────────────────────
-export const NAME_LABEL_VERTICAL_OFFSET_PX = 28
+export const NAME_LABEL_VERTICAL_OFFSET_PX = 104
 /** Extra offset when character is sitting (typing state) */
 export const NAME_LABEL_SITTING_OFFSET_PX = 10
 /** Identity plate horizontal padding in pre-zoom pixels */
-export const IDENTITY_PLATE_PAD_X = 2
+export const IDENTITY_PLATE_PAD_X = 8
 /** Identity plate vertical padding in pre-zoom pixels */
-export const IDENTITY_PLATE_PAD_Y = 1
+export const IDENTITY_PLATE_PAD_Y = 5
 /** Identity plate background alpha */
-export const IDENTITY_PLATE_BG_ALPHA = 0.6
-/** Total plate height: glyph(7) + pad(1) + pad(1) = 9 pre-zoom px */
-export const IDENTITY_PLATE_HEIGHT = 9
+export const IDENTITY_PLATE_BG_ALPHA = 0.75
+/** Total plate height in pre-zoom px (font + padding) */
+export const IDENTITY_PLATE_HEIGHT = 22
+/** Corner radius for rounded-pill name plates (pre-zoom px) */
+export const IDENTITY_PLATE_CORNER_RADIUS = 11
+/** Radius of inline status dot in pre-zoom pixels */
+export const STATUS_DOT_RADIUS = 4
+/** Gap between name text and status dot in pre-zoom pixels */
+export const STATUS_DOT_GAP = 5
 
 /** Gap between identity plate top and status icon bottom (pre-zoom px) */
 export const STATUS_ICON_GAP_PX = 2
@@ -170,7 +178,7 @@ export const WAITING_BUBBLE_DURATION_SEC = 2.0
 export const DISMISS_BUBBLE_FAST_FADE_SEC = 0.3
 export const INACTIVE_SEAT_TIMER_MIN_SEC = 30.0
 export const INACTIVE_SEAT_TIMER_RANGE_SEC = 60.0
-export const PALETTE_COUNT = 6
+export const PALETTE_COUNT = 13
 export const HUE_SHIFT_MIN_DEG = 45
 export const HUE_SHIFT_RANGE_DEG = 271
 export const AUTO_ON_FACING_DEPTH = 3
@@ -208,42 +216,42 @@ export const ACTIVITY_DURATION_MEDIUM: [number, number] = [20, 60]
 export const ACTIVITY_DURATION_LONG: [number, number] = [30, 90]
 
 // ── Interaction Points Registry ─────────────────────────────
-// Hand-mapped use-tiles adjacent to furniture in the 32x32 office grid.
+// Hand-mapped use-tiles adjacent to furniture in the 30x20 office grid.
 // Each entry is a walkable tile where an agent stands to interact with
 // a nearby piece of furniture. Coordinates are 0-indexed (col, row).
 
 export const INTERACTION_POINTS: InteractionPoint[] = [
   // --- CEO Office (ceo-office zone) ---
   {
-    id: 'tv-ceo-office',
-    furnitureType: FurnitureActivityType.WATCHING_TV,
-    tileX: 14,
-    tileY: 5,
-    facing: Direction.RIGHT,
-    capacity: 1,
-    zoneId: 'ceo-office',
-    activityDurationMin: ACTIVITY_DURATION_MEDIUM[0],
-    activityDurationMax: ACTIVITY_DURATION_MEDIUM[1],
-  },
-  {
     id: 'bookshelf-ceo-office',
     furnitureType: FurnitureActivityType.READING,
     tileX: 2,
-    tileY: 3,
+    tileY: 4,
     facing: Direction.UP,
     capacity: 1,
     zoneId: 'ceo-office',
     activityDurationMin: ACTIVITY_DURATION_MEDIUM[0],
     activityDurationMax: ACTIVITY_DURATION_MEDIUM[1],
   },
-
-  // --- Conference Room (meeting zone) ---
   {
-    id: 'bookshelf-conference',
+    id: 'lounge-ceo-office',
+    furnitureType: FurnitureActivityType.LOUNGING,
+    tileX: 4,
+    tileY: 8,
+    facing: Direction.DOWN,
+    capacity: 1,
+    zoneId: 'ceo-office',
+    activityDurationMin: ACTIVITY_DURATION_LONG[0],
+    activityDurationMax: ACTIVITY_DURATION_LONG[1],
+  },
+
+  // --- Conference Room (meeting zone, cols 23-29, rows 0-11) ---
+  {
+    id: 'whiteboard-meeting',
     furnitureType: FurnitureActivityType.READING,
-    tileX: 18,
-    tileY: 4,
-    facing: Direction.LEFT,
+    tileX: 26,
+    tileY: 3,
+    facing: Direction.UP,
     capacity: 1,
     zoneId: 'meeting',
     activityDurationMin: ACTIVITY_DURATION_MEDIUM[0],
@@ -252,10 +260,10 @@ export const INTERACTION_POINTS: InteractionPoint[] = [
 
   // --- Workspace (workspace zone) ---
   {
-    id: 'sofa-lounge',
+    id: 'desk-lounge-workspace',
     furnitureType: FurnitureActivityType.LOUNGING,
-    tileX: 27,
-    tileY: 13,
+    tileX: 18,
+    tileY: 11,
     facing: Direction.RIGHT,
     capacity: 1,
     zoneId: 'workspace',
@@ -263,102 +271,50 @@ export const INTERACTION_POINTS: InteractionPoint[] = [
     activityDurationMax: ACTIVITY_DURATION_LONG[1],
   },
 
-  // --- Lobby (lobby zone) ---
+  // --- Kitchen (bottom-left area) ---
   {
-    id: 'vending-lobby',
+    id: 'kitchen-counter',
     furnitureType: FurnitureActivityType.VENDING,
-    tileX: 12,
-    tileY: 26,
+    tileX: 3,
+    tileY: 14,
     facing: Direction.UP,
     capacity: 1,
-    zoneId: 'lobby',
+    zoneId: 'kitchen',
     activityDurationMin: ACTIVITY_DURATION_SHORT[0],
     activityDurationMax: ACTIVITY_DURATION_SHORT[1],
   },
   {
-    id: 'arcade-lobby',
-    furnitureType: FurnitureActivityType.ARCADE,
-    tileX: 20,
-    tileY: 25,
+    id: 'kitchen-stove',
+    furnitureType: FurnitureActivityType.VENDING,
+    tileX: 3,
+    tileY: 17,
     facing: Direction.UP,
     capacity: 1,
-    zoneId: 'lobby',
+    zoneId: 'kitchen',
     activityDurationMin: ACTIVITY_DURATION_MEDIUM[0],
     activityDurationMax: ACTIVITY_DURATION_MEDIUM[1],
   },
+
+  // --- Break Room (bottom open area) ---
   {
-    id: 'kitchen-lobby',
-    furnitureType: FurnitureActivityType.VENDING,
-    tileX: 9,
-    tileY: 27,
-    facing: Direction.UP,
+    id: 'break-room-lounge-1',
+    furnitureType: FurnitureActivityType.LOUNGING,
+    tileX: 14,
+    tileY: 16,
+    facing: Direction.DOWN,
     capacity: 1,
-    zoneId: 'lobby',
-    activityDurationMin: ACTIVITY_DURATION_SHORT[0],
-    activityDurationMax: ACTIVITY_DURATION_SHORT[1],
+    zoneId: 'break-room',
+    activityDurationMin: ACTIVITY_DURATION_LONG[0],
+    activityDurationMax: ACTIVITY_DURATION_LONG[1],
   },
   {
-    id: 'fountain-lobby',
+    id: 'break-room-lounge-2',
     furnitureType: FurnitureActivityType.LOUNGING,
-    tileX: 10,
-    tileY: 29,
+    tileX: 22,
+    tileY: 17,
     facing: Direction.RIGHT,
     capacity: 1,
-    zoneId: 'lobby',
-    activityDurationMin: ACTIVITY_DURATION_LONG[0],
-    activityDurationMax: ACTIVITY_DURATION_LONG[1],
-  },
-
-  // --- Server Room (server-room zone) ---
-  {
-    id: 'gym-left',
-    furnitureType: FurnitureActivityType.EXERCISING,
-    tileX: 3,
-    tileY: 28,
-    facing: Direction.DOWN,
-    capacity: 1,
-    zoneId: 'server-room',
-    activityDurationMin: ACTIVITY_DURATION_LONG[0],
-    activityDurationMax: ACTIVITY_DURATION_LONG[1],
-  },
-  {
-    id: 'gym-right',
-    furnitureType: FurnitureActivityType.EXERCISING,
-    tileX: 6,
-    tileY: 28,
-    facing: Direction.DOWN,
-    capacity: 1,
-    zoneId: 'server-room',
-    activityDurationMin: ACTIVITY_DURATION_LONG[0],
-    activityDurationMax: ACTIVITY_DURATION_LONG[1],
-  },
-
-  // --- Break Room (break-room zone) ---
-  {
-    id: 'pool-table-primary',
-    furnitureType: FurnitureActivityType.PLAYING_POOL,
-    tileX: 18,
-    tileY: 28,
-    facing: Direction.UP,
-    capacity: 2,
-    tileX2: 18,
-    tileY2: 30,
-    facing2: Direction.DOWN,
-    zoneId: 'lobby',
-    activityDurationMin: ACTIVITY_DURATION_LONG[0],
-    activityDurationMax: ACTIVITY_DURATION_LONG[1],
-  },
-  {
-    id: 'pool-table-secondary',
-    furnitureType: FurnitureActivityType.PLAYING_PINGPONG,
-    tileX: 20,
-    tileY: 28,
-    facing: Direction.UP,
-    capacity: 2,
-    tileX2: 20,
-    tileY2: 30,
-    facing2: Direction.DOWN,
-    zoneId: 'lobby',
+    zoneId: 'break-room',
     activityDurationMin: ACTIVITY_DURATION_LONG[0],
     activityDurationMax: ACTIVITY_DURATION_LONG[1],
   },

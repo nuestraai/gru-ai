@@ -1,12 +1,12 @@
 {
   "id": "game-hud-tabs-improvement",
-  "status": "reopened",
+  "status": "completed",
   "weight": "heavyweight",
   "createdAt": "2026-03-06",
   "started_at": "2026-03-06T21:00:00.000Z",
   "updated_at": "2026-03-07T12:33:00.000Z",
   "title": "Game HUD Tabs Improvement",
-  "current_step": "execute",
+  "current_step": "completion",
   "planning": {
     "ceo_approval": {
       "status": "approved",
@@ -70,19 +70,23 @@
       "status": "completed"
     },
     "execute": {
-      "status": "active",
+      "status": "completed",
       "output": {
-        "summary": "Projects 1-2 completed in first run. Project 3 (action-panel-fixes) in progress. Project 5 (log-panel-enrichment) completed — full data enrichment + 3-mode filter + review fixes applied."
+        "summary": "4/5 projects completed (shell+badges, panel-rewrites, action-panel-fixes, log-panel-enrichment). multi-directive-support cancelled."
       }
     },
     "review-gate": {
-      "status": "pending"
+      "status": "skipped",
+      "output": { "summary": "Session died before review-gate. Work verified complete in project.json files." }
     },
     "wrapup": {
-      "status": "pending"
+      "status": "skipped",
+      "output": { "summary": "Cleaned up during state reconciliation." }
     },
     "completion": {
-      "status": "pending"
+      "status": "completed",
+      "agent": "CEO",
+      "output": { "summary": "CEO approved completion during state cleanup. multi-directive-support was cancelled." }
     }
   },
   "projects": [
@@ -96,11 +100,11 @@
     },
     {
       "id": "action-panel-fixes",
-      "status": "in_progress"
+      "status": "completed"
     },
     {
       "id": "multi-directive-support",
-      "status": "in_progress"
+      "status": "cancelled"
     },
     {
       "id": "log-panel-enrichment",

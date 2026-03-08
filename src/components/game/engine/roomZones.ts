@@ -1,6 +1,6 @@
 // ---------------------------------------------------------------------------
 // Room Zone definitions and context-aware spatial routing for agents.
-// Zones are tile-coordinate rectangles carved from the 32x32 office layout.
+// Zones are tile-coordinate rectangles carved from the 30x20 office layout.
 // ---------------------------------------------------------------------------
 
 import type { Character, Seat, AgentStatus, SessionInfo } from '../pixel-types'
@@ -23,82 +23,70 @@ export type RoomZoneId =
   | 'ceo-office'
   | 'meeting'
   | 'workspace'
-  | 'server-room'
+  | 'kitchen'
   | 'break-room'
-  | 'lobby'
 
 // ---------------------------------------------------------------------------
-// Zone definitions (based on office-layout.ts 32x32 grid)
+// Zone definitions (based on office-layout.ts 30x20 grid — gruai.tmx)
 // ---------------------------------------------------------------------------
 
 export const ROOM_ZONES: Record<RoomZoneId, RoomZone> = {
   'ceo-office': {
     id: 'ceo-office',
     label: 'Manager Office',
-    bounds: { minCol: 1, maxCol: 15, minRow: 2, maxRow: 10 },
+    bounds: { minCol: 0, maxCol: 7, minRow: 0, maxRow: 11 },
     waypoints: [
-      { col: 3, row: 7 },
-      { col: 7, row: 7 },
-      { col: 10, row: 7 },
+      { col: 3, row: 6 },
+      { col: 5, row: 6 },
       { col: 3, row: 9 },
-      { col: 7, row: 9 },
+      { col: 5, row: 9 },
     ],
     restricted: true,
-  },
-  meeting: {
-    id: 'meeting',
-    label: 'Conference Room',
-    bounds: { minCol: 17, maxCol: 30, minRow: 2, maxRow: 10 },
-    waypoints: [
-      { col: 20, row: 8 },
-      { col: 23, row: 8 },
-      { col: 26, row: 8 },
-      { col: 20, row: 3 },
-      { col: 26, row: 3 },
-    ],
   },
   workspace: {
     id: 'workspace',
     label: 'Open Workspace',
-    bounds: { minCol: 1, maxCol: 30, minRow: 12, maxRow: 25 },
+    bounds: { minCol: 8, maxCol: 22, minRow: 0, maxRow: 11 },
     waypoints: [
-      { col: 2, row: 13 },
-      { col: 2, row: 18 },
-      { col: 16, row: 13 },
-      { col: 16, row: 18 },
-      { col: 16, row: 24 },
+      { col: 12, row: 6 },
+      { col: 15, row: 6 },
+      { col: 18, row: 6 },
+      { col: 12, row: 10 },
+      { col: 18, row: 10 },
     ],
   },
-  'server-room': {
-    id: 'server-room',
-    label: 'Server Room',
-    bounds: { minCol: 1, maxCol: 8, minRow: 27, maxRow: 30 },
+  meeting: {
+    id: 'meeting',
+    label: 'Conference Room',
+    bounds: { minCol: 23, maxCol: 29, minRow: 0, maxRow: 11 },
     waypoints: [
-      { col: 2, row: 28 },
-      { col: 4, row: 29 },
-      { col: 6, row: 28 },
-      { col: 3, row: 30 },
+      { col: 25, row: 5 },
+      { col: 27, row: 5 },
+      { col: 25, row: 7 },
+      { col: 27, row: 7 },
+      { col: 26, row: 9 },
+    ],
+  },
+  kitchen: {
+    id: 'kitchen',
+    label: 'Kitchen',
+    bounds: { minCol: 0, maxCol: 7, minRow: 12, maxRow: 19 },
+    waypoints: [
+      { col: 3, row: 14 },
+      { col: 5, row: 14 },
+      { col: 3, row: 17 },
+      { col: 5, row: 17 },
     ],
   },
   'break-room': {
     id: 'break-room',
     label: 'Break Room',
-    bounds: { minCol: 20, maxCol: 30, minRow: 27, maxRow: 30 },
+    bounds: { minCol: 8, maxCol: 29, minRow: 12, maxRow: 19 },
     waypoints: [
-      { col: 22, row: 28 },
-      { col: 25, row: 29 },
-      { col: 28, row: 28 },
-      { col: 24, row: 30 },
-    ],
-  },
-  lobby: {
-    id: 'lobby',
-    label: 'Lobby',
-    bounds: { minCol: 1, maxCol: 30, minRow: 25, maxRow: 31 },
-    waypoints: [
-      { col: 10, row: 28 },
-      { col: 15, row: 29 },
-      { col: 18, row: 28 },
+      { col: 12, row: 16 },
+      { col: 18, row: 16 },
+      { col: 24, row: 16 },
+      { col: 15, row: 18 },
     ],
   },
 }
@@ -106,30 +94,6 @@ export const ROOM_ZONES: Record<RoomZoneId, RoomZone> = {
 // ---------------------------------------------------------------------------
 // Tool classification helpers
 // ---------------------------------------------------------------------------
-
-/** Tools associated with infrastructure / server / deployment work */
-const INFRA_TOOLS = new Set([
-  'Bash',
-  'bash',
-  'server',
-  'deploy',
-  'docker',
-  'npm',
-  'yarn',
-  'bun',
-  'prisma',
-  'migration',
-])
-
-/** Check if a tool name suggests infrastructure work */
-function isInfraTool(toolName: string | undefined): boolean {
-  if (!toolName) return false
-  const lower = toolName.toLowerCase()
-  // Exact match on known tool names
-  if (INFRA_TOOLS.has(toolName)) return true
-  // Substring match for compound tool names
-  return lower.includes('server') || lower.includes('deploy') || lower.includes('docker')
-}
 
 /** Check if a tool name suggests agent/discussion work */
 function isAgentTool(toolName: string | undefined): boolean {
@@ -195,17 +159,13 @@ export function chooseDestination(
       if (isAgentTool(sessionInfo.toolName)) {
         return pickWaypoint('meeting')
       }
-      // Infra tools => server room
-      if (isInfraTool(sessionInfo.toolName)) {
-        return pickWaypoint('server-room')
-      }
       // Default working => own desk (handled externally via sendToSeat)
       return null
     }
 
     case 'idle': {
-      // Idle — wander around (break room, lobby, ceo-office if allowed)
-      const allZones: RoomZoneId[] = ['break-room', 'lobby', 'ceo-office']
+      // Idle — wander around (break room, kitchen, ceo-office if allowed)
+      const allZones: RoomZoneId[] = ['break-room', 'kitchen', 'ceo-office']
       const zones = seats
         ? allZones.filter((z) => isAgentAllowedInZone(ch, z, seats))
         : allZones.filter((z) => !ROOM_ZONES[z].restricted)
@@ -232,8 +192,7 @@ export function pickWaypoint(zoneId: RoomZoneId): RoutingResult {
  * Returns the zone ID or null if not in any defined zone.
  */
 export function getZoneAt(col: number, row: number): RoomZoneId | null {
-  // Check specific zones first (server-room and break-room overlap with lobby)
-  for (const zoneId of ['ceo-office', 'meeting', 'workspace', 'server-room', 'break-room', 'lobby'] as RoomZoneId[]) {
+  for (const zoneId of ['ceo-office', 'meeting', 'workspace', 'kitchen', 'break-room'] as RoomZoneId[]) {
     const zone = ROOM_ZONES[zoneId]
     const b = zone.bounds
     if (col >= b.minCol && col <= b.maxCol && row >= b.minRow && row <= b.maxRow) {

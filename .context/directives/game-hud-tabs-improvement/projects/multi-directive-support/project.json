@@ -22,7 +22,7 @@
     {
       "id": "watcher-multi-directive",
       "title": "Watcher: return all active directives",
-      "status": "in_progress",
+      "status": "cancelled",
       "agent": ["riley"],
       "dod": [
         { "criterion": "Watcher returns DirectiveState[] for all in_progress/awaiting_completion/reopened directives", "met": false },
@@ -32,7 +32,7 @@
     {
       "id": "rename-and-merge",
       "title": "Rename Action tab to Tasks, merge with Directive panel",
-      "status": "in_progress",
+      "status": "cancelled",
       "agent": ["riley"],
       "dod": [
         { "criterion": "Tab strip shows 'Tasks' instead of 'Action', Directive tab removed", "met": false },
@@ -44,7 +44,7 @@
     {
       "id": "click-project-detail",
       "title": "Click project to show detail view",
-      "status": "in_progress",
+      "status": "cancelled",
       "agent": ["riley"],
       "dod": [
         { "criterion": "Clicking a project card opens a detail view showing tasks with DOD and status", "met": false },
@@ -54,7 +54,7 @@
     {
       "id": "click-step-session",
       "title": "Click active pipeline step to navigate to session",
-      "status": "in_progress",
+      "status": "cancelled",
       "agent": ["riley"],
       "dod": [
         { "criterion": "Active pipeline steps that have associated sessions are clickable", "met": false },

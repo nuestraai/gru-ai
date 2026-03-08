@@ -1,11 +1,12 @@
 import { TileType } from '../pixel-types'
 
-/** Check if a tile is walkable (floor, carpet, or doorway, and not blocked by furniture) */
+/** Check if a tile is walkable (floor, carpet, or doorway, and not blocked by furniture or other characters) */
 export function isWalkable(
   col: number,
   row: number,
   tileMap: TileType[][],
   blockedTiles: Set<string>,
+  occupiedTiles?: Set<string>,
 ): boolean {
   const rows = tileMap.length
   const cols = rows > 0 ? tileMap[0].length : 0
@@ -13,6 +14,7 @@ export function isWalkable(
   const t = tileMap[row][col]
   if (t === TileType.WALL || t === TileType.VOID) return false
   if (blockedTiles.has(`${col},${row}`)) return false
+  if (occupiedTiles && occupiedTiles.has(`${col},${row}`)) return false
   return true
 }
 
@@ -42,6 +44,7 @@ export function findPath(
   endRow: number,
   tileMap: TileType[][],
   blockedTiles: Set<string>,
+  occupiedTiles?: Set<string>,
 ): Array<{ col: number; row: number }> {
   if (startCol === endCol && startRow === endRow) return []
 
@@ -49,11 +52,10 @@ export function findPath(
   const startKey = key(startCol, startRow)
   const endKey = key(endCol, endRow)
 
-  // End must be walkable (or be a chair tile which may be adjacent to desk)
-  // We allow the end tile even if it's not strictly walkable for chair positions
+  // End must be walkable (ignore occupiedTiles for the destination — allow
+  // pathing TO an occupied tile but the final step will be blocked if still occupied)
   const endWalkable = isWalkable(endCol, endRow, tileMap, blockedTiles)
   if (!endWalkable) {
-    // If the end is a desk tile, we still can't path there
     return []
   }
 
@@ -92,7 +94,12 @@ export function findPath(
       const nk = key(nc, nr)
 
       if (visited.has(nk)) continue
-      if (!isWalkable(nc, nr, tileMap, blockedTiles)) continue
+      // Allow walking through the destination even if occupied (BFS needs to reach it)
+      if (nk === endKey) {
+        if (!isWalkable(nc, nr, tileMap, blockedTiles)) continue
+      } else {
+        if (!isWalkable(nc, nr, tileMap, blockedTiles, occupiedTiles)) continue
+      }
 
       visited.add(nk)
       parent.set(nk, currKey)

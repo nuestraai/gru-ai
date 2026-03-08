@@ -20,7 +20,6 @@ import {
   MailboxPanel,
   ConferencePanel,
   BellPanel,
-  ServerRoomPanel,
   BookshelfPanel,
   PARCHMENT,
 } from './panels';
@@ -89,7 +88,6 @@ function panelTitle(selected: SelectedItem | null, activeTab: HudTab | null): st
     case 'whiteboard':    return 'Whiteboard';
     case 'mailbox':       return 'Mailbox';
     case 'bell':          return 'Scout Bell';
-    case 'server-room':   return 'Server Room';
     case 'bookshelf':     return 'Knowledge Base';
     case 'door':          return 'Entrance';
     default:              return 'Office';
@@ -220,7 +218,6 @@ function PanelContent({
     case 'mailbox':       return <MailboxPanel />;
     case 'conference':    return <ConferencePanel />;
     case 'bell':          return <BellPanel />;
-    case 'server-room':   return <ServerRoomPanel />;
     case 'bookshelf':     return <BookshelfPanel />;
     case 'door':
       return <p className="text-sm font-mono" style={{ color: PARCHMENT.text }}>The office entrance.</p>;

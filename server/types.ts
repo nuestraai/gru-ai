@@ -114,6 +114,8 @@ export interface DirectiveState {
   brainstormContent?: string;
   /** Full directive brief markdown content (often contains plan) */
   directiveBrief?: string;
+  /** ISO timestamp when stall was first detected (all tasks done but pipeline stuck) */
+  stalledAt?: string | null;
 }
 
 

@@ -81,7 +81,7 @@ export default function AgentTicker({ agentStatuses, agentSessionInfos }: AgentT
 
   return (
     <div
-      className="absolute top-16 right-2 z-10 font-mono text-[10px] px-2 py-1 select-none pointer-events-none"
+      className="absolute top-2 right-2 z-10 font-mono text-[10px] px-2 py-1 select-none pointer-events-none"
       style={{
         backgroundColor: TICKER_STYLE.bg,
         color: TICKER_STYLE.text,

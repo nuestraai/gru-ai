@@ -46,6 +46,12 @@ TASK DECOMPOSITION RULES:
 - Earlier tasks should establish foundations that later tasks build on
 - Each task needs 3-5 concrete, testable DOD criteria
 - DOD criteria must be verifiable by the reviewer (not vague like "improve quality")
+- For UI/visual tasks (files matching *.tsx, *.jsx, *.css, components/, pages/): DOD must
+  describe what the USER SEES at default state, not the implementation technique.
+  BAD: "Component renders without errors" or "Labels use ctx.fillText"
+  GOOD: "Name labels visible above every character at default zoom (1x)" or
+  "Settings panel shows all 5 categories without horizontal scroll at 100% zoom"
+  Backend/data/infra tasks keep technical DOD -- this rule applies only to UI work.
 - Include the right phases for each task: simple fix = ["build", "review"], integration work = ["build", "code-review", "review"]
 
 OUTPUT (JSON):

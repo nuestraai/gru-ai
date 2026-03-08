@@ -202,11 +202,17 @@ export function layoutToSeats(furniture: PlacedFurniture[]): Map<string, Seat> {
   return seats
 }
 
-/** Get the set of tiles occupied by seats (so they can be excluded from blocked tiles) */
+/** Get the set of tiles occupied by seats AND their 4 neighbors.
+ *  Both are excluded from GID-layer blocking so agents can walk to chairs
+ *  even when surrounded by overhead furniture (layers 2-3). */
 export function getSeatTiles(seats: Map<string, Seat>): Set<string> {
   const tiles = new Set<string>()
   for (const seat of seats.values()) {
     tiles.add(`${seat.seatCol},${seat.seatRow}`)
+    tiles.add(`${seat.seatCol - 1},${seat.seatRow}`)
+    tiles.add(`${seat.seatCol + 1},${seat.seatRow}`)
+    tiles.add(`${seat.seatCol},${seat.seatRow - 1}`)
+    tiles.add(`${seat.seatCol},${seat.seatRow + 1}`)
   }
   return tiles
 }

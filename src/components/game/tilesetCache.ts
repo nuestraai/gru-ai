@@ -6,6 +6,7 @@
 import { TILE_SIZE } from './pixel-types'
 import { OFFICE_LAYOUT } from './office-layout'
 import { collectAnimationFrameGids } from './furnitureAnimations'
+import { TILESET_REGISTRY, INLINE_TILESETS } from './generated/office-tmx-data'
 
 /** Pre-rendered tile canvases indexed by GID (1-based, matching TMX convention) */
 const tileCanvases: Map<number, HTMLCanvasElement> = new Map()
@@ -96,26 +97,35 @@ function collectUsedGids(): Set<number> {
   return used
 }
 
-/**
- * Load all tileset PNGs and pre-extract only the tiles used in the layout.
- *
- * Tileset GID ranges:
- *   room-builder.png  : firstgid=1,    GIDs 1-224      (16x14 = 224 tiles)
- *   furniture.png     : firstgid=225,  GIDs 225-1072   (16x53 = 848 tiles)
- *   Interiors.png     : firstgid=1073, GIDs 1073-18096 (16x1064 = 17024 tiles)
- */
+/** Load all tileset PNGs and pre-extract only the tiles used in the layout. */
 export async function loadTilesetCache(): Promise<void> {
   if (loaded) return
   try {
-    const [rbImg, furnImg, intImg] = await Promise.all([
-      loadImage('/assets/office/room-builder.png'),
-      loadImage('/assets/office/furniture.png'),
-      loadImage('/assets/office/Interiors.png'),
-    ])
+    // Load all tilesets from generated registry (external TSX-referenced tilesets)
+    const registryResults = await Promise.all(
+      TILESET_REGISTRY.map((ts) =>
+        loadImage(`/assets/office/${ts.filename}`)
+          .then((img) => ({ img, firstgid: ts.firstgid }))
+          .catch(() => null)
+      )
+    )
+    for (const entry of registryResults) {
+      if (entry) registerTileset(entry.img, entry.firstgid)
+    }
 
-    registerTileset(rbImg, 1)       // room-builder: GIDs 1-224
-    registerTileset(furnImg, 225)    // furniture: GIDs 225-1072
-    registerTileset(intImg, 1073)    // Interiors: GIDs 1073-18096
+    // Load inline animated tilesets (skip those already loaded from registry)
+    const loadedFirstgids = new Set(registryResults.filter(Boolean).map((e) => e!.firstgid))
+    const inlineToLoad = INLINE_TILESETS.filter((ts) => !loadedFirstgids.has(ts.firstgid))
+    const inlineResults = await Promise.all(
+      inlineToLoad.map((ts) =>
+        loadImage(`/assets/office/${ts.filename}`)
+          .then((img) => ({ img, firstgid: ts.firstgid }))
+          .catch(() => null)
+      )
+    )
+    for (const entry of inlineResults) {
+      if (entry) registerTileset(entry.img, entry.firstgid)
+    }
 
     // Pre-extract only tiles used in the layout
     const usedGids = collectUsedGids()

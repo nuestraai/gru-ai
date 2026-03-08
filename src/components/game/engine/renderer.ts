@@ -1,16 +1,15 @@
-import { TileType, TILE_SIZE, CharacterState } from '../pixel-types'
+import { TileType, TILE_SIZE, CharacterState, FurnitureActivityType } from '../pixel-types'
 import type { TileType as TileTypeVal, FurnitureInstance, Character, SpriteData, Seat, FloorColor } from '../pixel-types'
 import { getCachedSprite, getOutlineSprite } from '../sprites/spriteCache'
 import { getCharacterSprites, BUBBLE_PERMISSION_SPRITE, BUBBLE_WAITING_SPRITE, BUBBLE_CHAT_SPRITE } from '../sprites/spriteData'
-import { STATUS_ICON_SPRITES, ACTIVITY_ICON_SPRITES } from '../sprites/statusIcons'
-import { INTERACTION_SPRITES, INTERACTION_DOT_COLORS } from '../sprites/interactionIcons'
+// statusIcons and interactionIcons no longer used — all icons rendered as emoji inside pills
 import { getCharacterSprite } from './characters'
 import { renderMatrixEffect } from './matrixEffect'
 import { getColorizedFloorSprite, hasFloorSprites, WALL_COLOR } from '../floorTiles'
 import { wallColorToHex } from '../wallTiles'
 import { hasTilesetCache, getScaledTileCanvas } from '../tilesetCache'
 import { getAnimatedGid } from '../furnitureAnimations'
-import { renderBitmapText, measureBitmapText } from '../sprites/bitmapFont'
+// bitmapFont removed — using native canvas text rendering instead
 import type { AgentStatus, InteractionType } from '../types'
 import {
   CHARACTER_SITTING_OFFSET_PX,
@@ -50,7 +49,9 @@ import {
   IDENTITY_PLATE_PAD_Y,
   IDENTITY_PLATE_BG_ALPHA,
   IDENTITY_PLATE_HEIGHT,
-  STATUS_ICON_GAP_PX,
+  IDENTITY_PLATE_CORNER_RADIUS,
+  STATUS_DOT_RADIUS,
+  STATUS_DOT_GAP,
   CEO_CROWN_COLOR,
   CEO_GLOW_ALPHA,
   COLLISION_FLASH_DURATION_SEC,
@@ -58,6 +59,7 @@ import {
   PROXIMITY_HIGHLIGHT_BASE_ALPHA,
   PROXIMITY_HIGHLIGHT_PULSE_AMPLITUDE,
   PROXIMITY_HIGHLIGHT_PULSE_SPEED,
+  CHARACTER_SPRITE_SCALE,
 } from '../constants'
 
 // ── CEO crown sprite (7x5 pixel art, gold tones) ───────────────
@@ -111,10 +113,10 @@ function getGoldOutlineSprite(sprite: SpriteData): SpriteData {
 
 // ── Render functions ────────────────────────────────────────────
 
-/** GID layer split:
- *  - Layers 0-3 (FLOORS, FURNITURE, CHAIR, TABLES): flat, always below characters
- *  - Layers 4+ (LAPTOP, DECO, TOP): overlay, always above characters */
-const GID_BASE_LAYER_COUNT = 4
+/** GID layer split (gruai.tmx 4-layer map):
+ *  - Layers 0-1 (FLOOR, FURNITURE_BASE): below characters
+ *  - Layers 2-3 (FURNITURE_TOP, DECO): above characters */
+const GID_BASE_LAYER_COUNT = 2
 
 export function renderTileGrid(
   ctx: CanvasRenderingContext2D,
@@ -239,8 +241,44 @@ export function renderScene(
   selectedAgentId: number | null,
   hoveredAgentId: number | null,
   time?: number,
+  overlayGidLayers?: number[][],
+  overlayLayoutCols?: number,
+  overlayRows?: number,
+  overlayCols?: number,
+  overlayTimeSec?: number,
 ): void {
   const drawables: ZDrawable[] = []
+
+  // GID overlay tiles (layers 2+ = furniture_top, deco) — z-sorted with characters
+  // so characters appear in front of furniture at the same or higher rows
+  if (overlayGidLayers && overlayLayoutCols && overlayRows && overlayCols && hasTilesetCache()) {
+    const s = TILE_SIZE * zoom
+    const t = overlayTimeSec ?? 0
+    for (let li = GID_BASE_LAYER_COUNT; li < overlayGidLayers.length; li++) {
+      const layer = overlayGidLayers[li]
+      if (!layer) continue
+      for (let r = 0; r < overlayRows; r++) {
+        for (let c = 0; c < overlayCols; c++) {
+          const gid = layer[r * overlayLayoutCols + c]
+          if (!gid || gid === 0) continue
+          const tileRow = r
+          const tileCol = c
+          // z-sort by bottom edge of tile — characters at same row sort after (in front)
+          const tileZY = (tileRow + 1) * TILE_SIZE
+          drawables.push({
+            zY: tileZY,
+            draw: (ctx2) => {
+              const animGid = getAnimatedGid(gid, t)
+              const tileCanvas = getScaledTileCanvas(animGid, zoom)
+              if (tileCanvas) {
+                ctx2.drawImage(tileCanvas, offsetX + tileCol * s, offsetY + tileRow * s)
+              }
+            },
+          })
+        }
+      }
+    }
+  }
 
   // Furniture
   for (const f of furniture) {
@@ -260,7 +298,8 @@ export function renderScene(
     const sprites = getCharacterSprites(ch.palette, ch.hueShift)
     if (!sprites) continue
     const spriteData = getCharacterSprite(ch, sprites)
-    const cached = getCachedSprite(spriteData, zoom)
+    const charZoom = zoom * CHARACTER_SPRITE_SCALE
+    const cached = getCachedSprite(spriteData, charZoom)
     // Sitting offset: shift character down when seated so they visually sit in the chair
     const sittingOffset = ch.state === CharacterState.TYPE ? CHARACTER_SITTING_OFFSET_PX : 0
     // Anchor at bottom-center of character — round to integer device pixels
@@ -281,7 +320,7 @@ export function renderScene(
       drawables.push({
         zY: charZY,
         draw: (c) => {
-          renderMatrixEffect(c, mCh, mSpriteData, mDrawX, mDrawY, zoom)
+          renderMatrixEffect(c, mCh, mSpriteData, mDrawX, mDrawY, charZoom)
         },
       })
       continue
@@ -294,9 +333,9 @@ export function renderScene(
       // White outline for selected/hovered
       const outlineAlpha = isSelected ? SELECTED_OUTLINE_ALPHA : HOVERED_OUTLINE_ALPHA
       const outlineData = getOutlineSprite(spriteData)
-      const outlineCached = getCachedSprite(outlineData, zoom)
-      const olDrawX = drawX - zoom  // 1 sprite-pixel offset, scaled
-      const olDrawY = drawY - zoom  // outline follows sitting offset via drawY
+      const outlineCached = getCachedSprite(outlineData, charZoom)
+      const olDrawX = drawX - charZoom  // 1 sprite-pixel offset, scaled
+      const olDrawY = drawY - charZoom  // outline follows sitting offset via drawY
       drawables.push({
         zY: charZY - OUTLINE_Z_SORT_OFFSET, // sort just before character
         draw: (c) => {
@@ -309,9 +348,9 @@ export function renderScene(
     } else if (ch.isPlayerControlled) {
       // CEO gold glow outline (always-on when not selected/hovered)
       const goldOutlineData = getGoldOutlineSprite(spriteData)
-      const goldOutlineCached = getCachedSprite(goldOutlineData, zoom)
-      const olDrawX = drawX - zoom
-      const olDrawY = drawY - zoom
+      const goldOutlineCached = getCachedSprite(goldOutlineData, charZoom)
+      const olDrawX = drawX - charZoom
+      const olDrawY = drawY - charZoom
       drawables.push({
         zY: charZY - OUTLINE_Z_SORT_OFFSET,
         draw: (c) => {
@@ -324,9 +363,9 @@ export function renderScene(
     } else if (ch.isNearPlayer) {
       // Proximity highlight: soft gold pulse for nearby non-CEO agents
       const goldOutlineData = getGoldOutlineSprite(spriteData)
-      const goldOutlineCached = getCachedSprite(goldOutlineData, zoom)
-      const olDrawX = drawX - zoom
-      const olDrawY = drawY - zoom
+      const goldOutlineCached = getCachedSprite(goldOutlineData, charZoom)
+      const olDrawX = drawX - charZoom
+      const olDrawY = drawY - charZoom
       const t = time ?? 0
       const pulseAlpha = PROXIMITY_HIGHLIGHT_BASE_ALPHA
         + PROXIMITY_HIGHLIGHT_PULSE_AMPLITUDE * Math.sin(t * PROXIMITY_HIGHLIGHT_PULSE_SPEED)
@@ -350,7 +389,7 @@ export function renderScene(
 
     // CEO crown: draw above the character sprite
     if (ch.isPlayerControlled) {
-      const crownCached = getCachedSprite(CEO_CROWN_SPRITE, zoom)
+      const crownCached = getCachedSprite(CEO_CROWN_SPRITE, charZoom)
       const crownW = crownCached.width
       const crownH = crownCached.height
       // Center crown above character head
@@ -659,13 +698,124 @@ interface PlateRect {
   h: number
 }
 
-/** Check if two rects overlap by more than 50% of the smaller rect's area */
-function platesOverlap(a: PlateRect, b: PlateRect): boolean {
+/** Check if two rects overlap by more than threshold of the smaller rect's area */
+function platesOverlap(a: PlateRect, b: PlateRect, threshold: number): boolean {
   const overlapX = Math.max(0, Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x))
   const overlapY = Math.max(0, Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y))
   const overlapArea = overlapX * overlapY
   const smallerArea = Math.min(a.w * a.h, b.w * b.h)
-  return smallerArea > 0 && overlapArea > smallerArea * 0.5
+  return smallerArea > 0 && overlapArea > smallerArea * threshold
+}
+
+/** Status dot color for inline rendering inside pills */
+const PILL_DOT_COLORS: Record<string, string> = {
+  working: '#22c55e',
+  idle: '#9ca3af',
+}
+
+/** Single plate entry before grouping */
+interface PlateEntry {
+  ch: Character
+  name: string
+  status: AgentStatus | undefined
+  color: string
+  textWidth: number
+  screenX: number
+  screenY: number
+  centerX: number
+  rect: PlateRect
+}
+
+/** Merged group of plates for co-located agents */
+interface PlateGroup {
+  entries: PlateEntry[]
+  displayText: string
+  anyWorking: boolean
+  hasStatus: boolean
+  nameColor: string
+  avgCenterX: number
+  avgScreenY: number
+}
+
+// ── Emoji icon maps for identity plate rendering ─────────────────
+
+/** Status icons (default fallback when no interaction/activity) */
+const STATUS_EMOJI: Record<string, string> = {
+  working: '\u2699\uFE0F',  // gear
+  idle: '\u2615',             // coffee
+}
+
+/** Interaction icons (pipeline activities) */
+const INTERACTION_EMOJI: Record<string, string> = {
+  planning: '\uD83D\uDCCB',     // clipboard
+  brainstorming: '\uD83D\uDCA1', // lightbulb
+  building: '\uD83D\uDD28',      // hammer
+  reviewing: '\uD83D\uDD0D',     // magnifying glass
+  auditing: '\uD83D\uDEE1\uFE0F', // shield
+}
+
+/** Activity icons (furniture interactions) */
+const ACTIVITY_EMOJI: Record<string, string> = {
+  [FurnitureActivityType.WATCHING_TV]: '\uD83D\uDCFA',      // TV
+  [FurnitureActivityType.READING]: '\uD83D\uDCD6',           // book
+  [FurnitureActivityType.VENDING]: '\u2615',                  // coffee
+  [FurnitureActivityType.ARCADE]: '\uD83C\uDFAE',            // gamepad
+  [FurnitureActivityType.EXERCISING]: '\uD83D\uDCAA',        // flexed biceps
+  [FurnitureActivityType.PLAYING_POOL]: '\uD83C\uDFB1',      // pool ball
+  [FurnitureActivityType.PLAYING_PINGPONG]: '\uD83C\uDFD3',  // table tennis
+}
+
+/** Determine the best emoji icon for a character.
+ *  Priority: interaction > activity > status > none */
+function getCharacterEmoji(
+  chId: number,
+  ch: Character,
+  identity: IdentityOverlay,
+): string | null {
+  // 1. Interaction (pipeline activity)
+  const interaction = identity.interactionMap.get(chId)
+  if (interaction) {
+    return INTERACTION_EMOJI[interaction.type] ?? null
+  }
+  // 2. Furniture activity
+  if (ch.state === CharacterState.ACTIVITY && ch.activityType) {
+    return ACTIVITY_EMOJI[ch.activityType] ?? null
+  }
+  // 3. Status
+  const status = identity.statusMap.get(chId)
+  if (status) {
+    return STATUS_EMOJI[status] ?? null
+  }
+  return null
+}
+
+/** Determine the best emoji icon for a merged group.
+ *  Priority: interaction > activity > status > none.
+ *  Returns the icon of the highest-priority member. */
+function getGroupEmoji(
+  entries: PlateEntry[],
+  identity: IdentityOverlay,
+): string | null {
+  // Check for any interaction first
+  for (const e of entries) {
+    const interaction = identity.interactionMap.get(e.ch.id)
+    if (interaction) {
+      return INTERACTION_EMOJI[interaction.type] ?? null
+    }
+  }
+  // Check for any activity
+  for (const e of entries) {
+    if (e.ch.state === CharacterState.ACTIVITY && e.ch.activityType) {
+      return ACTIVITY_EMOJI[e.ch.activityType] ?? null
+    }
+  }
+  // Fall back to status
+  for (const e of entries) {
+    if (e.status) {
+      return STATUS_EMOJI[e.status] ?? null
+    }
+  }
+  return null
 }
 
 export function renderIdentityPlates(
@@ -677,19 +827,29 @@ export function renderIdentityPlates(
   identity: IdentityOverlay,
   selectedId: number | null,
 ): void {
-  // Hide entirely at low zoom (bitmap text is unreadable below zoom 2)
-  if (zoom < 2) return
+  // Hide entirely at very low zoom (text unreadable below 0.8)
+  if (zoom < 0.8) return
 
-  // Pre-compute plate data and bounding rects for collision detection
-  const plates: Array<{
-    ch: Character
-    name: string
-    brandColor: string
-    plateW: number
-    screenX: number
-    screenY: number
-    rect: PlateRect
-  }> = []
+  // Set up font for measurement (consistent across all plates)
+  const fontSize = Math.round(11 * zoom)
+  const fontStr = `bold ${fontSize}px "Segoe UI", system-ui, -apple-system, sans-serif`
+  ctx.font = fontStr
+
+  // Pre-zoom constants
+  const padX = Math.floor(IDENTITY_PLATE_PAD_X * zoom)
+  const padY = Math.floor(IDENTITY_PLATE_PAD_Y * zoom)
+  const scaledH = Math.floor(IDENTITY_PLATE_HEIGHT * zoom)
+  const dotRadius = Math.floor(STATUS_DOT_RADIUS * zoom)
+  const dotGap = Math.floor(STATUS_DOT_GAP * zoom)
+  const cornerRadius = Math.floor(IDENTITY_PLATE_CORNER_RADIUS * zoom)
+
+  // Emoji icon sizing: slightly smaller than name font so it fits inside the pill
+  const emojiFontSize = Math.round(10 * zoom)
+  const emojiFont = `${emojiFontSize}px "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif`
+  const iconGap = Math.floor(3 * zoom)  // gap between icon and name text
+
+  // ── Phase 1: Compute plate entries ──
+  const plates: PlateEntry[] = []
 
   for (const ch of characters) {
     if (ch.matrixEffect) continue
@@ -697,189 +857,226 @@ export function renderIdentityPlates(
     const name = identity.nameMap.get(ch.id)
     if (!name) continue
 
-    const brandColor = identity.colorMap.get(ch.id) ?? '#FFFFFF'
+    const status = identity.statusMap.get(ch.id)
 
-    // Measure text width (pre-zoom pixels)
-    const nameSize = measureBitmapText(name)
+    // Measure text width
+    const metrics = ctx.measureText(name)
+    const textWidth = Math.ceil(metrics.width)
 
-    // Plate width: pad + name + pad
-    const plateW = IDENTITY_PLATE_PAD_X + nameSize.width + IDENTITY_PLATE_PAD_X
+    // Determine emoji icon for this character
+    const emoji = getCharacterEmoji(ch.id, ch, identity)
+
+    // Measure emoji width if present
+    let emojiWidth = 0
+    if (emoji) {
+      ctx.font = emojiFont
+      emojiWidth = Math.ceil(ctx.measureText(emoji).width)
+      ctx.font = fontStr  // restore
+    }
+
+    // Pill width: padX + [icon + iconGap] + text + [dotGap + dotDiameter] + padX
+    const iconSpace = emoji ? (emojiWidth + iconGap) : 0
+    const dotSpace = status ? (dotGap + dotRadius * 2) : 0
+    const plateW = padX + iconSpace + textWidth + dotSpace + padX
 
     // Position: centered above character head
     const sittingOff = ch.state === CharacterState.TYPE ? NAME_LABEL_SITTING_OFFSET_PX : 0
     const centerX = offsetX + ch.x * zoom
     const bottomY = offsetY + (ch.y + sittingOff - NAME_LABEL_VERTICAL_OFFSET_PX) * zoom
 
-    // Screen-space plate rect (pixel-aligned)
-    const scaledW = Math.floor(plateW * zoom)
-    const scaledH = Math.floor(IDENTITY_PLATE_HEIGHT * zoom)
-    const screenX = Math.floor(centerX - scaledW / 2)
+    const screenX = Math.floor(centerX - plateW / 2)
     const screenY = Math.floor(bottomY - scaledH)
 
     plates.push({
       ch,
       name,
-      brandColor,
-      plateW,
+      status,
+      color: identity.colorMap.get(ch.id) ?? '#FFFFFF',
+      textWidth,
       screenX,
       screenY,
-      rect: { x: screenX, y: screenY, w: scaledW, h: scaledH },
+      centerX,
+      rect: { x: screenX, y: screenY, w: plateW, h: scaledH },
     })
   }
 
-  // Collision detection: track placed rects, reduce alpha on overlap
-  const placedRects: PlateRect[] = []
+  // ── Phase 2: Greedy clustering for co-located agents ──
+  // Group plates that overlap >70% of the smaller plate's area.
+  const grouped = new Set<number>()
+  const groups: PlateGroup[] = []
 
-  for (const plate of plates) {
-    const isSelected = plate.ch.id === selectedId
+  for (let i = 0; i < plates.length; i++) {
+    if (grouped.has(i)) continue
 
-    // Check for overlap with already-placed plates
-    let alpha = 1.0
-    if (!isSelected) {
-      for (const placed of placedRects) {
-        if (platesOverlap(plate.rect, placed)) {
-          alpha = 0.4
+    const cluster: number[] = [i]
+    grouped.add(i)
+
+    // Greedily absorb overlapping plates
+    for (let j = i + 1; j < plates.length; j++) {
+      if (grouped.has(j)) continue
+      // Check overlap against any member of the current cluster
+      let overlaps = false
+      for (const ci of cluster) {
+        if (platesOverlap(plates[ci].rect, plates[j].rect, 0.7)) {
+          overlaps = true
           break
         }
       }
+      if (overlaps) {
+        cluster.push(j)
+        grouped.add(j)
+      }
     }
-    placedRects.push(plate.rect)
+
+    const entries = cluster.map(idx => plates[idx])
+    const anyWorking = entries.some(e => e.status === 'working')
+    const hasStatus = entries.some(e => e.status !== undefined)
+
+    // Build display text
+    let displayText: string
+    if (entries.length === 1) {
+      displayText = entries[0].name
+    } else if (entries.length <= 3) {
+      displayText = entries.map(e => e.name).join(', ')
+    } else {
+      // 4+ agents: show first 2 + "+N more"
+      displayText = entries.slice(0, 2).map(e => e.name).join(', ') + ` +${entries.length - 2} more`
+    }
+
+    // Average position for merged pill
+    const avgCenterX = entries.reduce((sum, e) => sum + e.centerX, 0) / entries.length
+    const avgScreenY = entries.reduce((sum, e) => sum + e.screenY, 0) / entries.length
+
+    // Use first entry's color for single agents, white for merged groups
+    const nameColor = entries.length === 1 ? entries[0].color : '#FFFFFF'
+
+    groups.push({ entries, displayText, anyWorking, hasStatus, nameColor, avgCenterX, avgScreenY })
+  }
+
+  // ── Phase 3: Render grouped pills ──
+  for (const group of groups) {
+    const isMerged = group.entries.length > 1
+    const isSelected = !isMerged && group.entries[0].ch.id === selectedId
+
+    // Determine emoji icon for this group
+    const groupEmoji = isMerged
+      ? getGroupEmoji(group.entries, identity)
+      : getCharacterEmoji(group.entries[0].ch.id, group.entries[0].ch, identity)
+
+    // Measure emoji width if present
+    let groupEmojiWidth = 0
+    if (groupEmoji) {
+      ctx.font = emojiFont
+      groupEmojiWidth = Math.ceil(ctx.measureText(groupEmoji).width)
+    }
+
+    // Measure merged display text
+    ctx.font = fontStr
+    const displayMetrics = ctx.measureText(group.displayText)
+    const displayTextW = Math.ceil(displayMetrics.width)
+
+    // Compute pill dimensions: padX + [icon + iconGap] + text + [dotGap + dot] + padX
+    const iconSpace = groupEmoji ? (groupEmojiWidth + iconGap) : 0
+    const dotSpace = group.hasStatus ? (dotGap + dotRadius * 2) : 0
+    const pillW = padX + iconSpace + displayTextW + dotSpace + padX
+    const pillH = scaledH
+
+    // Position: centered at average X, at average Y
+    const pillX = Math.floor(group.avgCenterX - pillW / 2)
+    const pillY = Math.floor(group.avgScreenY)
 
     ctx.save()
-    ctx.globalAlpha = alpha
 
-    // Background: semi-transparent dark plate
+    // ── Rounded pill background ──
     ctx.fillStyle = `rgba(0, 0, 0, ${IDENTITY_PLATE_BG_ALPHA})`
-    ctx.fillRect(plate.screenX, plate.screenY, plate.rect.w, plate.rect.h)
+    ctx.beginPath()
+    ctx.roundRect(pillX, pillY, pillW, pillH, cornerRadius)
+    ctx.fill()
 
-    // Name in brand color, centered in plate
-    const textX = plate.screenX + Math.floor(IDENTITY_PLATE_PAD_X * zoom)
-    const textY = plate.screenY + Math.floor(IDENTITY_PLATE_PAD_Y * zoom)
-    renderBitmapText(ctx, plate.name, plate.brandColor, textX, textY, zoom)
+    // Track cursor position for left-to-right layout
+    let cursorX = pillX + padX
+    const centerY = pillY + Math.floor(pillH / 2)
 
-    // ── Task info card (working agents only) ──
-    // Compact native-font card below nameplate, ticker-style dark background
-    const status = identity.statusMap.get(plate.ch.id)
-    if (status === 'working') {
-      const rawTask = identity.taskTextMap.get(plate.ch.id)
-      if (rawTask && rawTask.length > 0) {
-        const taskText = rawTask.length > 30 ? rawTask.slice(0, 28) + '..' : rawTask
-        const fontSize = Math.max(9, Math.round(zoom * 3.5))
-        ctx.font = `${fontSize}px monospace`
-        const metrics = ctx.measureText(taskText)
-        const padX = Math.round(zoom)
-        const padY = Math.round(zoom * 0.5)
-        const cardW = Math.ceil(metrics.width) + padX * 2
-        const cardH = fontSize + padY * 2
-        const gap = Math.floor(1 * zoom)
-        const cardX = Math.floor(plate.screenX + plate.rect.w / 2 - cardW / 2)
-        const cardY = plate.screenY + plate.rect.h + gap
+    // ── Emoji icon (LEFT of name) ──
+    if (groupEmoji) {
+      ctx.font = emojiFont
+      ctx.fillStyle = '#FFFFFF'
+      ctx.textBaseline = 'middle'
+      ctx.fillText(groupEmoji, cursorX, centerY)
+      cursorX += groupEmojiWidth + iconGap
+    }
 
-        // Dark card background
-        ctx.fillStyle = 'rgba(61, 43, 31, 0.9)'
-        ctx.fillRect(cardX, cardY, cardW, cardH)
+    // ── Name text (agent brand color, vertically centered) ──
+    ctx.font = fontStr
+    ctx.fillStyle = group.nameColor
+    ctx.textBaseline = 'middle'
+    ctx.fillText(group.displayText, cursorX, centerY)
 
-        // Gold text
-        ctx.fillStyle = '#C4A265'
-        ctx.textBaseline = 'top'
-        ctx.fillText(taskText, cardX + padX, cardY + padY)
+    // ── Inline status dot (RIGHT of text) ──
+    if (group.hasStatus) {
+      const dotColor = isMerged
+        ? (group.anyWorking ? PILL_DOT_COLORS.working : PILL_DOT_COLORS.idle)
+        : (PILL_DOT_COLORS[group.entries[0].status ?? ''] ?? null)
+
+      if (dotColor) {
+        const dotCenterX = cursorX + displayTextW + dotGap + dotRadius
+        const dotCenterY = centerY
+        ctx.beginPath()
+        ctx.arc(dotCenterX, dotCenterY, dotRadius, 0, Math.PI * 2)
+        ctx.fillStyle = dotColor
+        ctx.fill()
       }
     }
 
     ctx.restore()
+
+    // ── Task info card (single-agent working only, suppress for merged groups) ──
+    if (!isMerged) {
+      const entry = group.entries[0]
+      const status = entry.status
+      if (status === 'working' || isSelected) {
+        const rawTask = identity.taskTextMap.get(entry.ch.id)
+        if (rawTask && rawTask.length > 0) {
+          const taskText = rawTask.length > 30 ? rawTask.slice(0, 28) + '..' : rawTask
+          const taskFontSize = Math.max(9, Math.round(zoom * 3.5))
+          ctx.font = `${taskFontSize}px monospace`
+          const taskMetrics = ctx.measureText(taskText)
+          const tPadX = Math.round(zoom)
+          const tPadY = Math.round(zoom * 0.5)
+          const cardW = Math.ceil(taskMetrics.width) + tPadX * 2
+          const cardH = taskFontSize + tPadY * 2
+          const gap = Math.floor(1 * zoom)
+          const cardX = Math.floor(pillX + pillW / 2 - cardW / 2)
+          const cardY = pillY + pillH + gap
+
+          // Dark card background with rounded corners
+          ctx.fillStyle = 'rgba(61, 43, 31, 0.9)'
+          ctx.beginPath()
+          ctx.roundRect(cardX, cardY, cardW, cardH, Math.floor(cornerRadius * 0.5))
+          ctx.fill()
+
+          // Gold text
+          ctx.fillStyle = '#C4A265'
+          ctx.textBaseline = 'top'
+          ctx.fillText(taskText, cardX + tPadX, cardY + tPadY)
+        }
+      }
+    }
   }
 }
 
-// ── Status dot fallback colors (zoom < 2) ─────────────────────
-const STATUS_DOT_COLORS: Record<string, string> = {
-  working: '#22c55e',
-  idle: '#9ca3af',
-}
-
+/** Render activity icons above agents — NO-OP.
+ *  All icons are now rendered inline inside identity pills as emoji. */
 export function renderStatusIcons(
-  ctx: CanvasRenderingContext2D,
-  characters: Character[],
-  offsetX: number,
-  offsetY: number,
-  zoom: number,
-  identity: IdentityOverlay,
+  _ctx: CanvasRenderingContext2D,
+  _characters: Character[],
+  _offsetX: number,
+  _offsetY: number,
+  _zoom: number,
+  _identity: IdentityOverlay,
 ): void {
-  const plateH = Math.floor(IDENTITY_PLATE_HEIGHT * zoom)
-  const gap = STATUS_ICON_GAP_PX * zoom
-
-  for (const ch of characters) {
-    if (ch.matrixEffect) continue
-
-    // Skip agents with active interactions — they get an interaction icon instead
-    if (identity.interactionMap.has(ch.id)) continue
-
-    const status = identity.statusMap.get(ch.id)
-    if (!status || status === 'offline') continue
-
-    const name = identity.nameMap.get(ch.id)
-    if (!name) continue
-
-    const sittingOff = ch.state === CharacterState.TYPE ? NAME_LABEL_SITTING_OFFSET_PX : 0
-    const labelY = offsetY + (ch.y + sittingOff - NAME_LABEL_VERTICAL_OFFSET_PX) * zoom
-    const plateTop = labelY - plateH
-
-    // ── Zoom < 2: simple colored dot fallback ──
-    if (zoom < 2) {
-      const dotColor = STATUS_DOT_COLORS[status]
-      if (!dotColor) continue
-      const dotR = 2 * zoom
-      const dotCX = offsetX + ch.x * zoom
-      const dotCY = plateTop - gap - dotR
-
-      ctx.save()
-      // Error: aggressive alpha pulse at 6Hz
-      if (status === 'error') {
-        const t = identity.time * 6
-        ctx.globalAlpha = 0.3 + 0.7 * (0.5 + 0.5 * Math.sin(t * Math.PI * 2))
-      }
-      ctx.beginPath()
-      ctx.arc(dotCX, dotCY, dotR, 0, Math.PI * 2)
-      ctx.fillStyle = dotColor
-      ctx.fill()
-      ctx.restore()
-      continue
-    }
-
-    // ── Zoom >= 2: sprite-based status icon ──
-    // Activity-state characters get an activity icon instead of the status icon
-    let frames: SpriteData[] | undefined
-    let frameIndex: number
-
-    if (ch.state === CharacterState.ACTIVITY && ch.activityType) {
-      frames = ACTIVITY_ICON_SPRITES[ch.activityType]
-      frameIndex = frames ? Math.floor(identity.time * 1.5) % frames.length : 0
-    } else {
-      frames = STATUS_ICON_SPRITES[status]
-      // Determine animation frame from identity.time
-      switch (status) {
-        case 'working': frameIndex = Math.floor(identity.time * 3) % 4; break
-        case 'idle':    frameIndex = Math.floor(identity.time * 1) % 2; break
-        case 'error':   frameIndex = Math.floor(identity.time * 6) % 4; break
-        case 'waiting': frameIndex = Math.floor(identity.time * 1) % 2; break
-        default:        frameIndex = 0
-      }
-    }
-    if (!frames || frames.length === 0) continue
-
-    const sprite = frames[frameIndex]
-
-    // Cap effective zoom at 6 so icons don't dominate the character sprite
-    const effectiveZoom = Math.min(zoom, 6)
-    const iconCanvas = getCachedSprite(sprite, effectiveZoom)
-    const iconW = iconCanvas.width
-    const iconH = iconCanvas.height
-
-    // Center horizontally above the plate
-    const iconX = Math.floor(offsetX + ch.x * zoom - iconW / 2)
-    const iconY = Math.floor(plateTop - gap - iconH)
-
-    ctx.drawImage(iconCanvas, iconX, iconY)
-  }
+  // All status/activity icons are now emoji rendered inside identity pills.
+  // This function is intentionally a no-op.
 }
 
 // ── Speech bubbles ──────────────────────────────────────────────
@@ -904,7 +1101,7 @@ export function renderBubbles(
       alpha = ch.bubbleTimer / BUBBLE_FADE_DURATION_SEC
     }
 
-    const cached = getCachedSprite(sprite, zoom)
+    const cached = getCachedSprite(sprite, zoom * CHARACTER_SPRITE_SCALE)
     // Position: centered above the character's head
     // Character is anchored bottom-center at (ch.x, ch.y), sprite is 16x24
     // Place bubble above head with a small gap; follow sitting offset
@@ -919,69 +1116,18 @@ export function renderBubbles(
   }
 }
 
-/** Render interaction icons above agents that are interacting with each other */
+/** Render interaction icons above agents — NO-OP.
+ *  All interaction icons are now rendered inline inside identity pills as emoji. */
 export function renderInteractionIcons(
-  ctx: CanvasRenderingContext2D,
-  characters: Character[],
-  offsetX: number,
-  offsetY: number,
-  zoom: number,
-  identity: IdentityOverlay,
+  _ctx: CanvasRenderingContext2D,
+  _characters: Character[],
+  _offsetX: number,
+  _offsetY: number,
+  _zoom: number,
+  _identity: IdentityOverlay,
 ): void {
-  if (identity.interactionMap.size === 0) return
-
-  // Track which agents we've already rendered (avoid double-drawing for pairs)
-  const rendered = new Set<number>()
-
-  for (const ch of characters) {
-    const entry = identity.interactionMap.get(ch.id)
-    if (entry === undefined || rendered.has(ch.id)) continue
-    const { partnerId, type } = entry
-    rendered.add(ch.id)
-    rendered.add(partnerId)
-
-    const frames = INTERACTION_SPRITES[type]
-    if (!frames || frames.length === 0) continue
-
-    // Animate: cycle through frames using identity.time
-    const frameIndex = Math.floor(identity.time * 1.5) % frames.length
-    const sprite = frames[frameIndex]
-
-    // ── Zoom < 2: simple colored dot fallback ──
-    if (zoom < 2) {
-      const dotColor = INTERACTION_DOT_COLORS[type]
-      const drawDot = (c: Character) => {
-        const sOff = c.state === CharacterState.TYPE ? CHARACTER_SITTING_OFFSET_PX : 0
-        const dotR = 2 * zoom
-        const dotCX = offsetX + c.x * zoom
-        const dotCY = offsetY + (c.y + sOff - BUBBLE_VERTICAL_OFFSET_PX) * zoom - dotR - 1 * zoom
-        ctx.beginPath()
-        ctx.arc(dotCX, dotCY, dotR, 0, Math.PI * 2)
-        ctx.fillStyle = dotColor
-        ctx.fill()
-      }
-      drawDot(ch)
-      const partner = characters.find(c => c.id === partnerId)
-      if (partner) drawDot(partner)
-      continue
-    }
-
-    // ── Zoom >= 2: sprite-based interaction icon ──
-    const effectiveZoom = Math.min(zoom, 6)
-    const iconCanvas = getCachedSprite(sprite, effectiveZoom)
-
-    // Draw icon above this character
-    const drawIcon = (c: Character) => {
-      const sOff = c.state === CharacterState.TYPE ? CHARACTER_SITTING_OFFSET_PX : 0
-      const iconX = Math.round(offsetX + c.x * zoom - iconCanvas.width / 2)
-      const iconY = Math.round(offsetY + (c.y + sOff - BUBBLE_VERTICAL_OFFSET_PX) * zoom - iconCanvas.height - 1 * zoom)
-      ctx.drawImage(iconCanvas, iconX, iconY)
-    }
-
-    drawIcon(ch)
-    const partner = characters.find(c => c.id === partnerId)
-    if (partner) drawIcon(partner)
-  }
+  // All interaction icons are now emoji rendered inside identity pills.
+  // This function is intentionally a no-op.
 }
 
 export interface ButtonBounds {
@@ -1085,17 +1231,20 @@ export function renderFrame(
     ctx.restore()
   }
 
-  // Draw furniture + characters (z-sorted)
+  // Draw furniture + characters + GID overlay tiles (all z-sorted together)
   const selectedId = selection?.selectedAgentId ?? null
   const hoveredId = selection?.hoveredAgentId ?? null
   const sceneTime = identity?.time
-  renderScene(ctx, furniture, characters, offsetX, offsetY, zoom, selectedId, hoveredId, sceneTime)
-
-  // GID overlay layers (laptop, deco, top) — drawn above characters so
-  // surface items like laptops aren't covered by typing characters
-  if (useGidMode) {
-    renderGidOverlayLayers(ctx, tileMap, offsetX, offsetY, zoom, layoutCols, gidLayers, animTimeSec)
-  }
+  const tmRows = tileMap.length
+  const tmCols = tmRows > 0 ? tileMap[0].length : 0
+  renderScene(
+    ctx, furniture, characters, offsetX, offsetY, zoom, selectedId, hoveredId, sceneTime,
+    useGidMode ? gidLayers : undefined,
+    layoutCols ?? tmCols,
+    tmRows,
+    tmCols,
+    animTimeSec,
+  )
 
   // Identity plates + status indicators (above characters, below bubbles)
   if (identity) {

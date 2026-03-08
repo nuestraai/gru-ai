@@ -448,18 +448,27 @@ This is a CEO mandate. Slow is fine. Ugly is not.
 
 ### User-Perspective Review (mandatory for all tasks)
 
-Separate from code review. After the reviewer checks code quality, the reviewer ALSO evaluates the work from the end-user's perspective. This catches the gap where code compiles but the user experience is broken.
+Separate from code review. The reviewer evaluates the work from the end-user's perspective FIRST, then assesses code quality. A build that passes code review but fails user_scenario verification is a "fail" outcome. The user experience is the acceptance criterion, not the code quality.
 
-**Add to every reviewer prompt:**
+**Add to every reviewer prompt (user_scenario and DOD verification come FIRST):**
 
 ```
-SEPARATE FROM CODE REVIEW -- also evaluate this work from the CEO/end-user perspective:
-1. Walk through the task's `user_scenario`: "{user_scenario from the COO's plan}". Does the build actually deliver this experience?
+PRIMARY REVIEW ACTIVITY -- user_scenario verification and DOD check:
+
+STEP 1 -- USER SCENARIO WALKTHROUGH (do this BEFORE looking at code quality):
+Walk through the task's `user_scenario`: "{user_scenario from the COO's plan}".
+1. Does the build actually deliver this experience end-to-end?
 2. If this were shipped today, would the CEO's workflow actually improve?
-3. What did the engineer build that technically works but misses the user's real need?
-4. What's MISSING that the directive didn't ask for but the user clearly needs?
-5. Are there dead-end UI elements (clickable-looking things that do nothing)?
-6. Does the data flow make sense end-to-end (not just "does the component render")?
+3. Are there dead-end UI elements (clickable-looking things that do nothing)?
+4. Does the data flow make sense end-to-end (not just "does the component render")?
+
+A build that passes code review but fails user_scenario verification is a
+"fail" outcome. The user experience is the acceptance criterion, not the
+code quality.
+
+STEP 2 -- SECONDARY ASSESSMENT (after user_scenario passes):
+5. What did the engineer build that technically works but misses the user's real need?
+6. What's MISSING that the directive didn't ask for but the user clearly needs?
 
 Include a `user_perspective` section in your review JSON:
 {
@@ -532,6 +541,34 @@ Include a `corrections_check` section in your review JSON:
 }
 ```
 
+**Default-state verification** (mandatory for tasks touching UI files):
+
+```
+DEFAULT-STATE VERIFICATION -- required when active_files include *.tsx,
+*.jsx, *.css, components/, or pages/. Skip for backend-only tasks.
+
+Verify the build at these default conditions:
+1. Default browser zoom (100%) -- not zoomed in or out
+2. Default view (no filters applied, no special navigation, initial load)
+3. Representative data (not empty state, not extreme/edge-case data)
+
+A panel that looks correct at 150% zoom but clips content at 100% would
+be caught by this check. The zoom < 2 threshold that hid all labels and
+icons at default zoom is exactly the class of bug this prevents.
+
+Include a `default_state_check` section in your review JSON:
+{
+  "default_state_check": {
+    "verified_at_default_zoom": true,
+    "verified_at_default_view": true,
+    "verified_with_representative_data": true,
+    "issues_found": []
+  }
+}
+
+If any default-state issue is found, set review_outcome to "fail".
+```
+
 **Review completeness** (mandatory for all reviews):
 
 ```
@@ -542,12 +579,15 @@ REVIEW COMPLETENESS -- use this structured output:
   "user_perspective": { ... },
   "dod_verification": { ... },
   "corrections_check": { ... },
+  "default_state_check": { "... (include for UI tasks, omit for backend-only)" },
   "surfaces_checked": ["list every file, endpoint, UI surface, or data flow you actually inspected"],
   "what_is_missing": ["things the directive asked for that aren't present in the build"],
   "regression_risks": ["existing functionality that could break from these changes"]
 }
 
 A review_outcome of "pass" requires: ALL DOD criteria met, ZERO corrections violations, user_perspective.workflow_improvement is "yes" or "partial", and no major code quality issues.
+
+A review_outcome of "fail" if ANY of: user_perspective.workflow_improvement is "no" (even with clean code), ANY DOD criterion not met, or major code quality issues. workflow_improvement "no" is sufficient for "fail" on its own -- the user experience is the acceptance criterion.
 ```
 
 **This is NOT optional.** Every review must include user-perspective evaluation. A review that only checks code quality but ignores user experience is incomplete.
@@ -604,6 +644,8 @@ Maximum 1 retry per task. If all reviewers passed or got non-critical issues, no
 Log completion status: completed / partial / skipped / failed.
 
 **Update directive.json:** Update the task's `status` to its final value (`completed`, `partial`, `skipped`, or `failed`). Set `current_phase: null`. Update `pipeline.execute.output` with overall progress. If this is the last task, set `current_step: "review-gate"` and `pipeline.execute.status` to `"completed"`.
+
+**Update project.json:** ALSO update the project's `project.json` file for this task. Set the task's `status` to its final value (`completed`, `partial`, `skipped`, `failed`, or `blocked`). Update each DOD item's `met` field to reflect the reviewer's verification. If this is the last task and all tasks are completed, set the project-level `status` to `completed`. The project.json is the authoritative source of truth for task completion — if you only update directive.json, the dashboard will show stale project data and the stalled-directive detector may not recognize that work is done.
 
 **Stop-on-failure for dependent tasks:** If a task ends with `failed` or `partial` status, check which later tasks depend on it (via `depends_on` or array position). Mark those dependent tasks as `blocked`. Non-dependent tasks proceed normally. Log: `[BLOCKED] {task title} blocked by {failed task title} ({status})`.
 

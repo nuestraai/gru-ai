@@ -75,7 +75,6 @@ const FURNITURE_TAB_MAP: Partial<Record<TileType, HudPanel>> = {
   'ceo-desk':    'tasks',      // CEO desk -> Tasks tab
   'whiteboard':  'tasks',      // Whiteboard -> Tasks tab (directives merged in)
   'conference':  'status',     // Conference room -> Status tab (company overview)
-  'server-room': 'team',      // Server room -> Team tab (sessions)
 };
 
 // ---------------------------------------------------------------------------
@@ -519,7 +518,6 @@ export default function GamePage() {
     const typeMap: Record<ClickedItem['type'], TileType> = {
       desk: 'desk',
       furniture: 'desk',
-      server: 'server-room',
       conference: 'conference',
       wall: 'wall',
       whiteboard: 'whiteboard',
@@ -533,7 +531,6 @@ export default function GamePage() {
       const zone = getZoneAt(item.col, item.row);
       if (zone === 'ceo-office') tileType = 'ceo-desk';
       else if (zone === 'meeting') tileType = 'conference';
-      else if (zone === 'server-room') tileType = 'server-room';
     }
 
     // If this furniture type maps to a HUD tab, open that tab instead
@@ -592,7 +589,6 @@ export default function GamePage() {
             selectedAgentName={selected?.agentName ?? null}
           />
           <AgentTicker agentStatuses={agentStatuses} agentSessionInfos={agentSessionInfos} />
-          <ControlsHint />
         </div>
 
         {/* SidePanel on desktop when something is selected */}

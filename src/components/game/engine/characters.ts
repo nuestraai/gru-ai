@@ -150,6 +150,7 @@ export function updateCharacter(
   tileMap: TileTypeVal[][],
   blockedTiles: Set<string>,
   heldKeys?: Set<string>,
+  occupiedTiles?: Set<string>,
 ): void {
   ch.frameTimer += dt
 
@@ -166,7 +167,7 @@ export function updateCharacter(
         if (nextDir) {
           const targetCol = ch.tileCol + nextDir.dc
           const targetRow = ch.tileRow + nextDir.dr
-          if (isWalkable(targetCol, targetRow, tileMap, blockedTiles)) {
+          if (isWalkable(targetCol, targetRow, tileMap, blockedTiles, occupiedTiles)) {
             ch.path = [{ col: targetCol, row: targetRow }]
             ch.moveProgress = 0
             // Continue walking — don't transition to IDLE
@@ -211,7 +212,7 @@ export function updateCharacter(
           if (nextDirAfterStep) {
             const targetCol = ch.tileCol + nextDirAfterStep.dc
             const targetRow = ch.tileRow + nextDirAfterStep.dr
-            if (isWalkable(targetCol, targetRow, tileMap, blockedTiles)) {
+            if (isWalkable(targetCol, targetRow, tileMap, blockedTiles, occupiedTiles)) {
               ch.path = [{ col: targetCol, row: targetRow }]
               ch.moveProgress = 0
             }
@@ -224,7 +225,7 @@ export function updateCharacter(
       if (nextDir) {
         const targetCol = ch.tileCol + nextDir.dc
         const targetRow = ch.tileRow + nextDir.dr
-        if (isWalkable(targetCol, targetRow, tileMap, blockedTiles)) {
+        if (isWalkable(targetCol, targetRow, tileMap, blockedTiles, occupiedTiles)) {
           ch.path = [{ col: targetCol, row: targetRow }]
           ch.moveProgress = 0
           ch.state = CharacterState.WALK
@@ -310,7 +311,7 @@ export function updateCharacter(
         }
         const seat = seats.get(ch.seatId)
         if (seat) {
-          const path = findPath(ch.tileCol, ch.tileRow, seat.seatCol, seat.seatRow, tileMap, blockedTiles)
+          const path = findPath(ch.tileCol, ch.tileRow, seat.seatCol, seat.seatRow, tileMap, blockedTiles, occupiedTiles)
           if (path.length > 0) {
             ch.path = path
             ch.moveProgress = 0
@@ -347,7 +348,7 @@ export function updateCharacter(
           const seat = seats.get(ch.seatId)
           if (seat) {
             if (ch.tileCol !== seat.seatCol || ch.tileRow !== seat.seatRow) {
-              const path = findPath(ch.tileCol, ch.tileRow, seat.seatCol, seat.seatRow, tileMap, blockedTiles)
+              const path = findPath(ch.tileCol, ch.tileRow, seat.seatCol, seat.seatRow, tileMap, blockedTiles, occupiedTiles)
               if (path.length > 0) {
                 ch.path = path
                 ch.moveProgress = 0
@@ -371,7 +372,7 @@ export function updateCharacter(
         if (ch.wanderCount >= ch.wanderLimit && ch.seatId) {
           const seat = seats.get(ch.seatId)
           if (seat) {
-            const path = findPath(ch.tileCol, ch.tileRow, seat.seatCol, seat.seatRow, tileMap, blockedTiles)
+            const path = findPath(ch.tileCol, ch.tileRow, seat.seatCol, seat.seatRow, tileMap, blockedTiles, occupiedTiles)
             if (path.length > 0) {
               ch.path = path
               ch.moveProgress = 0
@@ -489,7 +490,7 @@ export function updateCharacter(
         if (seat) {
           const lastStep = ch.path[ch.path.length - 1]
           if (!lastStep || lastStep.col !== seat.seatCol || lastStep.row !== seat.seatRow) {
-            const newPath = findPath(ch.tileCol, ch.tileRow, seat.seatCol, seat.seatRow, tileMap, blockedTiles)
+            const newPath = findPath(ch.tileCol, ch.tileRow, seat.seatCol, seat.seatRow, tileMap, blockedTiles, occupiedTiles)
             if (newPath.length > 0) {
               ch.path = newPath
               ch.moveProgress = 0

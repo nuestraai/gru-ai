@@ -3,14 +3,14 @@
 // ---------------------------------------------------------------------------
 
 import {
-  Crown, FileText, Inbox, Users, Bell, Server,
+  Crown, FileText, Inbox, Users, Bell,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { timeAgo } from '@/lib/utils';
 import { useDashboardStore } from '@/stores/dashboard-store';
 import {
-  SectionHeader, PixelProgress, PIXEL_CARD, PIXEL_CARD_RAISED,
-  ParchmentDivider, PARCHMENT,
+  PixelProgress, PIXEL_CARD, PIXEL_CARD_RAISED,
+  PARCHMENT,
 } from './panelUtils';
 
 // ---------------------------------------------------------------------------
@@ -220,45 +220,3 @@ export function BellPanel() {
   );
 }
 
-// ---------------------------------------------------------------------------
-// ServerRoomPanel
-// ---------------------------------------------------------------------------
-
-export function ServerRoomPanel() {
-  const sessions = useDashboardStore((s) => s.sessions);
-  const activeCount = sessions.filter((s) => s.status === 'working').length;
-  const totalCount = sessions.filter((s) => !s.isSubagent).length;
-
-  return (
-    <div className="space-y-3 font-mono">
-      <div className="flex items-center gap-2">
-        <Server className="h-4 w-4 text-emerald-500" aria-hidden="true" />
-        <span className="font-bold text-sm" style={{ color: PARCHMENT.text }}>Server Room</span>
-      </div>
-
-      <div className="space-y-2 p-2" style={PIXEL_CARD}>
-        <div className="flex justify-between text-xs">
-          <span style={{ color: PARCHMENT.textDim }}>Active sessions</span>
-          <span
-            className="font-bold"
-            style={{ color: activeCount > 0 ? '#22C55E' : PARCHMENT.text }}
-          >
-            {activeCount}
-          </span>
-        </div>
-        <div className="flex justify-between text-xs">
-          <span style={{ color: PARCHMENT.textDim }}>Total sessions</span>
-          <span className="font-medium" style={{ color: PARCHMENT.text }}>{totalCount}</span>
-        </div>
-        {activeCount > 0 && (
-          <PixelProgress
-            value={activeCount}
-            max={totalCount}
-            color="#22C55E"
-            showLabel
-          />
-        )}
-      </div>
-    </div>
-  );
-}

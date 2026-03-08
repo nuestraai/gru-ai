@@ -6,8 +6,6 @@ import type { SpriteData } from './pixel-types'
 import type { LoadedCharacterData } from './sprites/spriteData'
 import { setFloorSprites } from './floorTiles'
 import { setCharacterTemplates } from './sprites/spriteData'
-import { loadLimeZuSprites } from './tileset-loader'
-import { applyTilesetToFurniture } from './layout/furnitureCatalog'
 import { loadTilesetCache } from './tilesetCache'
 
 // ── Helpers ─────────────────────────────────────────────────────
@@ -88,7 +86,7 @@ const FLOOR_TILE_POSITIONS: Array<[col: number, row: number]> = [
   [1, 9],   // FLOOR_7: (spare)
 ]
 
-export async function loadFloorAssets(src = '/assets/office/room-builder.png'): Promise<void> {
+export async function loadFloorAssets(src = '/assets/office/Room_Builder_48x48.png'): Promise<void> {
   try {
     const img = await loadImage(src)
     const canvas = document.createElement('canvas')
@@ -99,7 +97,7 @@ export async function loadFloorAssets(src = '/assets/office/room-builder.png'): 
     const imageData = ctx.getImageData(0, 0, img.width, img.height)
     const data = imageData.data
 
-    const TILE = 16
+    const TILE = 48
     const sprites: SpriteData[] = []
 
     for (const [col, row] of FLOOR_TILE_POSITIONS) {
@@ -108,7 +106,7 @@ export async function loadFloorAssets(src = '/assets/office/room-builder.png'): 
     }
 
     setFloorSprites(sprites)
-    console.log(`✓ Loaded ${sprites.length} floor tile patterns from room-builder.png`)
+    console.log(`✓ Loaded ${sprites.length} floor tile patterns from Room_Builder_48x48.png`)
   } catch (e) {
     console.warn('Floor tileset not found. Using fallback rendering. Run scripts/setup-assets.sh to install premium assets.')
   }
@@ -120,7 +118,7 @@ export async function loadCharacterAssets(basePath = '/assets/characters'): Prom
   try {
     const characters: LoadedCharacterData[] = []
 
-    for (let i = 0; i < 12; i++) {
+    for (let i = 0; i < 13; i++) {
       const img = await loadImage(`${basePath}/char_${i}.png`)
       const canvas = document.createElement('canvas')
       canvas.width = img.width
@@ -167,12 +165,8 @@ export function loadAllAssets(): void {
   if (loaded) return
   loaded = true
   loadFloorAssets()
-  loadCharacterAssets() // char_0..11.png for all agents
-  loadTilesetCache() // Load room-builder.png tiles for direct TMX rendering
-  loadLimeZuSprites().then((sprites) => {
-    if (sprites) {
-      applyTilesetToFurniture(sprites)
-      for (const cb of onTilesetReadyCallbacks) cb()
-    }
+  loadCharacterAssets() // char_0..12.png for all agents
+  loadTilesetCache().then(() => {
+    for (const cb of onTilesetReadyCallbacks) cb()
   })
 }

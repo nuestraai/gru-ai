@@ -28,3 +28,28 @@ Also from the first DOD block in the COO's prompt:
 - DOD is what the CEO reviews to approve/reject the task's result
 - Examples of good DOD: "All directive.json files have required fields", "Watcher reads directive.json and populates state fields", "Type-check passes"
 - Examples of bad DOD: "Improve goal structure", "Make it work", "Better code quality"
+
+## UI/Visual Definition of Done Rules
+
+These rules extend the general DOD rules above for tasks touching UI or visual
+code (*.tsx, *.jsx, *.css, components/, pages/). Backend/data/infra tasks are
+not affected.
+
+1. **Describe what the user sees, not the implementation technique.**
+   DOD must state the visible outcome, not the code path that produces it.
+   - BAD: "Component renders without errors"
+   - GOOD: "Settings panel shows all 5 configuration categories at default
+     100% zoom without requiring horizontal scroll"
+
+2. **Include default-state conditions.** Every UI DOD criterion must specify
+   the conditions under which it holds: default zoom (100%), default view
+   (initial load, no filters), representative data (not empty, not extreme).
+   - BAD: "Labels use ctx.fillText"
+   - GOOD: "Name labels visible above every character at default zoom level
+     without requiring Ctrl+scroll"
+
+3. **No implementation-only language.** Terms like "component renders",
+   "state updates correctly", "uses ctx.fillText", or "hook fires" describe
+   code behavior, not user-visible results. Rewrite as what the user
+   observes: "panel displays", "count updates within 1 second", "name
+   appears above the sprite".

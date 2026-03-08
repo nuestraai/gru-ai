@@ -12,6 +12,5 @@ export {
   MailboxPanel,
   ConferencePanel,
   BellPanel,
-  ServerRoomPanel,
 } from './FurniturePanels';
 export { PARCHMENT, ParchmentDivider } from './panelUtils';
