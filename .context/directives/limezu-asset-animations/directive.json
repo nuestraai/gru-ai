@@ -1,0 +1,94 @@
+{
+  "id": "limezu-asset-animations",
+  "title": "Limezu Asset Animations",
+  "status": "in_progress",
+  "created": "2026-03-08",
+  "completed": null,
+  "weight": "medium",
+  "produced_features": [],
+  "report": null,
+  "backlog_sources": [],
+
+  "started_at": "2026-03-08T00:00:00Z",
+  "updated_at": "2026-03-08T00:02:00Z",
+  "current_step": "execute",
+
+  "pipeline": {
+    "triage": {
+      "status": "completed",
+      "agent": "CEO",
+      "output": { "weight": "medium", "rationale": "2-3 tasks within game frontend — investigate Limezu animated singles, build furniture animation cycling, apply to catalog. No cross-system boundaries." }
+    },
+    "read": {
+      "status": "completed",
+      "agent": "CEO",
+      "output": { "summary": "Read directive.md — CEO wants Limezu furniture/environment assets animated. Character animations already work." }
+    },
+    "context": {
+      "status": "completed",
+      "agent": "CEO",
+      "output": { "summary": "Read vision.md, lessons (agent-behavior, orchestration, skill-design). Game has character animations working. Limezu furniture loads as static GID tiles." }
+    },
+    "challenge": { "status": "skipped", "agent": "C-suite", "output": { "summary": "Skipped for medium weight" } },
+    "brainstorm": { "status": "skipped", "agent": "C-suite", "output": { "summary": "Skipped for medium weight" } },
+    "plan": {
+      "status": "completed",
+      "agent": "COO",
+      "output": { "summary": "Single project: furniture-animations. Devon (FS) builds, Sarah (CTO) reviews.", "projects": ["furniture-animations"] },
+      "artifacts": [".context/directives/limezu-asset-animations/plan.json"]
+    },
+    "audit": {
+      "status": "completed",
+      "agent": "CTO",
+      "output": { "summary": "Furniture uses GID-based TMX layers, NOT tileset-loader singles. Animation must work via GID substitution in renderer.", "findings": 4 },
+      "artifacts": [".context/directives/limezu-asset-animations/audit.md"]
+    },
+    "approve": {
+      "status": "completed",
+      "agent": "CEO",
+      "output": { "decision": "auto-approved", "summary": "Medium weight — auto-approved" }
+    },
+    "project-brainstorm": {
+      "status": "completed",
+      "agent": "CTO",
+      "output": { "summary": "3 sequential tasks: animation-registry → renderer-animation-threading → scene-integration-and-polish" },
+      "artifacts": [".context/directives/limezu-asset-animations/projects/furniture-animations/project.json"]
+    },
+    "setup": {
+      "status": "completed",
+      "agent": "CEO",
+      "output": { "summary": "Using existing game branch — no worktree needed", "mode": "branch", "branch": "game" }
+    },
+    "execute": {
+      "status": "active",
+      "agent": "devon",
+      "output": { "progress": "0/3 tasks", "current": "animation-registry" }
+    },
+    "review-gate": { "status": "pending" },
+    "wrapup": { "status": "pending" },
+    "completion": { "status": "pending" }
+  },
+
+  "projects": [
+    {
+      "id": "furniture-animations",
+      "status": "in_progress"
+    }
+  ],
+
+  "planning": {
+    "coo_plan": {
+      "goal": "Limezu Asset Animations",
+      "projects": ["furniture-animations"]
+    },
+    "ceo_approval": { "status": "auto-approved", "modifications": [] },
+    "worktree_path": null
+  },
+
+  "wrapup": {
+    "okrs_persisted": false,
+    "follow_ups_processed": false,
+    "digest_path": null,
+    "lessons_updated": false
+  }
+}

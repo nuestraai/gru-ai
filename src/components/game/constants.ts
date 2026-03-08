@@ -33,6 +33,13 @@ export const MAX_ROWS = 64
 export const WALK_SPEED_PX_PER_SEC = 48
 export const WALK_FRAME_DURATION_SEC = 0.15
 export const TYPE_FRAME_DURATION_SEC = 0.3
+
+// ── Furniture Animation ─────────────────────────────────────
+/** Default animation speed for furniture (seconds per frame).
+ *  Furniture animations are slow and ambient — not distracting. */
+export const FURNITURE_ANIM_FRAME_SEC = 0.8
+
+// ── Wander / Rest Timing ────────────────────────────────────
 export const WANDER_PAUSE_MIN_SEC = 2.0
 export const WANDER_PAUSE_MAX_SEC = 20.0
 export const WANDER_MOVES_BEFORE_REST_MIN = 3

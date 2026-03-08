@@ -9,6 +9,7 @@ import { renderMatrixEffect } from './matrixEffect'
 import { getColorizedFloorSprite, hasFloorSprites, WALL_COLOR } from '../floorTiles'
 import { wallColorToHex } from '../wallTiles'
 import { hasTilesetCache, getScaledTileCanvas } from '../tilesetCache'
+import { getAnimatedGid } from '../furnitureAnimations'
 import { renderBitmapText, measureBitmapText } from '../sprites/bitmapFont'
 import type { AgentStatus, InteractionType } from '../types'
 import {
@@ -124,6 +125,7 @@ export function renderTileGrid(
   tileColors?: Array<FloorColor | null>,
   cols?: number,
   gidLayers?: number[][],
+  timeSec?: number,
 ): void {
   const s = TILE_SIZE * zoom
   const tmRows = tileMap.length
@@ -135,13 +137,15 @@ export function renderTileGrid(
 
   if (useGids) {
     const flatCount = Math.min(GID_BASE_LAYER_COUNT, gidLayers.length)
+    const t = timeSec ?? 0
     for (let li = 0; li < flatCount; li++) {
       const layer = gidLayers[li]
       for (let r = 0; r < tmRows; r++) {
         for (let c = 0; c < tmCols; c++) {
           const gid = layer[r * layoutCols + c]
           if (!gid || gid === 0) continue
-          const tileCanvas = getScaledTileCanvas(gid, zoom)
+          const animGid = getAnimatedGid(gid, t)
+          const tileCanvas = getScaledTileCanvas(animGid, zoom)
           if (tileCanvas) {
             ctx.drawImage(tileCanvas, offsetX + c * s, offsetY + r * s)
           }
@@ -199,12 +203,14 @@ export function renderGidOverlayLayers(
   zoom: number,
   cols?: number,
   gidLayers?: number[][],
+  timeSec?: number,
 ): void {
   if (!gidLayers || gidLayers.length <= GID_BASE_LAYER_COUNT || !hasTilesetCache()) return
   const s = TILE_SIZE * zoom
   const tmRows = tileMap.length
   const tmCols = tmRows > 0 ? tileMap[0].length : 0
   const layoutCols = cols ?? tmCols
+  const t = timeSec ?? 0
 
   for (let li = GID_BASE_LAYER_COUNT; li < gidLayers.length; li++) {
     const layer = gidLayers[li]
@@ -212,7 +218,8 @@ export function renderGidOverlayLayers(
       for (let c = 0; c < tmCols; c++) {
         const gid = layer[r * layoutCols + c]
         if (!gid || gid === 0) continue
-        const tileCanvas = getScaledTileCanvas(gid, zoom)
+        const animGid = getAnimatedGid(gid, t)
+        const tileCanvas = getScaledTileCanvas(animGid, zoom)
         if (tileCanvas) {
           ctx.drawImage(tileCanvas, offsetX + c * s, offsetY + r * s)
         }
@@ -1056,7 +1063,8 @@ export function renderFrame(
 
   // Draw tiles (floor + wall base color, or direct GID rendering)
   const useGidMode = gidLayers && gidLayers.length > 0 && hasTilesetCache()
-  renderTileGrid(ctx, tileMap, offsetX, offsetY, zoom, tileColors, layoutCols, gidLayers)
+  const animTimeSec = identity?.time ?? 0
+  renderTileGrid(ctx, tileMap, offsetX, offsetY, zoom, tileColors, layoutCols, gidLayers, animTimeSec)
 
   // Seat indicators (below furniture/characters, on top of floor)
   if (selection) {
@@ -1086,7 +1094,7 @@ export function renderFrame(
   // GID overlay layers (laptop, deco, top) — drawn above characters so
   // surface items like laptops aren't covered by typing characters
   if (useGidMode) {
-    renderGidOverlayLayers(ctx, tileMap, offsetX, offsetY, zoom, layoutCols, gidLayers)
+    renderGidOverlayLayers(ctx, tileMap, offsetX, offsetY, zoom, layoutCols, gidLayers, animTimeSec)
   }
 
   // Identity plates + status indicators (above characters, below bubbles)

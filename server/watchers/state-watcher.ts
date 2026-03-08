@@ -332,6 +332,9 @@ export class StateWatcher {
       case 'completed': return 'completed';
       case 'cancelled': return 'abandoned';
       case 'rejected': return 'abandoned';
+      case 'active': return 'in_progress';
+      case 'reopened': return 'in_progress';
+      case 'superseded': return 'completed';
       default: return 'pending';
     }
   }

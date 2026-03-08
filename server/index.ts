@@ -576,6 +576,16 @@ function serveStatic(pathname: string, distDir: string, res: http.ServerResponse
 
 
 // --- Start Server ---
+server.on('error', (err: NodeJS.ErrnoException) => {
+  if (err.code === 'EADDRINUSE') {
+    console.error(`\n  ERROR: Port ${PORT} is already in use.`);
+    console.error(`  Kill the existing process: lsof -ti :${PORT} | xargs kill -9`);
+    console.error(`  Or run: npm run predev\n`);
+    process.exit(1);
+  }
+  throw err;
+});
+
 server.listen(PORT, () => {
   console.log(`\n  Conductor server running at http://localhost:${PORT}`);
   console.log(`  WebSocket available at ws://localhost:${PORT}`);

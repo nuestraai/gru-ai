@@ -5,6 +5,7 @@
 
 import { TILE_SIZE } from './pixel-types'
 import { OFFICE_LAYOUT } from './office-layout'
+import { collectAnimationFrameGids } from './furnitureAnimations'
 
 /** Pre-rendered tile canvases indexed by GID (1-based, matching TMX convention) */
 const tileCanvases: Map<number, HTMLCanvasElement> = new Map()
@@ -76,7 +77,7 @@ function extractTile(gid: number): HTMLCanvasElement | null {
   return null
 }
 
-/** Collect all unique GIDs used in the layout */
+/** Collect all unique GIDs used in the layout, including animation frame GIDs */
 function collectUsedGids(): Set<number> {
   const used = new Set<number>()
   const layers = OFFICE_LAYOUT.gidLayers
@@ -85,6 +86,12 @@ function collectUsedGids(): Set<number> {
     for (const gid of layer) {
       if (gid !== 0) used.add(gid)
     }
+  }
+  // Include all animation frame GIDs so they are pre-extracted at load time.
+  // Without this, animated frames that aren't in the layout would be lazily
+  // extracted on first render, causing a visible hitch.
+  for (const gid of collectAnimationFrameGids()) {
+    used.add(gid)
   }
   return used
 }

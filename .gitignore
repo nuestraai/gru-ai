@@ -4,6 +4,7 @@ dist-cli
 dist-server
 .env
 *.db
+*.tgz
 .DS_Store
 @/
 

@@ -1,11 +1,12 @@
 {
   "id": "publish-and-validate",
   "title": "Publish & Validate — End-to-End Publish-Readiness",
-  "status": "in_progress",
+  "status": "superseded",
   "weight": "strategic",
   "created_at": "2026-03-08T00:00:00Z",
-  "updated_at": "2026-03-08T02:20:00Z",
+  "updated_at": "2026-03-08T09:15:00Z",
   "current_step": "setup",
+  "superseded_by": "e2e-comprehensive-testing",
   "pipeline": {
     "triage": {
       "status": "completed",

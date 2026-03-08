@@ -122,6 +122,9 @@ function mapStatus(status: string): DirectiveState['status'] {
     case 'completed': return 'completed';
     case 'failed': return 'failed';
     case 'cancelled': return 'completed';
+    case 'active': return 'in_progress';
+    case 'reopened': return 'in_progress';
+    case 'superseded': return 'completed';
     case 'pending': return 'pending';
     case 'triaged': return 'pending';
     default: return 'pending';
@@ -224,6 +227,7 @@ export class DirectiveWatcher {
       const dirIds = this.listDirs(this.directivesDir);
 
       // Find all active directives, pick the most recently updated
+      const activeRawStatuses = new Set(['in_progress', 'awaiting_completion', 'active', 'reopened']);
       let best: { dirId: string; directive: any; updatedAt: string } | null = null;
 
       for (const dirId of dirIds) {
@@ -231,7 +235,7 @@ export class DirectiveWatcher {
         if (!directive) continue;
 
         const status = String(directive.status ?? '');
-        if (status !== 'in_progress' && status !== 'awaiting_completion') continue;
+        if (!activeRawStatuses.has(status)) continue;
 
         const updatedAt = String(directive.updated_at ?? directive.started_at ?? directive.created ?? '');
         if (!best || updatedAt > best.updatedAt) {
@@ -256,7 +260,7 @@ export class DirectiveWatcher {
    */
   readActiveDirectives(): DirectiveState[] {
     const all = this.readAllDirectiveStates();
-    const activeStatuses = new Set(['in_progress', 'awaiting_completion', 'reopened']);
+    const activeStatuses = new Set(['in_progress', 'awaiting_completion']);
     return all.filter((d) => activeStatuses.has(d.status));
   }
 
@@ -515,7 +519,7 @@ export class DirectiveWatcher {
   private readAndUpdate(): void {
     // Single pass: read all directives once, derive active + best from the result
     const history = this.readAllDirectiveStates();
-    const activeStatuses = new Set(['in_progress', 'awaiting_completion', 'reopened']);
+    const activeStatuses = new Set(['in_progress', 'awaiting_completion']);
     const activeDirectives = history.filter((d) => activeStatuses.has(d.status));
 
     // Pick the most recently updated active directive as the singular state (backward compat)
