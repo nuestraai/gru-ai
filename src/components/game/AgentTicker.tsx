@@ -87,7 +87,7 @@ export default function AgentTicker({ agentStatuses, agentSessionInfos }: AgentT
         color: TICKER_STYLE.text,
         borderRadius: '2px',
         boxShadow: `0 0 0 1px ${TICKER_STYLE.border}, inset 1px 1px 0 0 #4A2F20`,
-        maxWidth: '320px',
+        maxWidth: 'min(320px, calc(100vw - 24px))',
       }}
     >
       <div

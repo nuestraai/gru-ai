@@ -2,8 +2,9 @@
 // Game Types -- Office Simulation
 // ---------------------------------------------------------------------------
 
-import type { AgentRegistry } from '@/stores/agent-registry-store';
+import type { AgentRegistry, CharacterAppearance } from '@/stores/agent-registry-store';
 import registryJson from '../../../.claude/agent-registry.json';
+import { generateAppearance } from './generateAppearance';
 
 /** Agent status derived from session data */
 export type AgentStatus = 'working' | 'idle';
@@ -44,6 +45,7 @@ export interface AgentDesk {
   agentRole: string;
   palette: number;
   hueShift: number;
+  appearance?: CharacterAppearance;
   seatId: string;
   position: { row: number; col: number };
   color: string;
@@ -66,25 +68,12 @@ export function buildOfficeAgents(registry: AgentRegistry | null): AgentDesk[] {
       agentRole: a.title,
       palette: a.game!.palette,
       hueShift: a.game!.hueShift ?? 0,
+      appearance: a.game!.appearance ?? generateAppearance(a.name),
       seatId: a.game!.seatId,
       position: { row: a.game!.position.row, col: a.game!.position.col },
       color: a.game!.color,
       isPlayer: !!a.game!.isPlayer,
     }));
-}
-
-/**
- * Build the agent char map from office agents.
- * Maps grid character code to agent name (kept for compat).
- */
-export function buildAgentCharMap(agents: AgentDesk[]): Record<string, string> {
-  return Object.fromEntries(
-    agents.map((a) => {
-      // Use first letter, except Marcus -> 'X' to avoid collision with Morgan's 'M'
-      const char = a.agentName === 'Marcus' ? 'X' : a.agentName[0];
-      return [char, a.agentName];
-    })
-  );
 }
 
 /** Static OFFICE_AGENTS built from the local agent-registry.json at build time */

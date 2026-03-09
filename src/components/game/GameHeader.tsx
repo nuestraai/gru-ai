@@ -86,7 +86,7 @@ function HudButton({ icon, label, onClick, active, ariaLabel, badge, glow }: Hud
       }}
     >
       <span aria-hidden="true" className="flex items-center">{icon}</span>
-      {label && <span>{label}</span>}
+      {label && <span className="hidden sm:inline">{label}</span>}
       {badge !== undefined && badge > 0 && (
         <span
           className="ml-0.5 min-w-[18px] text-center px-1 rounded text-[10px] font-bold leading-tight"
@@ -110,8 +110,13 @@ function HudButton({ icon, label, onClick, active, ariaLabel, badge, glow }: Hud
 export default function GameHeader({ onPanelRequest, gameContainerRef, activePanel, workingCount = 0, staffCount = 0 }: GameHeaderProps) {
   const badges = useBadgeCounts();
 
-  // Fullscreen state
+  // Fullscreen state + feature detection (iOS Safari lacks fullscreen API)
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [canFullscreen, setCanFullscreen] = useState(false);
+
+  useEffect(() => {
+    setCanFullscreen(typeof document.fullscreenEnabled !== 'undefined' && document.fullscreenEnabled);
+  }, []);
 
   useEffect(() => {
     const onChange = () => setIsFullscreen(!!document.fullscreenElement);
@@ -213,12 +218,14 @@ export default function GameHeader({ onPanelRequest, gameContainerRef, activePan
           active={activePanel === 'log'}
           ariaLabel="Activity log"
         />
-        <HudButton
-          icon={isFullscreen ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
-          label=""
-          onClick={toggleFullscreen}
-          ariaLabel={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
-        />
+        {canFullscreen && (
+          <HudButton
+            icon={isFullscreen ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
+            label=""
+            onClick={toggleFullscreen}
+            ariaLabel={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
+          />
+        )}
       </div>
     </header>
   );

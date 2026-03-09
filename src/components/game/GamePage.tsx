@@ -123,26 +123,6 @@ const PIXEL_BORDER_STYLE = {
 } as const;
 
 // ---------------------------------------------------------------------------
-// ControlsHint (Task 6)
-// ---------------------------------------------------------------------------
-
-function ControlsHint() {
-  return (
-    <div
-      className="absolute bottom-2 right-2 z-10 font-mono text-[10px] px-2 py-1 pointer-events-none select-none"
-      style={{
-        backgroundColor: '#3D2B1F',
-        color: '#C4A265',
-        borderRadius: '2px',
-        boxShadow: '0 0 0 1px #5C3D2E, inset 1px 1px 0 0 #4A2F20',
-      }}
-    >
-      WASD / Arrows: Move&nbsp;&nbsp;|&nbsp;&nbsp;Click: Interact
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
 // GamePage
 // ---------------------------------------------------------------------------
 
@@ -159,6 +139,7 @@ export default function GamePage() {
   const [selected, setSelected] = useState<SelectedItem | null>(null);
   const isMobile = useIsMobile();
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [drawerWidth, setDrawerWidth] = useState(320);
 
   // Derive agent interactions from directive pipeline state
   // Uses semantic relationships (builder↔reviewer, planners in meeting) instead of session parent/child
@@ -459,17 +440,38 @@ export default function GamePage() {
     return map;
   }, [activeDirectives]);
 
+  // Close timer ref — delays clearing `selected` so the panel content stays
+  // visible during the 200ms collapse transition on mobile.
+  const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Clean up close timer on unmount
+  useEffect(() => {
+    return () => {
+      if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
+    };
+  }, []);
+
+  const handleClose = useCallback(() => {
+    setSheetOpen(false);
+    if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
+    closeTimerRef.current = setTimeout(() => {
+      setSelected(null);
+      closeTimerRef.current = null;
+    }, 200); // matches the 200ms CSS transition duration
+  }, []);
+
   // Handle agent click from canvas
   const handleAgentClick = useCallback((agentName: string) => {
+    // Cancel any pending close transition when opening a new panel
+    if (closeTimerRef.current) { clearTimeout(closeTimerRef.current); closeTimerRef.current = null; }
+
     if (!agentName) {
-      setSelected(null);
-      setSheetOpen(false);
+      handleClose();
       return;
     }
 
     if (selected?.agentName === agentName) {
-      setSelected(null);
-      setSheetOpen(false);
+      handleClose();
       return;
     }
 
@@ -482,15 +484,13 @@ export default function GamePage() {
       });
       setSheetOpen(true);
     }
-  }, [selected]);
-
-  const handleClose = useCallback(() => {
-    setSelected(null);
-    setSheetOpen(false);
-  }, []);
+  }, [selected, handleClose, OFFICE_AGENTS]);
 
   // Wire HUD buttons to SidePanel with toggle behavior
   const handlePanelRequest = useCallback((panel: HudPanel) => {
+    // Cancel any pending close transition
+    if (closeTimerRef.current) { clearTimeout(closeTimerRef.current); closeTimerRef.current = null; }
+
     const typeMap: Record<HudPanel, TileType> = {
       team: 'hud-team',
       tasks: 'hud-tasks',
@@ -499,19 +499,20 @@ export default function GamePage() {
     };
     // Toggle: if same panel already open, close it
     if (selected?.type === typeMap[panel]) {
-      setSelected(null);
-      setSheetOpen(false);
+      handleClose();
       return;
     }
     setSelected({ type: typeMap[panel], position: { row: 0, col: 0 } });
     setSheetOpen(true);
-  }, [selected]);
+  }, [selected, handleClose]);
 
   // Handle furniture/desk click from canvas
   const handleItemClick = useCallback((item: ClickedItem | null) => {
+    // Cancel any pending close transition
+    if (closeTimerRef.current) { clearTimeout(closeTimerRef.current); closeTimerRef.current = null; }
+
     if (!item) {
-      setSelected(null);
-      setSheetOpen(false);
+      handleClose();
       return;
     }
 
@@ -546,7 +547,7 @@ export default function GamePage() {
       position: { row: item.row, col: item.col },
     });
     setSheetOpen(true);
-  }, [handlePanelRequest]);
+  }, [handlePanelRequest, handleClose]);
 
   // Derive which HudPanel is active (for header button highlight)
   const activePanel = useMemo<HudPanel | null>(() => {
@@ -565,7 +566,15 @@ export default function GamePage() {
   const gameContainerRef = useRef<HTMLDivElement>(null);
 
   return (
-    <div ref={gameContainerRef} className="flex flex-col h-full">
+    <div
+      ref={gameContainerRef}
+      className="flex flex-col"
+      style={{
+        height: '100dvh',
+        paddingTop: 'env(safe-area-inset-top, 0px)',
+        paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+      }}
+    >
       <GameHeader
         onPanelRequest={handlePanelRequest}
         gameContainerRef={gameContainerRef}
@@ -574,41 +583,80 @@ export default function GamePage() {
         staffCount={OFFICE_AGENTS.filter((a) => !a.isPlayer).length}
       />
 
-      <div className="flex flex-1 min-h-0">
-        <div className="flex-1 min-h-0 overflow-auto bg-stone-200 dark:bg-stone-950 relative">
-          <CanvasOffice
-            agents={OFFICE_AGENTS}
-            onAgentClick={handleAgentClick}
-            onItemClick={handleItemClick}
-            agentStatuses={agentStatuses}
-            agentSessionInfos={agentSessionInfos}
-            agentBusyMap={agentBusyMap}
-            agentInteractions={agentInteractions}
-            subagentsByParent={subagentsByParent}
-            reviewInteractions={reviewInteractions}
-            selectedAgentName={selected?.agentName ?? null}
-          />
-          <AgentTicker agentStatuses={agentStatuses} agentSessionInfos={agentSessionInfos} />
-        </div>
+      {isMobile ? (
+        /* Mobile layout: flex-col with canvas + panel below, using height transition */
+        <div className="flex flex-col flex-1 min-h-0" style={{ position: 'relative' }}>
+          {/* Canvas scroll container — always fills remaining space */}
+          <div
+            className="overflow-auto bg-stone-200 dark:bg-stone-950 relative"
+            style={{ flex: 1, minHeight: 0 }}
+          >
+            <CanvasOffice
+              agents={OFFICE_AGENTS}
+              onAgentClick={handleAgentClick}
+              onItemClick={handleItemClick}
+              agentStatuses={agentStatuses}
+              agentSessionInfos={agentSessionInfos}
+              agentBusyMap={agentBusyMap}
+              agentInteractions={agentInteractions}
+              subagentsByParent={subagentsByParent}
+              reviewInteractions={reviewInteractions}
+              selectedAgentName={selected?.agentName ?? null}
+            />
+            <AgentTicker agentStatuses={agentStatuses} agentSessionInfos={agentSessionInfos} />
+          </div>
 
-        {/* SidePanel on desktop when something is selected */}
-        {!isMobile && selected && (
+          {/* SidePanel on mobile — panel below canvas, height transitions smoothly */}
+          <div
+            style={{
+              height: sheetOpen && selected ? '50%' : '0px',
+              maxHeight: '50%',
+              overflow: 'hidden',
+              transition: 'height 200ms ease-in-out',
+              flexShrink: 0,
+            }}
+          >
+            {selected && (
+              <SidePanel
+                selected={selected}
+                agentStatuses={agentStatuses}
+                onClose={handleClose}
+                variant="inline"
+              />
+            )}
+          </div>
+        </div>
+      ) : (
+        /* Desktop layout: canvas in flow, panel overlays as drawer */
+        <div className="flex-1 min-h-0 relative">
+          {/* Canvas scroll container — in normal flow, fills parent height */}
+          <div className="h-full overflow-auto bg-stone-200 dark:bg-stone-950">
+            <CanvasOffice
+              agents={OFFICE_AGENTS}
+              onAgentClick={handleAgentClick}
+              onItemClick={handleItemClick}
+              agentStatuses={agentStatuses}
+              agentSessionInfos={agentSessionInfos}
+              agentBusyMap={agentBusyMap}
+              agentInteractions={agentInteractions}
+              subagentsByParent={subagentsByParent}
+              reviewInteractions={reviewInteractions}
+              selectedAgentName={selected?.agentName ?? null}
+            />
+            <AgentTicker agentStatuses={agentStatuses} agentSessionInfos={agentSessionInfos} />
+          </div>
+
+          {/* SidePanel on desktop — overlay drawer, always mounted for transition */}
           <SidePanel
             selected={selected}
             agentStatuses={agentStatuses}
             onClose={handleClose}
             variant="side"
+            isOpen={sheetOpen && !!selected}
+            drawerWidth={drawerWidth}
+            onDrawerWidthChange={setDrawerWidth}
           />
-        )}
-      </div>
-
-      {isMobile && sheetOpen && selected && (
-        <SidePanel
-          selected={selected}
-          agentStatuses={agentStatuses}
-          onClose={handleClose}
-          variant="bottom"
-        />
+        </div>
       )}
 
       <div style={{ textAlign: 'center', padding: '4px 0', fontSize: '11px', color: '#666', opacity: 0.7 }}>

@@ -1,8 +1,15 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import type { SessionActivity } from '../types.js';
-import { projectLabel, projectDirFromPath, extractInitialPrompt, extractLatestPrompt, cleanPromptText, isSystemContent, extractAgentIdentityFromFile, resolveAgentFromParent, resolveAgentFromSetting } from './session-scanner.js';
+import { projectLabel, projectDirFromPath, extractInitialPrompt, extractLatestPrompt, cleanPromptText, isSystemContent, resolveAgentFromSetting } from './session-scanner.js';
 import type { LastEntryType } from './session-scanner.js';
+
+/**
+ * Callback type for resolving agent identity from a session file.
+ * Provided by the PlatformAdapter so session-state.ts doesn't need
+ * direct knowledge of identity detection strategies.
+ */
+export type ResolveIdentityFn = (filePath: string, state: SessionFileState) => { name: string; role: string } | undefined;
 
 // --- Constants ---
 
@@ -116,17 +123,17 @@ export function removeFileState(filePath: string, stateMap?: Map<string, Session
 /**
  * Get or bootstrap state for a file. If not in the map, does a cold-start bootstrap.
  */
-export function getOrBootstrap(filePath: string, stateMap?: Map<string, SessionFileState>): SessionFileState | null {
+export function getOrBootstrap(filePath: string, stateMap?: Map<string, SessionFileState>, resolveIdentity?: ResolveIdentityFn): SessionFileState | null {
   const map = stateMap ?? fileStates;
   const existing = map.get(filePath);
   if (existing) return existing;
-  return bootstrapFromTail(filePath, map);
+  return bootstrapFromTail(filePath, map, resolveIdentity);
 }
 
 /**
  * Cold start: read last 64KB, feed through state machine, set byteOffset = fileSize.
  */
-export function bootstrapFromTail(filePath: string, stateMap?: Map<string, SessionFileState>): SessionFileState | null {
+export function bootstrapFromTail(filePath: string, stateMap?: Map<string, SessionFileState>, resolveIdentity?: ResolveIdentityFn): SessionFileState | null {
   const map = stateMap ?? fileStates;
   let fd: number | null = null;
   try {
@@ -175,31 +182,12 @@ export function bootstrapFromTail(filePath: string, stateMap?: Map<string, Sessi
     state.initialPrompt = extractInitialPrompt(filePath);
     state.latestPrompt = extractLatestPrompt(filePath);
 
-    // Extract named agent identity from initial prompt
-    const identity = extractAgentIdentityFromFile(filePath);
-    if (identity) {
-      state.agentName = identity.name;
-      state.agentRole = identity.role;
-    }
-
-    // Fallback: for subagent files without detected identity, cross-reference
-    // the parent session's Agent tool calls to find the subagent_type
-    if (!state.agentName) {
-      const subagentsIdx = filePath.indexOf('/subagents/');
-      if (subagentsIdx !== -1) {
-        // Extract parent session directory and derive parent JSONL path
-        const parentDir = filePath.slice(0, subagentsIdx);
-        const parentSessionId = path.basename(parentDir);
-        const parentJsonl = path.join(path.dirname(parentDir), `${parentSessionId}.jsonl`);
-        // Extract child agentId from filename (agent-{id}.jsonl)
-        const childFilename = path.basename(filePath);
-        const childAgentId = childFilename.replace(/^agent-/, '').replace(/\.jsonl$/, '');
-
-        const parentIdentity = resolveAgentFromParent(parentJsonl, childAgentId);
-        if (parentIdentity) {
-          state.agentName = parentIdentity.name;
-          state.agentRole = parentIdentity.role;
-        }
+    // Resolve agent identity through the adapter callback (if provided)
+    if (!state.agentName && resolveIdentity) {
+      const identity = resolveIdentity(filePath, state);
+      if (identity) {
+        state.agentName = identity.name;
+        state.agentRole = identity.role;
       }
     }
 
@@ -217,13 +205,13 @@ export function bootstrapFromTail(filePath: string, stateMap?: Map<string, Sessi
  * Main entry: read new bytes from file, feed through state machine, return updated state.
  * Returns null if no new data.
  */
-export function processFileUpdate(filePath: string, stateMap?: Map<string, SessionFileState>): SessionFileState | null {
+export function processFileUpdate(filePath: string, stateMap?: Map<string, SessionFileState>, resolveIdentity?: ResolveIdentityFn): SessionFileState | null {
   const map = stateMap ?? fileStates;
   const state = map.get(filePath);
 
   // New file — bootstrap
   if (!state) {
-    return bootstrapFromTail(filePath, map);
+    return bootstrapFromTail(filePath, map, resolveIdentity);
   }
 
   let stat: fs.Stats;
@@ -238,7 +226,7 @@ export function processFileUpdate(filePath: string, stateMap?: Map<string, Sessi
   // File truncated (e.g., recreated) — re-bootstrap
   if (stat.size < state.byteOffset) {
     map.delete(filePath);
-    return bootstrapFromTail(filePath, map);
+    return bootstrapFromTail(filePath, map, resolveIdentity);
   }
 
   // No new data
@@ -266,28 +254,11 @@ export function processFileUpdate(filePath: string, stateMap?: Map<string, Sessi
 
   // Retry agent identity detection if still unknown (common for subagents
   // where the first update fires before the user prompt is written)
-  if (!state.agentName) {
-    const identity = extractAgentIdentityFromFile(filePath);
+  if (!state.agentName && resolveIdentity) {
+    const identity = resolveIdentity(filePath, state);
     if (identity) {
       state.agentName = identity.name;
       state.agentRole = identity.role;
-    }
-
-    // Fallback: cross-reference parent session for subagent_type
-    if (!state.agentName) {
-      const subagentsIdx = filePath.indexOf('/subagents/');
-      if (subagentsIdx !== -1) {
-        const parentDir = filePath.slice(0, subagentsIdx);
-        const parentSessionId = path.basename(parentDir);
-        const parentJsonl = path.join(path.dirname(parentDir), `${parentSessionId}.jsonl`);
-        const childFilename = path.basename(filePath);
-        const childAgentId = childFilename.replace(/^agent-/, '').replace(/\.jsonl$/, '');
-        const parentIdentity = resolveAgentFromParent(parentJsonl, childAgentId);
-        if (parentIdentity) {
-          state.agentName = parentIdentity.name;
-          state.agentRole = parentIdentity.role;
-        }
-      }
     }
   }
 
@@ -302,7 +273,7 @@ export function processFileUpdate(filePath: string, stateMap?: Map<string, Sessi
  */
 const RECENT_THRESHOLD_MS = 24 * 60 * 60 * 1000; // 24 hours
 
-export function initializeAllFileStates(claudeHome: string, projectFilter?: string, stateMap?: Map<string, SessionFileState>): Map<string, DiscoveredFile> {
+export function initializeAllFileStates(claudeHome: string, projectFilter?: string, stateMap?: Map<string, SessionFileState>, resolveIdentity?: ResolveIdentityFn): Map<string, DiscoveredFile> {
   const map = stateMap ?? fileStates;
   const discovered = discoverSessionFiles(claudeHome, projectFilter);
   const now = Date.now();
@@ -319,7 +290,7 @@ export function initializeAllFileStates(claudeHome: string, projectFilter?: stri
 
     if (now - mtime < RECENT_THRESHOLD_MS) {
       // Recent file — full parse
-      bootstrapFromTail(filePath, map);
+      bootstrapFromTail(filePath, map, resolveIdentity);
       fullCount++;
     } else {
       // Old file — lightweight stub (skip expensive JSONL parsing)
@@ -335,11 +306,13 @@ export function initializeAllFileStates(claudeHome: string, projectFilter?: stri
         lastActivityAt: new Date(stat.mtimeMs).toISOString(),
         messageCount: 0,
       };
-      // Quick agent name extraction from head (cheap — reads first few KB only)
-      const identity = extractAgentIdentityFromFile(filePath);
-      if (identity) {
-        stub.agentName = identity.name;
-        stub.agentRole = identity.role;
+      // Resolve agent identity through the adapter callback (if provided)
+      if (resolveIdentity) {
+        const identity = resolveIdentity(filePath, stub);
+        if (identity) {
+          stub.agentName = identity.name;
+          stub.agentRole = identity.role;
+        }
       }
       map.set(filePath, stub);
       stubCount++;

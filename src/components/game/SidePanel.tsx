@@ -2,7 +2,7 @@
 // SidePanel — shell with tab strip and panel routing
 // ---------------------------------------------------------------------------
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { X, Users, Zap, Activity, ScrollText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -32,8 +32,14 @@ interface SidePanelProps {
   selected: SelectedItem | null;
   agentStatuses: Record<string, AgentStatus>;
   onClose: () => void;
-  /** 'side' = fixed right column (desktop), 'bottom' = overlay sheet (mobile) */
-  variant?: 'side' | 'bottom';
+  /** 'side' = overlay drawer (desktop), 'inline' = full-width panel below canvas (mobile) */
+  variant?: 'side' | 'inline';
+  /** Whether the drawer is open (controls slide-in transition for 'side' variant) */
+  isOpen?: boolean;
+  /** Controlled drawer width in px (for 'side' variant) */
+  drawerWidth?: number;
+  /** Callback when the user drags the resize handle */
+  onDrawerWidthChange?: (width: number) => void;
 }
 
 type HudTab = 'team' | 'tasks' | 'status' | 'log';
@@ -230,7 +236,15 @@ function PanelContent({
 // SidePanel
 // ---------------------------------------------------------------------------
 
-export default function SidePanel({ selected, agentStatuses, onClose, variant = 'side' }: SidePanelProps) {
+export default function SidePanel({
+  selected,
+  agentStatuses,
+  onClose,
+  variant = 'side',
+  isOpen = true,
+  drawerWidth = 320,
+  onDrawerWidthChange,
+}: SidePanelProps) {
   // Badge counts for tab notifications
   const badges = useBadgeCounts();
 
@@ -269,17 +283,6 @@ export default function SidePanel({ selected, agentStatuses, onClose, variant = 
     setAgentOverride(null);
   }, []);
 
-  // Escape key dismisses bottom sheet
-  const handleKeyDown = useCallback((e: KeyboardEvent) => {
-    if (e.key === 'Escape') onClose();
-  }, [onClose]);
-
-  useEffect(() => {
-    if (variant !== 'bottom') return;
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [variant, handleKeyDown]);
-
   const title = agentOverride
     ? agentOverride
     : panelTitle(selected, activeTab);
@@ -298,16 +301,92 @@ export default function SidePanel({ selected, agentStatuses, onClose, variant = 
     boxShadow: 'inset 0 1px 0 0 #6B4C3B',
   };
 
-  // -- Side variant (desktop) -----------------------------------------------
+  // ---------------------------------------------------------------------------
+  // Resize handle drag logic (side variant only)
+  // ---------------------------------------------------------------------------
+  const isDraggingRef = useRef(false);
+  const dragStartXRef = useRef(0);
+  const dragStartWidthRef = useRef(drawerWidth);
+
+  const handleResizePointerDown = useCallback((e: React.PointerEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    isDraggingRef.current = true;
+    dragStartXRef.current = e.clientX;
+    dragStartWidthRef.current = drawerWidth;
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+  }, [drawerWidth]);
+
+  const handleResizePointerMove = useCallback((e: React.PointerEvent) => {
+    if (!isDraggingRef.current) return;
+    // Dragging left edge: moving left = wider, moving right = narrower
+    const delta = dragStartXRef.current - e.clientX;
+    const newWidth = Math.min(600, Math.max(280, dragStartWidthRef.current + delta));
+    onDrawerWidthChange?.(newWidth);
+  }, [onDrawerWidthChange]);
+
+  const handleResizePointerUp = useCallback((e: React.PointerEvent) => {
+    isDraggingRef.current = false;
+    (e.target as HTMLElement).releasePointerCapture(e.pointerId);
+  }, []);
+
+  // -- Side variant (desktop) — overlay drawer ------------------------------
   if (variant === 'side') {
     return (
       <aside
-        className="w-80 xl:w-96 flex flex-col shrink-0"
+        className="flex flex-col"
         style={{
           ...panelStyle,
+          position: 'absolute',
+          top: 0,
+          right: 0,
+          bottom: 0,
+          width: `${drawerWidth}px`,
           borderLeft: `2px solid #3D2B1F`,
+          boxShadow: '-4px 0 16px rgba(0, 0, 0, 0.25)',
+          transform: isOpen ? 'translateX(0)' : 'translateX(100%)',
+          transition: 'transform 200ms ease-in-out',
+          zIndex: 20,
         }}
       >
+        {/* Resize handle — left edge */}
+        <div
+          style={{
+            position: 'absolute',
+            left: -3,
+            top: 0,
+            bottom: 0,
+            width: 6,
+            cursor: 'col-resize',
+            zIndex: 30,
+          }}
+          onPointerDown={handleResizePointerDown}
+          onPointerMove={handleResizePointerMove}
+          onPointerUp={handleResizePointerUp}
+          aria-label="Resize panel"
+          role="separator"
+          aria-orientation="vertical"
+        >
+          {/* Visual grip indicator — centered dots */}
+          <div
+            style={{
+              position: 'absolute',
+              top: '50%',
+              left: '50%',
+              transform: 'translate(-50%, -50%)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 3,
+              opacity: 0.4,
+              pointerEvents: 'none',
+            }}
+          >
+            <div style={{ width: 3, height: 3, borderRadius: '50%', backgroundColor: '#5C3D2E' }} />
+            <div style={{ width: 3, height: 3, borderRadius: '50%', backgroundColor: '#5C3D2E' }} />
+            <div style={{ width: 3, height: 3, borderRadius: '50%', backgroundColor: '#5C3D2E' }} />
+          </div>
+        </div>
+
         {/* Header — wood theme */}
         <div
           className="flex items-center justify-between px-3 py-2"
@@ -368,89 +447,69 @@ export default function SidePanel({ selected, agentStatuses, onClose, variant = 
     );
   }
 
-  // -- Bottom sheet variant (mobile) ----------------------------------------
+  // -- Inline variant (mobile) -----------------------------------------------
   return (
-    <>
-      {/* Backdrop */}
+    <section
+      className="flex flex-col min-h-0 w-full h-full"
+      style={{
+        ...panelStyle,
+        borderTop: `2px solid #3D2B1F`,
+      }}
+    >
+      {/* Header — wood theme */}
       <div
-        className="fixed inset-0 bg-black/40 z-40"
-        onClick={onClose}
-        aria-hidden="true"
-      />
-
-      {/* Sheet */}
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="sheet-title"
-        className="fixed bottom-0 left-0 right-0 z-50 rounded-t-2xl max-h-[55vh] flex flex-col animate-[slideUp_200ms_ease-out]"
-        style={{
-          ...panelStyle,
-          borderTop: `2px solid ${PARCHMENT.border}`,
-          paddingBottom: 'env(safe-area-inset-bottom, 0px)',
-        }}
+        className="flex items-center justify-between px-3 py-2 shrink-0"
+        style={headerStyle}
       >
-        {/* Drag handle */}
-        <div className="flex justify-center pt-2 pb-1" style={{ backgroundColor: '#5C3D2E' }}>
-          <div className="w-10 h-1 rounded-full" style={{ backgroundColor: '#C4A265' }} />
-        </div>
-
-        {/* Header — wood theme */}
-        <div
-          className="flex items-center justify-between px-3 py-2"
-          style={headerStyle}
-        >
-          <div className="flex items-center gap-2 min-w-0">
-            {agentOverride && (
-              <button
-                type="button"
-                className="h-6 px-1.5 text-[11px] font-mono shrink-0 rounded"
-                style={{ color: '#C4A265' }}
-                onClick={handleBackFromAgent}
-                aria-label="Back to tab"
-              >
-                &#9664; Back
-              </button>
-            )}
-            <h2
-              id="sheet-title"
-              className="text-sm font-bold font-mono truncate"
-              style={{ color: '#C4A265', textShadow: '0 1px 2px #3D2B1F' }}
+        <div className="flex items-center gap-2 min-w-0">
+          {agentOverride && (
+            <button
+              type="button"
+              className="h-6 px-1.5 text-[11px] font-mono shrink-0 rounded transition-colors"
+              style={{ color: '#C4A265' }}
+              onClick={handleBackFromAgent}
+              aria-label="Back to tab"
             >
-              {title}
-            </h2>
-          </div>
-          <button
-            type="button"
-            className="h-6 w-6 shrink-0 flex items-center justify-center rounded hover:bg-white/10"
-            onClick={onClose}
-            aria-label="Close panel"
+              &#9664; Back
+            </button>
+          )}
+          <h2
+            className="text-sm font-bold font-mono truncate"
+            style={{ color: '#C4A265', textShadow: '0 1px 2px #3D2B1F' }}
           >
-            <X className="h-3.5 w-3.5" style={{ color: '#C4A265' }} />
-          </button>
+            {title}
+          </h2>
         </div>
-
-        {/* Content — with subtle inner frame */}
-        <ScrollArea className="flex-1 min-h-0">
-          <div
-            className="p-3"
-            style={{
-              margin: '6px',
-              borderRadius: '2px',
-              boxShadow: 'inset 1px 1px 0 0 #C4A26540, inset -1px -1px 0 0 #F5ECD740',
-              backgroundColor: '#F0E4C8',
-            }}
-          >
-            <PanelContent
-              selected={selected}
-              agentStatuses={agentStatuses}
-              activeTab={isHudMode ? activeTab : null}
-              agentOverride={agentOverride}
-              onSelectAgent={handleSelectAgent}
-            />
-          </div>
-        </ScrollArea>
+        <button
+          type="button"
+          className="h-6 w-6 shrink-0 flex items-center justify-center rounded transition-colors hover:bg-white/10"
+          onClick={onClose}
+          aria-label="Close panel"
+        >
+          <X className="h-3.5 w-3.5" style={{ color: '#C4A265' }} />
+        </button>
       </div>
-    </>
+
+      {/* Content — independently scrollable, with subtle inner frame */}
+      <ScrollArea className="flex-1 min-h-0">
+        <div
+          className="p-3"
+          style={{
+            margin: '6px',
+            borderRadius: '2px',
+            boxShadow: 'inset 1px 1px 0 0 #C4A26540, inset -1px -1px 0 0 #F5ECD740',
+            backgroundColor: '#F0E4C8',
+          }}
+        >
+          <PanelContent
+            selected={selected}
+            agentStatuses={agentStatuses}
+            activeTab={isHudMode ? activeTab : null}
+            agentOverride={agentOverride}
+            onSelectAgent={handleSelectAgent}
+          />
+        </div>
+      </ScrollArea>
+    </section>
   );
 }

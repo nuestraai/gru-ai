@@ -26,8 +26,15 @@ import {
   toSessionActivity as toSessionActivityRaw,
   machineStateToLastEntryType,
 } from '../parsers/session-state.js';
+import {
+  extractAgentIdentityFromFile,
+  resolveAgentFromMeta,
+  resolveAgentFromParent,
+  resolveAgentFromSetting,
+} from '../parsers/session-scanner.js';
 import { discoverProjects, loadConfig } from '../config.js';
 import { SessionWatcher } from '../watchers/session-watcher.js';
+import path from 'node:path';
 
 export class ClaudeCodeAdapter implements PlatformAdapter {
   /** Instance-level session file state map (replaces module-level singleton). */
@@ -51,15 +58,15 @@ export class ClaudeCodeAdapter implements PlatformAdapter {
   }
 
   initializeAllFileStates(projectFilter?: string): Map<string, DiscoveredFile> {
-    return initializeAllFileStates(this.claudeHome, projectFilter, this.fileStates);
+    return initializeAllFileStates(this.claudeHome, projectFilter, this.fileStates, (fp, st) => this.resolveAgentIdentity(fp, st));
   }
 
   processFileUpdate(filePath: string): SessionFileState | null {
-    return processFileUpdateRaw(filePath, this.fileStates);
+    return processFileUpdateRaw(filePath, this.fileStates, (fp, st) => this.resolveAgentIdentity(fp, st));
   }
 
   getOrBootstrap(filePath: string): SessionFileState | null {
-    return getOrBootstrapRaw(filePath, this.fileStates);
+    return getOrBootstrapRaw(filePath, this.fileStates, (fp, st) => this.resolveAgentIdentity(fp, st));
   }
 
   removeFileState(filePath: string): void {
@@ -68,6 +75,43 @@ export class ClaudeCodeAdapter implements PlatformAdapter {
 
   getAllFileStates(): Map<string, SessionFileState> {
     return getAllFileStatesRaw(this.fileStates);
+  }
+
+  // -------------------------------------------------------------------------
+  // Identity resolution
+  // -------------------------------------------------------------------------
+
+  resolveAgentIdentity(filePath: string, state: SessionFileState): { name: string; role: string } | undefined {
+    // 1. Check if processEntry already resolved identity from agent-setting JSONL entry
+    if (state.agentName && state.agentRole) {
+      return { name: state.agentName, role: state.agentRole };
+    }
+    // Also check if only agentName was set via agent-setting (resolve role from registry)
+    if (state.agentName) {
+      const fromSetting = resolveAgentFromSetting(state.agentName);
+      if (fromSetting) return fromSetting;
+    }
+
+    // 2. Try .meta.json sidecar (Claude Code specific)
+    const fromMeta = resolveAgentFromMeta(filePath);
+    if (fromMeta) return fromMeta;
+
+    // 3. Try prompt pattern matching (reads file head)
+    const fromPrompt = extractAgentIdentityFromFile(filePath);
+    if (fromPrompt) return fromPrompt;
+
+    // 4. Fallback: cross-reference parent session for subagent_type
+    const subagentsIdx = filePath.indexOf('/subagents/');
+    if (subagentsIdx !== -1) {
+      const parentDir = filePath.slice(0, subagentsIdx);
+      const parentSessionId = path.basename(parentDir);
+      const parentJsonl = path.join(path.dirname(parentDir), `${parentSessionId}.jsonl`);
+      const childFilename = path.basename(filePath);
+      const childAgentId = childFilename.replace(/^agent-/, '').replace(/\.jsonl$/, '');
+      return resolveAgentFromParent(parentJsonl, childAgentId, this.parentAgentMapCache);
+    }
+
+    return undefined;
   }
 
   // -------------------------------------------------------------------------

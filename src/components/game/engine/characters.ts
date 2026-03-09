@@ -40,6 +40,33 @@ export function isReadingTool(tool: string | null): boolean {
   return READING_TOOLS.has(tool)
 }
 
+/** Get the pathfinding target for a seat — approach point if available, else seat tile */
+function seatPathTarget(seat: Seat): { col: number; row: number } {
+  if (seat.approachCol != null && seat.approachRow != null) {
+    return { col: seat.approachCol, row: seat.approachRow }
+  }
+  return { col: seat.seatCol, row: seat.seatRow }
+}
+
+/** Check if character is at the seat or its approach point */
+function isAtSeatOrApproach(ch: Character, seat: Seat): boolean {
+  if (ch.tileCol === seat.seatCol && ch.tileRow === seat.seatRow) return true
+  if (seat.approachCol != null && seat.approachRow != null &&
+      ch.tileCol === seat.approachCol && ch.tileRow === seat.approachRow) return true
+  return false
+}
+
+/** Snap character to the actual seat tile (instant teleport from approach point) */
+function snapToSeat(ch: Character, seat: Seat): void {
+  ch.tileCol = seat.seatCol
+  ch.tileRow = seat.seatRow
+  const center = tileCenter(seat.seatCol, seat.seatRow)
+  ch.x = center.x
+  ch.y = center.y
+  ch.dir = seat.facingDir
+  ch.isSeated = true
+}
+
 /** Pixel center of a tile */
 function tileCenter(col: number, row: number): { x: number; y: number } {
   return {
@@ -115,6 +142,7 @@ export function createCharacter(
     activityTarget: null,
     activityStartTime: 0,
     activityType: null,
+    isSeated: seat !== null,
   }
 }
 
@@ -300,7 +328,7 @@ export function updateCharacter(
         }
       }
 
-      // If became active, pathfind to seat
+      // If became active, pathfind to seat (via approach point)
       if (ch.isActive) {
         if (!ch.seatId) {
           // No seat assigned — type in place
@@ -311,7 +339,8 @@ export function updateCharacter(
         }
         const seat = seats.get(ch.seatId)
         if (seat) {
-          const path = findPath(ch.tileCol, ch.tileRow, seat.seatCol, seat.seatRow, tileMap, blockedTiles, occupiedTiles)
+          const target = seatPathTarget(seat)
+          const path = findPath(ch.tileCol, ch.tileRow, target.col, target.row, tileMap, blockedTiles, occupiedTiles)
           if (path.length > 0) {
             ch.path = path
             ch.moveProgress = 0
@@ -319,9 +348,9 @@ export function updateCharacter(
             ch.frame = 0
             ch.frameTimer = 0
           } else {
-            // Already at seat or no path — sit down
+            // Already at approach point or seat — snap to seat and sit down
+            snapToSeat(ch, seat)
             ch.state = CharacterState.TYPE
-            ch.dir = seat.facingDir
             ch.frame = 0
             ch.frameTimer = 0
           }
@@ -331,9 +360,9 @@ export function updateCharacter(
       // If in a routed zone (meeting/review), sit at assigned seat if arrived
       if (ch.routingZone && ch.seatId) {
         const seat = seats.get(ch.seatId)
-        if (seat && ch.tileCol === seat.seatCol && ch.tileRow === seat.seatRow) {
+        if (seat && isAtSeatOrApproach(ch, seat)) {
+          snapToSeat(ch, seat)
           ch.state = CharacterState.TYPE
-          ch.dir = seat.facingDir
           ch.frame = 0
           ch.frameTimer = 0
         }
@@ -347,8 +376,9 @@ export function updateCharacter(
         if (ch.seatId) {
           const seat = seats.get(ch.seatId)
           if (seat) {
-            if (ch.tileCol !== seat.seatCol || ch.tileRow !== seat.seatRow) {
-              const path = findPath(ch.tileCol, ch.tileRow, seat.seatCol, seat.seatRow, tileMap, blockedTiles, occupiedTiles)
+            if (!isAtSeatOrApproach(ch, seat)) {
+              const target = seatPathTarget(seat)
+              const path = findPath(ch.tileCol, ch.tileRow, target.col, target.row, tileMap, blockedTiles, occupiedTiles)
               if (path.length > 0) {
                 ch.path = path
                 ch.moveProgress = 0
@@ -357,8 +387,8 @@ export function updateCharacter(
                 ch.frameTimer = 0
               }
             } else {
-              // At seat — face desk, stay still
-              ch.dir = seat.facingDir
+              // At seat or approach point — snap to seat, face desk, stay still
+              snapToSeat(ch, seat)
             }
           }
         }
@@ -372,7 +402,8 @@ export function updateCharacter(
         if (ch.wanderCount >= ch.wanderLimit && ch.seatId) {
           const seat = seats.get(ch.seatId)
           if (seat) {
-            const path = findPath(ch.tileCol, ch.tileRow, seat.seatCol, seat.seatRow, tileMap, blockedTiles, occupiedTiles)
+            const target = seatPathTarget(seat)
+            const path = findPath(ch.tileCol, ch.tileRow, target.col, target.row, tileMap, blockedTiles, occupiedTiles)
             if (path.length > 0) {
               ch.path = path
               ch.moveProgress = 0
@@ -393,6 +424,7 @@ export function updateCharacter(
     }
 
     case CharacterState.WALK: {
+      ch.isSeated = false
       // Reset personality state if we were in an idle personality animation
       if (ch.personalityFrame >= 0) resetPersonality(ch)
 
@@ -414,9 +446,10 @@ export function updateCharacter(
             ch.state = CharacterState.TYPE
           } else {
             const seat = seats.get(ch.seatId)
-            if (seat && ch.tileCol === seat.seatCol && ch.tileRow === seat.seatRow) {
+            if (seat && isAtSeatOrApproach(ch, seat)) {
+              // At approach point or seat — snap to seat and sit down
+              snapToSeat(ch, seat)
               ch.state = CharacterState.TYPE
-              ch.dir = seat.facingDir
             } else {
               ch.state = CharacterState.IDLE
             }
@@ -428,11 +461,11 @@ export function updateCharacter(
           ch.frame = 0
           ch.frameTimer = 0
         } else {
-          // Check if arrived at assigned seat
+          // Check if arrived at assigned seat (or its approach point)
           if (ch.seatId) {
             const seat = seats.get(ch.seatId)
-            if (seat && ch.tileCol === seat.seatCol && ch.tileRow === seat.seatRow) {
-              ch.dir = seat.facingDir
+            if (seat && isAtSeatOrApproach(ch, seat)) {
+              snapToSeat(ch, seat)
               if (!shouldWander(ch)) {
                 // Idle < 30 min — stay seated quietly (no typing)
                 ch.state = CharacterState.IDLE
@@ -482,15 +515,26 @@ export function updateCharacter(
         ch.y = toCenter.y
         ch.path.shift()
         ch.moveProgress = 0
+
+        // Re-validate next step: if another character now occupies it, clear path.
+        // The character will go IDLE and pick a new destination next frame.
+        if (ch.path.length > 0 && occupiedTiles) {
+          const ahead = ch.path[0]
+          if (occupiedTiles.has(`${ahead.col},${ahead.row}`)) {
+            ch.path = []
+            // Don't break — fall through to path-empty handling above
+          }
+        }
       }
 
-      // If became active while wandering, repath to seat
+      // If became active while wandering, repath to seat (via approach point)
       if (ch.isActive && ch.seatId) {
         const seat = seats.get(ch.seatId)
         if (seat) {
+          const target = seatPathTarget(seat)
           const lastStep = ch.path[ch.path.length - 1]
-          if (!lastStep || lastStep.col !== seat.seatCol || lastStep.row !== seat.seatRow) {
-            const newPath = findPath(ch.tileCol, ch.tileRow, seat.seatCol, seat.seatRow, tileMap, blockedTiles, occupiedTiles)
+          if (!lastStep || lastStep.col !== target.col || lastStep.row !== target.row) {
+            const newPath = findPath(ch.tileCol, ch.tileRow, target.col, target.row, tileMap, blockedTiles, occupiedTiles)
             if (newPath.length > 0) {
               ch.path = newPath
               ch.moveProgress = 0

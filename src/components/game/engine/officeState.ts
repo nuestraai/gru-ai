@@ -1,6 +1,5 @@
 import { TILE_SIZE, MATRIX_EFFECT_DURATION, CharacterState, Direction, FurnitureActivityType } from '../pixel-types'
 import {
-  PALETTE_COUNT,
   HUE_SHIFT_MIN_DEG,
   HUE_SHIFT_RANGE_DEG,
   WAITING_BUBBLE_DURATION_SEC,
@@ -25,9 +24,10 @@ import {
 } from '../constants'
 import type { Character, Seat, FurnitureInstance, TileType as TileTypeVal, OfficeLayout, PlacedFurniture, AgentStatus, SessionInfo, InteractionPoint } from '../pixel-types'
 import { createCharacter, updateCharacter } from './characters'
+import { getCharacterTemplateCount } from '../sprites/spriteData'
 import { matrixEffectSeeds } from './matrixEffect'
 import { isWalkable, getWalkableTiles, findPath } from '../layout/tileMap'
-import { chooseDestination, pickWaypoint, isAgentAllowedInZone, ROOM_ZONES } from './roomZones'
+import { chooseDestination, pickWaypoint, isAgentAllowedInZone, getZoneAt, ROOM_ZONES } from './roomZones'
 import type { RoomZoneId } from './roomZones'
 import {
   createDefaultLayout,
@@ -37,7 +37,6 @@ import {
   getBlockedTiles,
   getBlockedTilesFromGids,
   seatsFromPositions,
-  getSeatTiles,
 } from '../layout/layoutSerializer'
 import { getCatalogEntry, getOnStateType } from '../layout/furnitureCatalog'
 import { WALL_GIDS } from '../office-layout'
@@ -76,6 +75,9 @@ export class OfficeState {
   occupiedPoints: Map<string, OccupancyInfo> = new Map()
   private nextSubagentId = -1
 
+  /** Maps seat uid → { col, row } for pre-computed approach points */
+  seatApproachMap: Map<string, { col: number; row: number }> = new Map()
+
   constructor(layout?: OfficeLayout) {
     this.layout = layout || createDefaultLayout()
     this.tileMap = layoutToTileMap(this.layout)
@@ -87,17 +89,43 @@ export class OfficeState {
       this.seats = layoutToSeats(this.layout.furniture)
     }
 
-    const seatTileKeys = getSeatTiles(this.seats)
-    if (this.layout.gidLayers && this.layout.gidLayers.length > 0) {
-      // Layers 1 (furniture_base) + 2 (furniture_top) block movement; seats + neighbors excluded.
-      // Layer 3 (deco) is NOT blocked — it contains animated doors, decorations, and visual overlays.
-      this.blockedTiles = getBlockedTilesFromGids(this.layout.gidLayers, this.layout.cols, [1, 2], seatTileKeys)
+    if (this.layout.collisionLayer) {
+      // Pre-computed collision layer — use directly
+      this.blockedTiles = new Set<string>()
+      for (let i = 0; i < this.layout.collisionLayer.length; i++) {
+        if (this.layout.collisionLayer[i] === 1) {
+          const col = i % this.layout.cols
+          const row = Math.floor(i / this.layout.cols)
+          this.blockedTiles.add(`${col},${row}`)
+        }
+      }
+    } else if (this.layout.gidLayers && this.layout.gidLayers.length > 0) {
+      // Fallback: derive blocked tiles from GID layers 1+2
+      this.blockedTiles = getBlockedTilesFromGids(this.layout.gidLayers, this.layout.cols, [1, 2])
     } else {
-      this.blockedTiles = getBlockedTiles(this.layout.furniture, seatTileKeys)
+      this.blockedTiles = getBlockedTiles(this.layout.furniture)
     }
+
+    // Populate approach points on seats
+    this.buildSeatApproachMap(this.layout)
 
     this.furniture = layoutToFurnitureInstances(this.layout.furniture)
     this.walkableTiles = getWalkableTiles(this.tileMap, this.blockedTiles)
+  }
+
+  /** Build the seat approach map from layout data, setting approachCol/approachRow on each seat */
+  private buildSeatApproachMap(layout: OfficeLayout): void {
+    this.seatApproachMap.clear()
+    if (layout.seatApproachPoints) {
+      for (const ap of layout.seatApproachPoints) {
+        this.seatApproachMap.set(ap.seatName, { col: ap.col, row: ap.row })
+        const seat = this.seats.get(ap.seatName)
+        if (seat) {
+          seat.approachCol = ap.col
+          seat.approachRow = ap.row
+        }
+      }
+    }
   }
 
   /** Rebuild all derived state from a new layout. Reassigns existing characters.
@@ -112,12 +140,23 @@ export class OfficeState {
       this.seats = layoutToSeats(layout.furniture)
     }
 
-    const seatTileKeys = getSeatTiles(this.seats)
-    if (layout.gidLayers && layout.gidLayers.length > 0) {
-      this.blockedTiles = getBlockedTilesFromGids(layout.gidLayers, layout.cols, [1, 2, 3], seatTileKeys)
+    if (layout.collisionLayer) {
+      this.blockedTiles = new Set<string>()
+      for (let i = 0; i < layout.collisionLayer.length; i++) {
+        if (layout.collisionLayer[i] === 1) {
+          const col = i % layout.cols
+          const row = Math.floor(i / layout.cols)
+          this.blockedTiles.add(`${col},${row}`)
+        }
+      }
+    } else if (layout.gidLayers && layout.gidLayers.length > 0) {
+      this.blockedTiles = getBlockedTilesFromGids(layout.gidLayers, layout.cols, [1, 2])
     } else {
-      this.blockedTiles = getBlockedTiles(layout.furniture, seatTileKeys)
+      this.blockedTiles = getBlockedTiles(layout.furniture)
     }
+
+    // Rebuild approach point map
+    this.buildSeatApproachMap(layout)
 
     this.rebuildFurnitureInstances()
     this.walkableTiles = getWalkableTiles(this.tileMap, this.blockedTiles)
@@ -154,6 +193,7 @@ export class OfficeState {
           ch.x = cx
           ch.y = cy
           ch.dir = seat.facingDir
+          ch.isSeated = true
           continue
         }
       }
@@ -173,6 +213,7 @@ export class OfficeState {
         ch.x = seat.seatCol * TILE_SIZE + TILE_SIZE / 2
         ch.y = seat.seatRow * TILE_SIZE + TILE_SIZE / 2
         ch.dir = seat.facingDir
+        ch.isSeated = true
       }
     }
 
@@ -201,6 +242,26 @@ export class OfficeState {
     return this.layout
   }
 
+  /**
+   * Pathfind a character to their seat using the approach point.
+   * If an approach point exists, pathfind to the approach point (walkable tile).
+   * The character will be snapped to the seat tile on arrival (handled in characters.ts).
+   * Returns the path (empty if already at approach point or no path found).
+   */
+  private pathfindToSeat(ch: Character, seat: Seat, occupiedTiles?: Set<string>): Array<{ col: number; row: number }> {
+    if (seat.approachCol != null && seat.approachRow != null) {
+      // Approach-point-based pathfinding — target is always a walkable tile
+      if (ch.tileCol === seat.approachCol && ch.tileRow === seat.approachRow) {
+        return [] // Already at approach point
+      }
+      return findPath(ch.tileCol, ch.tileRow, seat.approachCol, seat.approachRow, this.tileMap, this.blockedTiles, occupiedTiles)
+    }
+    // Fallback for layouts without approach points: use legacy withOwnSeatUnblocked
+    return this.withOwnSeatUnblocked(ch, () =>
+      findPath(ch.tileCol, ch.tileRow, seat.seatCol, seat.seatRow, this.tileMap, this.blockedTiles, occupiedTiles)
+    )
+  }
+
   /** Get the blocked-tile key for a character's own seat, or null */
   private ownSeatKey(ch: Character): string | null {
     if (!ch.seatId) return null
@@ -209,12 +270,50 @@ export class OfficeState {
     return `${seat.seatCol},${seat.seatRow}`
   }
 
-  /** Temporarily unblock a character's own seat, run fn, then re-block */
+  /** Temporarily unblock a character's own seat + minimal corridor to reach it.
+   *  LEGACY FALLBACK — only used for layouts without pre-computed approach points. */
   private withOwnSeatUnblocked<T>(ch: Character, fn: () => T): T {
-    const key = this.ownSeatKey(ch)
-    if (key) this.blockedTiles.delete(key)
+    if (!ch.seatId) return fn()
+    const seat = this.seats.get(ch.seatId)
+    if (!seat) return fn()
+
+    const { seatCol: c, seatRow: r } = seat
+    const keysToUnblock: string[] = [`${c},${r}`] // always unblock the seat itself
+
+    const neighbors = [
+      { key: `${c - 1},${r}`, adjTiles: [{ c: c - 2, r }, { c: c - 1, r: r - 1 }, { c: c - 1, r: r + 1 }] },
+      { key: `${c + 1},${r}`, adjTiles: [{ c: c + 2, r }, { c: c + 1, r: r - 1 }, { c: c + 1, r: r + 1 }] },
+      { key: `${c},${r - 1}`, adjTiles: [{ c, r: r - 2 }, { c: c - 1, r: r - 1 }, { c: c + 1, r: r - 1 }] },
+      { key: `${c},${r + 1}`, adjTiles: [{ c, r: r + 2 }, { c: c - 1, r: r + 1 }, { c: c + 1, r: r + 1 }] },
+    ]
+    for (const n of neighbors) {
+      if (!this.blockedTiles.has(n.key)) {
+        break
+      }
+      const hasAccess = n.adjTiles.some(t =>
+        isWalkable(t.c, t.r, this.tileMap, this.blockedTiles)
+      )
+      if (hasAccess) {
+        keysToUnblock.push(n.key)
+        break
+      }
+    }
+
+    if (keysToUnblock.length === 1) {
+      keysToUnblock.push(
+        `${c - 1},${r}`, `${c + 1},${r}`,
+        `${c},${r - 1}`, `${c},${r + 1}`,
+      )
+    }
+
+    const wasBlocked: string[] = []
+    for (const k of keysToUnblock) {
+      if (this.blockedTiles.delete(k)) wasBlocked.push(k)
+    }
     const result = fn()
-    if (key) this.blockedTiles.add(key)
+    for (const k of wasBlocked) {
+      this.blockedTiles.add(k)
+    }
     return result
   }
 
@@ -232,7 +331,7 @@ export class OfficeState {
    */
   private pickDiversePalette(): { palette: number; hueShift: number } {
     // Count how many non-sub-agents use each base palette (0-5)
-    const counts = new Array(PALETTE_COUNT).fill(0) as number[]
+    const counts = new Array(getCharacterTemplateCount()).fill(0) as number[]
     for (const ch of this.characters.values()) {
       if (ch.isSubagent) continue
       counts[ch.palette]++
@@ -240,7 +339,7 @@ export class OfficeState {
     const minCount = Math.min(...counts)
     // Available = palettes at the minimum count (least used)
     const available: number[] = []
-    for (let i = 0; i < PALETTE_COUNT; i++) {
+    for (let i = 0; i < getCharacterTemplateCount(); i++) {
       if (counts[i] === minCount) available.push(i)
     }
     const palette = available[Math.floor(Math.random() * available.length)]
@@ -346,10 +445,8 @@ export class OfficeState {
     if (!seat || seat.assigned) return
     seat.assigned = true
     ch.seatId = seatId
-    // Pathfind to new seat (unblock own seat tile for this query)
-    const path = this.withOwnSeatUnblocked(ch, () =>
-      findPath(ch.tileCol, ch.tileRow, seat.seatCol, seat.seatRow, this.tileMap, this.blockedTiles, this.occupiedTiles)
-    )
+    // Pathfind to seat via approach point
+    const path = this.pathfindToSeat(ch, seat, this.occupiedTiles)
     if (path.length > 0) {
       ch.path = path
       ch.moveProgress = 0
@@ -357,9 +454,14 @@ export class OfficeState {
       ch.frame = 0
       ch.frameTimer = 0
     } else {
-      // Already at seat or no path — sit down
+      // Already at approach point or no path — snap to seat and sit down
+      ch.tileCol = seat.seatCol
+      ch.tileRow = seat.seatRow
+      ch.x = seat.seatCol * TILE_SIZE + TILE_SIZE / 2
+      ch.y = seat.seatRow * TILE_SIZE + TILE_SIZE / 2
       ch.state = CharacterState.TYPE
       ch.dir = seat.facingDir
+      ch.isSeated = true
       ch.frame = 0
       ch.frameTimer = 0
       if (!ch.isActive) {
@@ -374,9 +476,7 @@ export class OfficeState {
     if (!ch || !ch.seatId) return
     const seat = this.seats.get(ch.seatId)
     if (!seat) return
-    const path = this.withOwnSeatUnblocked(ch, () =>
-      findPath(ch.tileCol, ch.tileRow, seat.seatCol, seat.seatRow, this.tileMap, this.blockedTiles, this.occupiedTiles)
-    )
+    const path = this.pathfindToSeat(ch, seat, this.occupiedTiles)
     if (path.length > 0) {
       ch.path = path
       ch.moveProgress = 0
@@ -384,9 +484,14 @@ export class OfficeState {
       ch.frame = 0
       ch.frameTimer = 0
     } else {
-      // Already at seat — sit down
+      // Already at approach point or seat — snap to seat and sit down
+      ch.tileCol = seat.seatCol
+      ch.tileRow = seat.seatRow
+      ch.x = seat.seatCol * TILE_SIZE + TILE_SIZE / 2
+      ch.y = seat.seatRow * TILE_SIZE + TILE_SIZE / 2
       ch.state = CharacterState.TYPE
       ch.dir = seat.facingDir
+      ch.isSeated = true
       ch.frame = 0
       ch.frameTimer = 0
       if (!ch.isActive) {
@@ -458,22 +563,34 @@ export class OfficeState {
   walkToTile(agentId: number, col: number, row: number): boolean {
     const ch = this.characters.get(agentId)
     if (!ch || ch.isSubagent) return false
-    if (!isWalkable(col, row, this.tileMap, this.blockedTiles)) {
-      // Also allow walking to own seat tile (blocked for others but not self)
-      const key = this.ownSeatKey(ch)
-      if (!key || key !== `${col},${row}`) {
-        // Trigger collision flash for player-controlled characters
-        if (ch.isPlayerControlled) {
+
+    // Check if target is the character's own seat — use approach point
+    const seatKey = this.ownSeatKey(ch)
+    if (seatKey && seatKey === `${col},${row}`) {
+      const seat = this.seats.get(ch.seatId!)!
+      const path = this.pathfindToSeat(ch, seat, this.occupiedTiles)
+      if (path.length === 0) {
+        if (ch.isPlayerControlled && (ch.tileCol !== col || ch.tileRow !== row)) {
           this.collisionFlash = { col, row, timer: COLLISION_FLASH_DURATION_SEC }
         }
         return false
       }
+      ch.path = path
+      ch.moveProgress = 0
+      ch.state = CharacterState.WALK
+      ch.frame = 0
+      ch.frameTimer = 0
+      return true
     }
-    const path = this.withOwnSeatUnblocked(ch, () =>
-      findPath(ch.tileCol, ch.tileRow, col, row, this.tileMap, this.blockedTiles, this.occupiedTiles)
-    )
+
+    if (!isWalkable(col, row, this.tileMap, this.blockedTiles)) {
+      if (ch.isPlayerControlled) {
+        this.collisionFlash = { col, row, timer: COLLISION_FLASH_DURATION_SEC }
+      }
+      return false
+    }
+    const path = findPath(ch.tileCol, ch.tileRow, col, row, this.tileMap, this.blockedTiles, this.occupiedTiles)
     if (path.length === 0) {
-      // Trigger collision flash for player-controlled characters when pathfinding fails
       if (ch.isPlayerControlled && (ch.tileCol !== col || ch.tileRow !== row)) {
         this.collisionFlash = { col, row, timer: COLLISION_FLASH_DURATION_SEC }
       }
@@ -489,11 +606,8 @@ export class OfficeState {
 
   /** Internal: walk any character (including subagents) to a tile. No player guards. */
   private walkCharacterToTile(ch: Character, col: number, row: number): boolean {
-    // Check walkability with own seat unblocked (target may be own seat tile)
-    const path = this.withOwnSeatUnblocked(ch, () => {
-      if (!isWalkable(col, row, this.tileMap, this.blockedTiles)) return []
-      return findPath(ch.tileCol, ch.tileRow, col, row, this.tileMap, this.blockedTiles, this.occupiedTiles)
-    })
+    if (!isWalkable(col, row, this.tileMap, this.blockedTiles)) return false
+    const path = findPath(ch.tileCol, ch.tileRow, col, row, this.tileMap, this.blockedTiles, this.occupiedTiles)
     if (path.length === 0) return false
     ch.path = path
     ch.moveProgress = 0
@@ -807,7 +921,14 @@ export class OfficeState {
     }
     // 40% random tile, or fallback when no interaction points available
     if (this.walkableTiles.length === 0) return null
-    const target = this.walkableTiles[Math.floor(Math.random() * this.walkableTiles.length)]
+    // Filter out tiles inside restricted zones this agent can't enter
+    const allowed = this.walkableTiles.filter((t) => {
+      const z = getZoneAt(t.col, t.row)
+      if (!z) return true
+      return isAgentAllowedInZone(ch, z, this.seats)
+    })
+    if (allowed.length === 0) return null
+    const target = allowed[Math.floor(Math.random() * allowed.length)]
     return { col: target.col, row: target.row }
   }
 
@@ -1121,14 +1242,7 @@ export class OfficeState {
             const deskSeatId = ch.seatId
             if (!ch.originalSeatId) ch.originalSeatId = deskSeatId
             ch.seatId = confSeatId
-            const deskSeat = deskSeatId ? this.seats.get(deskSeatId) : null
-            const deskKey = deskSeat ? `${deskSeat.seatCol},${deskSeat.seatRow}` : null
-            const confKey = `${confSeat.seatCol},${confSeat.seatRow}`
-            if (deskKey) this.blockedTiles.delete(deskKey)
-            this.blockedTiles.delete(confKey)
-            const path = findPath(ch.tileCol, ch.tileRow, confSeat.seatCol, confSeat.seatRow, this.tileMap, this.blockedTiles, this.occupiedTiles)
-            if (deskKey) this.blockedTiles.add(deskKey)
-            this.blockedTiles.add(confKey)
+            const path = this.pathfindToSeat(ch, confSeat, this.occupiedTiles)
             if (path.length > 0) {
               ch.path = path
               ch.moveProgress = 0
@@ -1175,11 +1289,17 @@ export class OfficeState {
       this.meetingActive = false
     }
 
-    // Build set of tiles occupied by characters (for inter-character collision)
+    // Build set of tiles occupied by characters (for inter-character collision).
+    // Also reserve the DESTINATION tile for walking characters so two characters
+    // can't target the same tile simultaneously.
     this.occupiedTiles.clear()
     for (const ch of this.characters.values()) {
       if (!ch.matrixEffect) {
         this.occupiedTiles.add(`${ch.tileCol},${ch.tileRow}`)
+        if (ch.state === CharacterState.WALK && ch.path.length > 0) {
+          const next = ch.path[0]
+          this.occupiedTiles.add(`${next.col},${next.row}`)
+        }
       }
     }
     const occupiedTiles = this.occupiedTiles
@@ -1203,19 +1323,26 @@ export class OfficeState {
         continue // skip normal FSM while effect is active
       }
 
-      // Remove this character's own tile from occupied set so it doesn't block itself
+      // Remove this character's own tiles from occupied set so it doesn't block itself
       const ownKey = `${ch.tileCol},${ch.tileRow}`
       occupiedTiles.delete(ownKey)
+      // Also remove own destination tile reservation
+      let ownDestKey: string | null = null
+      if (ch.state === CharacterState.WALK && ch.path.length > 0) {
+        ownDestKey = `${ch.path[0].col},${ch.path[0].row}`
+        occupiedTiles.delete(ownDestKey)
+      }
 
-      // Temporarily unblock own seat so character can pathfind to it
       // Pass heldKeys only for player-controlled characters
       const keys = ch.isPlayerControlled ? this.heldKeys : undefined
-      this.withOwnSeatUnblocked(ch, () =>
-        updateCharacter(ch, dt, this.walkableTiles, this.seats, this.tileMap, this.blockedTiles, keys, occupiedTiles)
-      )
+      updateCharacter(ch, dt, this.walkableTiles, this.seats, this.tileMap, this.blockedTiles, keys, occupiedTiles)
 
       // Re-add this character's tile (may have changed if it moved)
       occupiedTiles.add(`${ch.tileCol},${ch.tileRow}`)
+      // Re-add destination reservation if still walking
+      if (ch.state === CharacterState.WALK && ch.path.length > 0) {
+        occupiedTiles.add(`${ch.path[0].col},${ch.path[0].row}`)
+      }
 
       // Consume blockedTile signal from player character → collision flash
       if (ch.isPlayerControlled && ch.blockedTile) {
@@ -1230,9 +1357,7 @@ export class OfficeState {
         ch.needsWanderDestination = false
         const dest = this.pickWanderDestination(ch)
         if (dest) {
-          const path = this.withOwnSeatUnblocked(ch, () =>
-            findPath(ch.tileCol, ch.tileRow, dest.col, dest.row, this.tileMap, this.blockedTiles, occupiedTiles)
-          )
+          const path = findPath(ch.tileCol, ch.tileRow, dest.col, dest.row, this.tileMap, this.blockedTiles, occupiedTiles)
           if (path.length > 0) {
             ch.path = path
             ch.moveProgress = 0
@@ -1241,7 +1366,9 @@ export class OfficeState {
             ch.frameTimer = 0
             ch.wanderCount++
             if (dest.interactionPoint) {
-              // Store the target interaction point so WALK→ACTIVITY transition works
+              // Store the target interaction point so WALK→ACTIVITY transition works.
+              // occupiedPoints rebuild (below) will count this character as claiming
+              // the point even while walking, preventing double-booking.
               ch.activityTarget = dest.interactionPoint.id
             }
           }
@@ -1262,14 +1389,7 @@ export class OfficeState {
           ch.activityType = point.furnitureType
           ch.activityStartTime = point.activityDurationMin +
             Math.random() * (point.activityDurationMax - point.activityDurationMin)
-          // Track occupancy in the map
-          const occ = this.occupiedPoints.get(point.id)
-          if (occ) {
-            occ.count++
-            occ.agentIds.push(ch.id)
-          } else {
-            this.occupiedPoints.set(point.id, { count: 1, agentIds: [ch.id] })
-          }
+          // Occupancy is tracked by the rebuild loop below (counts all chars with activityTarget).
         } else {
           // Invalid point — revert to idle
           ch.state = CharacterState.IDLE
@@ -1323,11 +1443,12 @@ export class OfficeState {
       }
     }
 
-    // Rebuild occupiedPoints from all ACTIVITY-state characters each frame.
-    // This is simpler and more robust than tracking add/remove individually.
+    // Rebuild occupiedPoints from characters that are at or heading to interaction points.
+    // Includes both ACTIVITY-state (arrived) and WALK-state with activityTarget (en route).
+    // This prevents multiple characters from claiming the same capacity-1 point.
     this.occupiedPoints.clear()
     for (const ch of this.characters.values()) {
-      if (ch.state === CharacterState.ACTIVITY && ch.activityTarget) {
+      if (ch.activityTarget) {
         const occ = this.occupiedPoints.get(ch.activityTarget)
         if (occ) {
           occ.count++

@@ -57,6 +57,7 @@ export function getCachedSprite(sprite: SpriteData, zoom: number): HTMLCanvasEle
 
   const rows = sprite.length
   const cols = sprite[0].length
+
   const canvas = document.createElement('canvas')
   canvas.width = cols * zoom
   canvas.height = rows * zoom

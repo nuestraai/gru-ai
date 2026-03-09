@@ -194,6 +194,23 @@ export interface PlatformAdapter {
   getAgentState(state: SessionFileState): AgentState;
 
   // -------------------------------------------------------------------------
+  // Identity resolution
+  // -------------------------------------------------------------------------
+
+  /**
+   * Resolve the agent identity (name + role) for a session file.
+   *
+   * Implementations should use a platform-specific fallback chain (e.g.
+   * agent-setting entry, sidecar metadata, prompt pattern matching,
+   * parent session cross-reference). Returns undefined if no identity
+   * can be determined.
+   *
+   * @param filePath - The session file path.
+   * @param state    - The current parsed session state.
+   */
+  resolveAgentIdentity(filePath: string, state: SessionFileState): { name: string; role: string } | undefined;
+
+  // -------------------------------------------------------------------------
   // Factory methods
   // -------------------------------------------------------------------------
 

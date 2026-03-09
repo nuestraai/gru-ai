@@ -84,6 +84,10 @@ export interface Seat {
   /** Direction character faces when sitting (toward adjacent desk) */
   facingDir: Direction
   assigned: boolean
+  /** Approach point column (nearest walkable tile for pathfinding to this seat) */
+  approachCol?: number
+  /** Approach point row (nearest walkable tile for pathfinding to this seat) */
+  approachRow?: number
 }
 
 export interface FurnitureInstance {
@@ -190,6 +194,10 @@ export interface OfficeLayout {
   gidLayers?: number[][]
   /** Numbered seat positions (index 0 = seat-1, index 1 = seat-2, etc.) */
   seatPositions?: SeatPosition[]
+  /** Pre-computed collision layer (0=walkable, 1=blocked). Parallel to tiles[]. */
+  collisionLayer?: number[]
+  /** Pre-computed approach points for each seat (nearest walkable tile). */
+  seatApproachPoints?: Array<{ seatName: string; col: number; row: number }>
 }
 
 /** Agent status from backend session state */
@@ -295,4 +303,6 @@ export interface Character {
   activityStartTime: number
   /** Type of activity the agent is performing, or null */
   activityType: FurnitureActivityType | null
+  /** True when the character is snapped to their seat (sitting or idle-at-desk) */
+  isSeated: boolean
 }

@@ -14,7 +14,7 @@
       "borderColor": "border-foreground/30",
       "dotColor": "bg-foreground",
       "isCsuite": true,
-      "game": { "palette": 0, "seatId": "seat-1", "position": { "row": 3, "col": 2 }, "color": "gold", "isPlayer": true }
+      "game": { "palette": 0, "appearance": { "bodyRow": 0, "hairRow": 0, "outfitIndex": 5 }, "seatId": "seat-1", "position": { "row": 3, "col": 2 }, "color": "gold", "isPlayer": true }
     },
     {
       "id": "sarah",
@@ -30,7 +30,7 @@
       "borderColor": "border-violet-500/40",
       "dotColor": "bg-violet-500",
       "isCsuite": true,
-      "game": { "palette": 1, "seatId": "seat-3", "position": { "row": 5, "col": 10 }, "color": "purple" }
+      "game": { "palette": 1, "appearance": { "bodyRow": 3, "hairRow": 3, "outfitIndex": 2 }, "seatId": "seat-3", "position": { "row": 5, "col": 10 }, "color": "purple" }
     },
     {
       "id": "marcus",
@@ -46,7 +46,7 @@
       "borderColor": "border-blue-500/40",
       "dotColor": "bg-blue-500",
       "isCsuite": true,
-      "game": { "palette": 3, "seatId": "seat-4", "position": { "row": 5, "col": 13 }, "color": "orange" }
+      "game": { "palette": 3, "appearance": { "bodyRow": 1, "hairRow": 5, "outfitIndex": 1 }, "seatId": "seat-4", "position": { "row": 5, "col": 13 }, "color": "orange" }
     },
     {
       "id": "morgan",
@@ -62,7 +62,7 @@
       "borderColor": "border-emerald-500/40",
       "dotColor": "bg-emerald-500",
       "isCsuite": true,
-      "game": { "palette": 2, "seatId": "seat-12", "position": { "row": 6, "col": 24 }, "color": "green" }
+      "game": { "palette": 2, "appearance": { "bodyRow": 4, "hairRow": 1, "outfitIndex": 4 }, "seatId": "seat-12", "position": { "row": 6, "col": 24 }, "color": "green" }
     },
     {
       "id": "priya",
@@ -78,7 +78,7 @@
       "borderColor": "border-amber-500/40",
       "dotColor": "bg-amber-500",
       "isCsuite": true,
-      "game": { "palette": 4, "seatId": "seat-5", "position": { "row": 5, "col": 16 }, "color": "pink" }
+      "game": { "palette": 4, "appearance": { "bodyRow": 5, "hairRow": 7, "outfitIndex": 5 }, "seatId": "seat-5", "position": { "row": 5, "col": 16 }, "color": "pink" }
     },
     {
       "id": "riley",
@@ -94,7 +94,7 @@
       "borderColor": "border-pink-500/40",
       "dotColor": "bg-pink-500",
       "isCsuite": false,
-      "game": { "palette": 5, "seatId": "seat-6", "position": { "row": 5, "col": 19 }, "color": "pink" }
+      "game": { "palette": 5, "appearance": { "bodyRow": 2, "hairRow": 4, "outfitIndex": 6 }, "seatId": "seat-6", "position": { "row": 5, "col": 19 }, "color": "pink" }
     },
     {
       "id": "jordan",
@@ -110,7 +110,7 @@
       "borderColor": "border-teal-500/40",
       "dotColor": "bg-teal-500",
       "isCsuite": false,
-      "game": { "palette": 6, "seatId": "seat-7", "position": { "row": 8, "col": 10 }, "color": "teal" }
+      "game": { "palette": 6, "appearance": { "bodyRow": 3, "hairRow": 6, "outfitIndex": 1 }, "seatId": "seat-7", "position": { "row": 8, "col": 10 }, "color": "teal" }
     },
     {
       "id": "casey",
@@ -126,7 +126,7 @@
       "borderColor": "border-cyan-500/40",
       "dotColor": "bg-cyan-500",
       "isCsuite": false,
-      "game": { "palette": 7, "seatId": "seat-8", "position": { "row": 8, "col": 13 }, "color": "cyan" }
+      "game": { "palette": 7, "appearance": { "bodyRow": 0, "hairRow": 2, "outfitIndex": 6 }, "seatId": "seat-8", "position": { "row": 8, "col": 13 }, "color": "cyan" }
     },
     {
       "id": "taylor",
@@ -142,7 +142,7 @@
       "borderColor": "border-orange-500/40",
       "dotColor": "bg-orange-500",
       "isCsuite": false,
-      "game": { "palette": 8, "seatId": "seat-9", "position": { "row": 8, "col": 16 }, "color": "orange" }
+      "game": { "palette": 8, "appearance": { "bodyRow": 4, "hairRow": 0, "outfitIndex": 6 }, "seatId": "seat-9", "position": { "row": 8, "col": 16 }, "color": "orange" }
     },
     {
       "id": "sam",
@@ -158,7 +158,7 @@
       "borderColor": "border-lime-500/40",
       "dotColor": "bg-lime-500",
       "isCsuite": false,
-      "game": { "palette": 9, "seatId": "seat-10", "position": { "row": 8, "col": 19 }, "color": "lime" }
+      "game": { "palette": 9, "appearance": { "bodyRow": 1, "hairRow": 7, "outfitIndex": 4 }, "seatId": "seat-10", "position": { "row": 8, "col": 19 }, "color": "lime" }
     },
     {
       "id": "quinn",
@@ -174,7 +174,7 @@
       "borderColor": "border-rose-500/40",
       "dotColor": "bg-rose-500",
       "isCsuite": false,
-      "game": { "palette": 10, "seatId": "seat-16", "position": { "row": 16, "col": 5 }, "color": "rose" }
+      "game": { "palette": 10, "appearance": { "bodyRow": 5, "hairRow": 2, "outfitIndex": 5 }, "seatId": "seat-16", "position": { "row": 16, "col": 5 }, "color": "rose" }
     },
     {
       "id": "devon",
@@ -190,7 +190,7 @@
       "borderColor": "border-indigo-500/40",
       "dotColor": "bg-indigo-500",
       "isCsuite": false,
-      "game": { "palette": 11, "seatId": "seat-2", "position": { "row": 7, "col": 2 }, "color": "indigo" }
+      "game": { "palette": 11, "appearance": { "bodyRow": 2, "hairRow": 5, "outfitIndex": 2 }, "seatId": "seat-2", "position": { "row": 7, "col": 2 }, "color": "indigo" }
     }
   ],
   "teams": [

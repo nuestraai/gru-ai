@@ -1,4 +1,4 @@
-import { TileType, TILE_SIZE, CharacterState, FurnitureActivityType } from '../pixel-types'
+import { TileType, TILE_SIZE, CharacterState, FurnitureActivityType, Direction } from '../pixel-types'
 import type { TileType as TileTypeVal, FurnitureInstance, Character, SpriteData, Seat, FloorColor } from '../pixel-types'
 import { getCachedSprite, getOutlineSprite } from '../sprites/spriteCache'
 import { getCharacterSprites, BUBBLE_PERMISSION_SPRITE, BUBBLE_WAITING_SPRITE, BUBBLE_CHAT_SPRITE } from '../sprites/spriteData'
@@ -249,8 +249,10 @@ export function renderScene(
 ): void {
   const drawables: ZDrawable[] = []
 
-  // GID overlay tiles (layers 2+ = furniture_top, deco) — z-sorted with characters
-  // so characters appear in front of furniture at the same or higher rows
+  // GID overlay tiles (layers 2+ = furniture_top, deco) — z-sorted with characters.
+  // Overlay tiles sort AFTER characters at the same row so surface items (chairs,
+  // desk tops, laptops) render on top of sitting/walking characters.  Characters
+  // at a higher row (below the furniture) still render in front.
   if (overlayGidLayers && overlayLayoutCols && overlayRows && overlayCols && hasTilesetCache()) {
     const s = TILE_SIZE * zoom
     const t = overlayTimeSec ?? 0
@@ -263,8 +265,9 @@ export function renderScene(
           if (!gid || gid === 0) continue
           const tileRow = r
           const tileCol = c
-          // z-sort by bottom edge of tile — characters at same row sort after (in front)
-          const tileZY = (tileRow + 1) * TILE_SIZE
+          // Sort slightly after characters at the same row (CHARACTER_Z_SORT_OFFSET=0.5)
+          // so furniture surfaces always render on top of characters at the same tile row.
+          const tileZY = (tileRow + 1) * TILE_SIZE + CHARACTER_Z_SORT_OFFSET + 0.5
           drawables.push({
             zY: tileZY,
             draw: (ctx2) => {
@@ -329,6 +332,14 @@ export function renderScene(
     // Outline priority: selected > hovered > CEO glow > proximity highlight
     const isSelected = selectedAgentId !== null && ch.id === selectedAgentId
     const isHovered = hoveredAgentId !== null && ch.id === hoveredAgentId
+    // Up-facing seated characters: clip at the seat-tile top edge so the body
+    // below the desk surface is hidden.  This keeps the character connected to
+    // the chair tile below (no gap) while hiding legs/lower-body.
+    const isUpSitting = ch.isSeated && ch.dir === Direction.UP
+    const clipScreenY = isUpSitting
+      ? Math.round(offsetY + Math.floor(ch.y / TILE_SIZE) * TILE_SIZE * zoom)
+      : 0
+
     if (isSelected || isHovered) {
       // White outline for selected/hovered
       const outlineAlpha = isSelected ? SELECTED_OUTLINE_ALPHA : HOVERED_OUTLINE_ALPHA
@@ -340,6 +351,11 @@ export function renderScene(
         zY: charZY - OUTLINE_Z_SORT_OFFSET, // sort just before character
         draw: (c) => {
           c.save()
+          if (isUpSitting) {
+            c.beginPath()
+            c.rect(0, 0, c.canvas.width, clipScreenY)
+            c.clip()
+          }
           c.globalAlpha = outlineAlpha
           c.drawImage(outlineCached, olDrawX, olDrawY)
           c.restore()
@@ -355,6 +371,11 @@ export function renderScene(
         zY: charZY - OUTLINE_Z_SORT_OFFSET,
         draw: (c) => {
           c.save()
+          if (isUpSitting) {
+            c.beginPath()
+            c.rect(0, 0, c.canvas.width, clipScreenY)
+            c.clip()
+          }
           c.globalAlpha = CEO_GLOW_ALPHA
           c.drawImage(goldOutlineCached, olDrawX, olDrawY)
           c.restore()
@@ -373,6 +394,11 @@ export function renderScene(
         zY: charZY - OUTLINE_Z_SORT_OFFSET,
         draw: (c) => {
           c.save()
+          if (isUpSitting) {
+            c.beginPath()
+            c.rect(0, 0, c.canvas.width, clipScreenY)
+            c.clip()
+          }
           c.globalAlpha = pulseAlpha
           c.drawImage(goldOutlineCached, olDrawX, olDrawY)
           c.restore()
@@ -383,13 +409,22 @@ export function renderScene(
     drawables.push({
       zY: charZY,
       draw: (c) => {
+        if (isUpSitting) {
+          c.save()
+          c.beginPath()
+          c.rect(0, 0, c.canvas.width, clipScreenY)
+          c.clip()
+        }
         c.drawImage(cached, drawX, drawY)
+        if (isUpSitting) {
+          c.restore()
+        }
       },
     })
 
     // CEO crown: draw above the character sprite
     if (ch.isPlayerControlled) {
-      const crownCached = getCachedSprite(CEO_CROWN_SPRITE, charZoom)
+      const crownCached = getCachedSprite(CEO_CROWN_SPRITE, zoom * CHARACTER_SPRITE_SCALE)
       const crownW = crownCached.width
       const crownH = crownCached.height
       // Center crown above character head

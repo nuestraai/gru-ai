@@ -88,30 +88,6 @@ export const BUBBLE_CHAT_SPRITE: SpriteData = (() => {
   ]
 })()
 
-// ── Character Palettes ──────────────────────────────────────────
-
-/** Palette colors for agent characters.
- *  0-5: match char_0..5.png loaded from assets (Sarah=1, Morgan=2, Marcus=3, Priya=4).
- *  6+: additional agents — Riley, Jordan, Casey, Taylor, Sam, Devon.
- */
-export const CHARACTER_PALETTES = [
-  // ── Palettes 0-5: match char_0..5.png ──
-  { skin: '#FFCC99', shirt: '#4488CC', pants: '#334466', hair: '#553322', shoes: '#222222' }, // 0: blue (spare)
-  { skin: '#FFCC99', shirt: '#CC4444', pants: '#333333', hair: '#FFD700', shoes: '#222222' }, // 1: Sarah (red shirt, gold hair)
-  { skin: '#DEB887', shirt: '#44AA66', pants: '#334444', hair: '#222222', shoes: '#333333' }, // 2: Morgan (green shirt)
-  { skin: '#FFCC99', shirt: '#AA55CC', pants: '#443355', hair: '#AA4422', shoes: '#222222' }, // 3: Marcus (purple shirt)
-  { skin: '#DEB887', shirt: '#CCAA33', pants: '#444433', hair: '#553322', shoes: '#333333' }, // 4: Priya (gold shirt)
-  { skin: '#FFCC99', shirt: '#FF8844', pants: '#443322', hair: '#111111', shoes: '#222222' }, // 5: spare (orange shirt)
-  // ── Palettes 6+: additional agents ──
-  { skin: '#FFCC99', shirt: '#E05599', pants: '#553344', hair: '#331111', shoes: '#222222' }, // 6: Riley (pink shirt, dark red hair)
-  { skin: '#C4956A', shirt: '#3399AA', pants: '#2A4455', hair: '#1A1A1A', shoes: '#333333' }, // 7: Jordan (teal shirt)
-  { skin: '#DEB887', shirt: '#55BBDD', pants: '#334455', hair: '#443322', shoes: '#222222' }, // 8: Casey (sky blue shirt)
-  { skin: '#FFCC99', shirt: '#DD7733', pants: '#443322', hair: '#994411', shoes: '#333333' }, // 9: Taylor (burnt orange shirt)
-  { skin: '#C4956A', shirt: '#66CC55', pants: '#334433', hair: '#222222', shoes: '#222222' }, // 10: Sam (lime green shirt)
-  { skin: '#FFCC99', shirt: '#7766DD', pants: '#333355', hair: '#553322', shoes: '#333333' }, // 11: Devon (indigo shirt)
-  { skin: '#C4956A', shirt: '#AA7744', pants: '#3D3322', hair: '#332211', shoes: '#222222' }, // 12: Spare (brown shirt, MetroCity pre-colored)
-] as const
-
 // ════════════════════════════════════════════════════════════════
 // Loaded character sprites (from PNG assets)
 // ════════════════════════════════════════════════════════════════
@@ -129,6 +105,11 @@ let loadedCharacters: LoadedCharacterData[] | null = null
 /** Returns true once PNG character assets have been loaded */
 export function areCharacterSpritesLoaded(): boolean {
   return loadedCharacters !== null
+}
+
+/** Returns the number of loaded character templates (for palette cycling) */
+export function getCharacterTemplateCount(): number {
+  return loadedCharacters?.length ?? 0
 }
 
 /** Set pre-colored character sprites loaded from PNG assets. Call this when characterSpritesLoaded message arrives. */

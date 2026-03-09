@@ -344,6 +344,26 @@ export function resolveAgentFromSetting(agentSetting: string): { name: string; r
   return KNOWN_AGENTS[normalized] ?? KNOWN_AGENTS[agentSetting.toLowerCase()];
 }
 
+/**
+ * Resolve agent identity from a `.meta.json` sidecar file.
+ * Claude Code may write `{"agentType":"riley"}` alongside the `.jsonl`.
+ * Returns { name, role } if the meta file exists and references a known agent.
+ */
+export function resolveAgentFromMeta(jsonlPath: string): { name: string; role: string } | undefined {
+  const metaPath = jsonlPath.replace(/\.jsonl$/, '.meta.json');
+  try {
+    const raw = fs.readFileSync(metaPath, 'utf-8');
+    const meta = JSON.parse(raw) as { agentType?: string };
+    if (meta.agentType) {
+      const normalized = meta.agentType.toLowerCase().split('-')[0];
+      return KNOWN_AGENTS[normalized] ?? KNOWN_AGENTS[meta.agentType.toLowerCase()];
+    }
+  } catch {
+    // meta.json doesn't exist or is malformed
+  }
+  return undefined;
+}
+
 export function isSystemContent(text: string): boolean {
   const trimmed = text.trim();
   if (/^<system-reminder>[\s\S]*<\/system-reminder>$/.test(trimmed)) return true;

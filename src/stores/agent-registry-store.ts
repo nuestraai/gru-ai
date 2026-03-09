@@ -4,9 +4,16 @@ import { create } from 'zustand';
 // Agent Registry Types (mirrors the shape of agent-registry.json)
 // ---------------------------------------------------------------------------
 
+export interface CharacterAppearance {
+  bodyRow: number;     // 0-5 (skin tone + body variant)
+  hairRow: number;     // 0-7 (hair style from Hairs.png)
+  outfitIndex: number; // 1-6 (Outfit1-6.png)
+}
+
 export interface AgentGameConfig {
   palette: number;
   hueShift?: number;
+  appearance?: CharacterAppearance;
   seatId: string;
   position: { row: number; col: number };
   color: string;

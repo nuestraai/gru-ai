@@ -1,18 +1,16 @@
 /**
- * Compose MetroCity character sprites into per-agent PNGs.
+ * Compose MetroCity character sprites into per-agent PNGs (debug/preview tool).
  *
- * Reads the MetroCity asset pack (Character Model, Hairs, Outfits)
- * and composites them into final character sprites for each agent.
+ * Reads appearance configs from agent-registry.json and composites
+ * MetroCity source layers into preview PNGs. The actual game uses
+ * runtime compositing in asset-loader.ts — this script is optional.
  *
  * Source assets (in public/assets/metrocity/):
  *   Character Model.png — 768x192 = 24 cols x 6 rows @ 32x32
- *     6 rows = 2 skin tones (rows 0-2 = tone A, rows 3-5 = tone B) x 3 body variants
  *   Hairs.png — 768x256 = 24 cols x 8 rows @ 32x32, 8 hair styles
  *   Outfit1-6.png — 768x32 each = 24 cols x 1 row @ 32x32, 6 outfits
  *
- * Output: char_0..12.png at 112x96 (7 frames x 16px wide, 3 rows x 32px tall)
- *   Row 0 = down, Row 1 = up, Row 2 = right
- *   Frame order: walk1, walk2, walk3, type1, type2, read1, read2
+ * Output: char_0..N.png at 224x96 (7 frames x 32px wide, 3 rows x 32px tall)
  *
  * Usage:
  *   npx tsx scripts/compose-metrocity.ts
@@ -28,53 +26,102 @@ const __dirname = path.dirname(__filename)
 
 // ── Paths ──
 
+const REGISTRY_PATH = path.join(__dirname, '..', '.claude', 'agent-registry.json')
 const ASSET_DIR = path.join(__dirname, '..', 'public', 'assets', 'metrocity')
 const OUT_DIR = path.join(__dirname, '..', 'public', 'assets', 'characters')
 
 // ── Output dimensions ──
-// 7 frames x 16px = 112px wide, 3 direction rows x 32px = 96px tall
+// Native 32x32 per frame — renderer handles scaling via CHARACTER_SPRITE_SCALE.
+// 7 frames x 32px = 224px wide, 3 direction rows x 32px = 96px tall.
 const FRAME_COUNT = 7
-const FRAME_W = 16
+const FRAME_W = 32
 const FRAME_H = 32
-const OUT_W = FRAME_COUNT * FRAME_W  // 112
+const OUT_W = FRAME_COUNT * FRAME_W  // 224
 const OUT_H = 3 * FRAME_H            // 96
 
 // ── Source tile dimensions ──
 const SRC_TILE = 32  // each MetroCity tile is 32x32
 
-// ── Agent combination table ──
-// Each agent gets a unique combo of body row, hair style, and outfit.
-// bodyRow: 0-5 (rows 0-2 = skin tone A, rows 3-5 = skin tone B)
-// hairRow: 0-7 (8 hair styles in Hairs.png)
-// outfitIndex: 1-6 (Outfit1.png through Outfit6.png)
+// ── Load agent combos from registry ──
 
 interface AgentCombo {
   name: string
-  bodyRow: number     // 0-5
-  hairRow: number     // 0-7
-  outfitIndex: number // 1-6
+  bodyRow: number
+  hairRow: number
+  outfitIndex: number
 }
 
-const AGENT_COMBOS: AgentCombo[] = [
-  { name: 'CEO',    bodyRow: 0, hairRow: 0, outfitIndex: 5 },  //  0: tone A, short hair, formal suit
-  { name: 'Sarah',  bodyRow: 3, hairRow: 3, outfitIndex: 2 },  //  1: tone B, long wavy, casual top
-  { name: 'Morgan', bodyRow: 4, hairRow: 1, outfitIndex: 4 },  //  2: tone B, cropped, business
-  { name: 'Marcus', bodyRow: 1, hairRow: 5, outfitIndex: 1 },  //  3: tone A, mohawk, tee
-  { name: 'Priya',  bodyRow: 5, hairRow: 7, outfitIndex: 3 },  //  4: tone B, bun, blouse
-  { name: 'Riley',  bodyRow: 2, hairRow: 4, outfitIndex: 6 },  //  5: tone A, side part, hoodie
-  { name: 'Jordan', bodyRow: 3, hairRow: 6, outfitIndex: 1 },  //  6: tone B, curly, tee
-  { name: 'Casey',  bodyRow: 0, hairRow: 2, outfitIndex: 3 },  //  7: tone A, bob, blouse
-  { name: 'Taylor', bodyRow: 4, hairRow: 0, outfitIndex: 6 },  //  8: tone B, short, hoodie
-  { name: 'Sam',    bodyRow: 1, hairRow: 7, outfitIndex: 4 },  //  9: tone A, bun, business
-  { name: 'Quinn',  bodyRow: 5, hairRow: 2, outfitIndex: 5 },  // 10: tone B, bob, formal
-  { name: 'Devon',  bodyRow: 2, hairRow: 5, outfitIndex: 2 },  // 11: tone A, mohawk, casual
-  { name: 'Spare',  bodyRow: 3, hairRow: 4, outfitIndex: 4 },  // 12: tone B, side part, business
-]
+// ── Gender-aware appearance generation (mirrors src/components/game/generateAppearance.ts) ──
+
+type InferredGender = 'male' | 'female'
+
+const NAME_GENDER: Record<string, InferredGender> = {
+  sarah: 'female', marcus: 'male', morgan: 'male', priya: 'female',
+  riley: 'female', jordan: 'male', casey: 'male', taylor: 'female',
+  sam: 'male', quinn: 'female', devon: 'male',
+  alex: 'male', emma: 'female', james: 'male', sophia: 'female',
+  liam: 'male', olivia: 'female', noah: 'male', ava: 'female',
+  ethan: 'male', mia: 'female', lucas: 'male', isabella: 'female',
+  mason: 'male', charlotte: 'female', logan: 'male', amelia: 'female',
+  daniel: 'male', luna: 'female', henry: 'male', ella: 'female',
+  max: 'male', lily: 'female', jack: 'male', aria: 'female',
+  leo: 'male', zoe: 'female', ryan: 'male', nora: 'female',
+  kai: 'male', maya: 'female', jin: 'male', yuki: 'female',
+  raj: 'male', ananya: 'female', omar: 'male', fatima: 'female',
+  carlos: 'male', camila: 'female', david: 'male', elena: 'female',
+  michael: 'male', jessica: 'female', chris: 'male', emily: 'female',
+}
+
+function inferGender(firstName: string): InferredGender {
+  const key = firstName.toLowerCase().trim()
+  if (NAME_GENDER[key]) return NAME_GENDER[key]
+  if (key.endsWith('a') || key.endsWith('ia') || key.endsWith('ie') || key.endsWith('ah')) return 'female'
+  return 'male'
+}
+
+const HAIR_ROWS_MALE = [0, 4, 5, 6, 7]
+const HAIR_ROWS_FEMALE = [1, 2, 3, 4]
+const OUTFIT_INDICES_MALE = [1, 3, 4, 5, 6]
+const OUTFIT_INDICES_FEMALE = [1, 2, 3, 5, 6]
+
+function simpleHash(str: string): number {
+  let hash = 0
+  for (let i = 0; i < str.length; i++) hash = ((hash << 5) - hash + str.charCodeAt(i)) | 0
+  return Math.abs(hash)
+}
+
+function generateAppearance(agentName: string): { bodyRow: number; hairRow: number; outfitIndex: number } {
+  const firstName = agentName.split(' ')[0] || agentName
+  const gender = inferGender(firstName)
+  const hash = simpleHash(agentName.toLowerCase())
+  const hairPool = gender === 'female' ? HAIR_ROWS_FEMALE : HAIR_ROWS_MALE
+  const outfitPool = gender === 'female' ? OUTFIT_INDICES_FEMALE : OUTFIT_INDICES_MALE
+  return {
+    bodyRow: hash % 6,
+    hairRow: hairPool[hash % hairPool.length],
+    outfitIndex: outfitPool[(hash >> 4) % outfitPool.length],
+  }
+}
+
+// ── Load agent combos (use registry appearance if present, else auto-generate) ──
+
+function loadAgentCombos(): AgentCombo[] {
+  const registry = JSON.parse(fs.readFileSync(REGISTRY_PATH, 'utf-8'))
+  const combos: AgentCombo[] = []
+  for (const agent of registry.agents) {
+    if (!agent.game) continue
+    const appearance = agent.game.appearance ?? generateAppearance(agent.name)
+    combos.push({ name: agent.name.split(' ')[0], ...appearance })
+  }
+  return combos
+}
+
+const AGENT_COMBOS = loadAgentCombos()
 
 // ── MetroCity layout ──
 // Verified by pixel analysis of Character Model.png:
 //   24 columns = 4 direction groups x 6 frames per direction
-//   Column mapping: Down(0-5), Left(6-11), Up(12-17), Right(18-23)
+//   Column mapping: Down(0-5), Right(6-11), Up(12-17), Left(18-23)
 //
 // Each 6-frame direction cycle:
 //   Frame 0: idle standing
@@ -86,10 +133,10 @@ const AGENT_COMBOS: AgentCombo[] = [
 
 /** Column offset for the first frame of each MetroCity direction group. */
 const DIR_COL_OFFSET = {
-  down:  0,   // cols 0-5
-  left:  6,   // cols 6-11
-  up:    12,  // cols 12-17
-  right: 18,  // cols 18-23
+  down:  0,   // cols 0-5  (front-facing)
+  right: 6,   // cols 6-11 (right-facing)
+  up:    12,  // cols 12-17 (back-facing)
+  left:  18,  // cols 18-23 (left-facing)
 } as const
 
 /**
@@ -148,69 +195,18 @@ function extractTile(sheet: PNG, col: number, row: number): Buffer {
   return buf
 }
 
-/**
- * Downscale a 32x32 tile to 16x32 by averaging every 2 horizontal pixels.
- * Vertical resolution is preserved. Returns a flat RGBA buffer (16*32*4 bytes).
- */
-function downscaleHorizontal(tile: Buffer): Buffer {
-  const outW = SRC_TILE / 2  // 16
-  const outH = SRC_TILE       // 32
-  const buf = Buffer.alloc(outW * outH * 4)
-
-  for (let y = 0; y < outH; y++) {
-    for (let x = 0; x < outW; x++) {
-      // Average two source pixels: (2*x, y) and (2*x+1, y)
-      const srcIdxA = (y * SRC_TILE + 2 * x) * 4
-      const srcIdxB = (y * SRC_TILE + 2 * x + 1) * 4
-      const dstIdx = (y * outW + x) * 4
-
-      const aA = tile[srcIdxA + 3]
-      const aB = tile[srcIdxB + 3]
-
-      if (aA === 0 && aB === 0) {
-        // Both transparent
-        buf[dstIdx] = 0
-        buf[dstIdx + 1] = 0
-        buf[dstIdx + 2] = 0
-        buf[dstIdx + 3] = 0
-      } else if (aA === 0) {
-        // Only B is opaque — use B directly
-        buf[dstIdx]     = tile[srcIdxB]
-        buf[dstIdx + 1] = tile[srcIdxB + 1]
-        buf[dstIdx + 2] = tile[srcIdxB + 2]
-        buf[dstIdx + 3] = tile[srcIdxB + 3]
-      } else if (aB === 0) {
-        // Only A is opaque — use A directly
-        buf[dstIdx]     = tile[srcIdxA]
-        buf[dstIdx + 1] = tile[srcIdxA + 1]
-        buf[dstIdx + 2] = tile[srcIdxA + 2]
-        buf[dstIdx + 3] = tile[srcIdxA + 3]
-      } else {
-        // Both opaque — average RGB, max alpha
-        buf[dstIdx]     = (tile[srcIdxA]     + tile[srcIdxB])     >> 1
-        buf[dstIdx + 1] = (tile[srcIdxA + 1] + tile[srcIdxB + 1]) >> 1
-        buf[dstIdx + 2] = (tile[srcIdxA + 2] + tile[srcIdxB + 2]) >> 1
-        buf[dstIdx + 3] = Math.max(aA, aB)
-      }
-    }
-  }
-  return buf
-}
-
-/**
- * Blit a 16x32 downscaled frame into the output PNG at the given frame/row position.
- */
-function blitFrame(out: PNG, frame: Buffer, frameIdx: number, rowIdx: number): void {
+/** Blit a 32x32 tile into the output PNG at native resolution (no upscale). */
+function blitFrame(out: PNG, tile: Buffer, frameIdx: number, rowIdx: number): void {
   const dstX = frameIdx * FRAME_W
   const dstY = rowIdx * FRAME_H
-  for (let y = 0; y < FRAME_H; y++) {
-    for (let x = 0; x < FRAME_W; x++) {
-      const srcIdx = (y * FRAME_W + x) * 4
+  for (let y = 0; y < SRC_TILE; y++) {
+    for (let x = 0; x < SRC_TILE; x++) {
+      const srcIdx = (y * SRC_TILE + x) * 4
       const dstIdx = ((dstY + y) * OUT_W + (dstX + x)) * 4
-      out.data[dstIdx]     = frame[srcIdx]
-      out.data[dstIdx + 1] = frame[srcIdx + 1]
-      out.data[dstIdx + 2] = frame[srcIdx + 2]
-      out.data[dstIdx + 3] = frame[srcIdx + 3]
+      out.data[dstIdx]     = tile[srcIdx]
+      out.data[dstIdx + 1] = tile[srcIdx + 1]
+      out.data[dstIdx + 2] = tile[srcIdx + 2]
+      out.data[dstIdx + 3] = tile[srcIdx + 3]
     }
   }
 }
@@ -301,9 +297,8 @@ for (let i = 0; i < AGENT_COMBOS.length; i++) {
       const hairTile = extractTile(hairSheet, srcCol, combo.hairRow)
       alphaBlit(tile, hairTile)
 
-      // 4. Downscale composited 32x32 to 16x32 and blit to output
-      const scaled = downscaleHorizontal(tile)
-      blitFrame(png, scaled, frameIdx, rowIdx)
+      // 4. Blit native 32x32 tile directly to output (no downscaling)
+      blitFrame(png, tile, frameIdx, rowIdx)
     }
   }
 

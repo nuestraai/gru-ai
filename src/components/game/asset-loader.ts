@@ -1,9 +1,10 @@
 // ---------------------------------------------------------------------------
-// Asset Loader — loads characters, LimeZu singles, and floor tiles
+// Asset Loader — loads floor tiles and composites character sprites at runtime
 // ---------------------------------------------------------------------------
 
 import type { SpriteData } from './pixel-types'
 import type { LoadedCharacterData } from './sprites/spriteData'
+import type { CharacterAppearance } from '@/stores/agent-registry-store'
 import { setFloorSprites } from './floorTiles'
 import { setCharacterTemplates } from './sprites/spriteData'
 import { loadTilesetCache } from './tilesetCache'
@@ -59,31 +60,10 @@ function toGrayscale(sprite: SpriteData): SpriteData {
   )
 }
 
-// ── Floor Tiles (room-builder.png: 256x224, 16x14 grid of 16px tiles) ──
+// ── Floor Tiles (Room_Builder_48x48.png) ──
 
-/**
- * Extract floor tile patterns from the LimeZu room-builder.png.
- * The room-builder is a 16x14 grid of 16px tiles. Rows 5-12 contain
- * floor/carpet patterns in groups. We pick center tiles from 7 distinct
- * pattern groups and convert to grayscale for colorization.
- *
- * Floor tile positions (col, row) — center tiles from each pattern group:
- *  1. (5, 5)  — smooth blue/purple carpet
- *  2. (1, 7)  — textured gray stone
- *  3. (5, 7)  — smooth concrete
- *  4. (11,7)  — dark gray tile
- *  5. (14,7)  — warm brown/wood
- *  6. (11,8)  — medium dark tile
- *  7. (1, 9)  — brick/stone warm
- */
 const FLOOR_TILE_POSITIONS: Array<[col: number, row: number]> = [
-  [11, 10], // FLOOR_1: left room (warm brown, rb cols 10-12 center)
-  [11, 6],  // FLOOR_2: right room / open area (gray stone)
-  [1, 5],   // FLOOR_3: bottom transition (purple/cool)
-  [14, 6],  // FLOOR_4: bottom corridor (brick/red)
-  [14, 7],  // FLOOR_5: (spare)
-  [11, 8],  // FLOOR_6: (spare)
-  [1, 9],   // FLOOR_7: (spare)
+  [11, 10], [11, 6], [1, 5], [14, 6], [14, 7], [11, 8], [1, 9],
 ]
 
 export async function loadFloorAssets(src = '/assets/office/Room_Builder_48x48.png'): Promise<void> {
@@ -108,65 +88,107 @@ export async function loadFloorAssets(src = '/assets/office/Room_Builder_48x48.p
     setFloorSprites(sprites)
     console.log(`✓ Loaded ${sprites.length} floor tile patterns from Room_Builder_48x48.png`)
   } catch (e) {
-    console.warn('Floor tileset not found. Using fallback rendering. Run scripts/setup-assets.sh to install premium assets.')
+    console.warn('Floor tileset not found. Using fallback rendering.')
   }
 }
 
-// ── Character Sprites (old: char_0..5.png, new: LimeZu Modern Interiors) ──
+// ── Character Sprites (runtime compositing from MetroCity source sheets) ──
 
-export async function loadCharacterAssets(basePath = '/assets/characters'): Promise<void> {
+/** MetroCity direction layout: Down(0-5), Right(6-11), Up(12-17), Left(18-23) */
+const DIR_COL_OFFSET = { down: 0, right: 6, up: 12 } as const
+/** Output row order: Row 0 = down, Row 1 = up, Row 2 = right */
+const OUTPUT_DIRS: Array<keyof typeof DIR_COL_OFFSET> = ['down', 'up', 'right']
+/** 7-frame output: walk1, walk2, walk3, type1, type2, read1, read2 */
+const FRAME_MAP = [1, 0, 4, 0, 0, 0, 0]
+const TILE = 32
+
+/**
+ * Composite character sprites at runtime from MetroCity source sheets.
+ * Each appearance config (bodyRow, hairRow, outfitIndex) produces one
+ * LoadedCharacterData with 3 directions × 7 frames.
+ *
+ * Appearances are indexed by palette number — appearances[0] = palette 0, etc.
+ */
+export async function loadCharacterAssets(appearances: CharacterAppearance[]): Promise<void> {
   try {
+    // Load MetroCity source sheets
+    const [bodySheet, hairSheet, ...outfitSheets] = await Promise.all([
+      loadImage('/assets/metrocity/Character Model.png'),
+      loadImage('/assets/metrocity/Hairs.png'),
+      loadImage('/assets/metrocity/Outfit1.png'),
+      loadImage('/assets/metrocity/Outfit2.png'),
+      loadImage('/assets/metrocity/Outfit3.png'),
+      loadImage('/assets/metrocity/Outfit4.png'),
+      loadImage('/assets/metrocity/Outfit5.png'),
+      loadImage('/assets/metrocity/Outfit6.png'),
+    ])
+
+    // Shared compositing canvas
+    const comp = document.createElement('canvas')
+    comp.width = TILE
+    comp.height = TILE
+    const compCtx = comp.getContext('2d')!
+
     const characters: LoadedCharacterData[] = []
 
-    for (let i = 0; i < 13; i++) {
-      const img = await loadImage(`${basePath}/char_${i}.png`)
-      const canvas = document.createElement('canvas')
-      canvas.width = img.width
-      canvas.height = img.height
-      const ctx = canvas.getContext('2d')!
-      ctx.drawImage(img, 0, 0)
-      const imageData = ctx.getImageData(0, 0, img.width, img.height)
-      const data = imageData.data
+    for (const appearance of appearances) {
+      const outfitSheet = outfitSheets[appearance.outfitIndex - 1]
+      const dirs: Record<string, SpriteData[]> = { down: [], up: [], right: [] }
 
-      const FRAME_W = 16
-      const FRAME_H = 32
-      const FRAMES = 7 // 0-2=walk, 3-4=type, 5-6=read
+      for (const dir of OUTPUT_DIRS) {
+        const dirColBase = DIR_COL_OFFSET[dir]
 
-      const dirs: SpriteData[][] = [[], [], []] // down, up, right
-      for (let dir = 0; dir < 3; dir++) {
-        for (let frame = 0; frame < FRAMES; frame++) {
-          dirs[dir].push(
-            extractSprite(data, img.width, frame * FRAME_W, dir * FRAME_H, FRAME_W, FRAME_H),
-          )
+        for (const srcFrame of FRAME_MAP) {
+          const col = dirColBase + srcFrame
+
+          // Composite: body → outfit → hair (canvas alpha blending)
+          compCtx.clearRect(0, 0, TILE, TILE)
+          compCtx.drawImage(bodySheet, col * TILE, appearance.bodyRow * TILE, TILE, TILE, 0, 0, TILE, TILE)
+          compCtx.drawImage(outfitSheet, col * TILE, 0, TILE, TILE, 0, 0, TILE, TILE)
+          compCtx.drawImage(hairSheet, col * TILE, appearance.hairRow * TILE, TILE, TILE, 0, 0, TILE, TILE)
+
+          // Extract SpriteData from composited result
+          const imageData = compCtx.getImageData(0, 0, TILE, TILE)
+          dirs[dir].push(extractSprite(imageData.data, TILE, 0, 0, TILE, TILE))
         }
       }
 
-      characters.push({ down: dirs[0], up: dirs[1], right: dirs[2] })
+      characters.push({ down: dirs.down, up: dirs.up, right: dirs.right })
     }
 
     setCharacterTemplates(characters)
+    console.log(`✓ Composited ${characters.length} character sprites from MetroCity sheets`)
   } catch (e) {
-    console.warn('Failed to load character sprites:', e)
+    console.warn('Failed to load MetroCity character sheets:', e)
   }
 }
 
 // ── Load all assets ─────────────────────────────────────────────
 
 let loaded = false
+let tilesetReady = false
 
 /** Callbacks to fire when tileset sprites are applied to catalog */
 const onTilesetReadyCallbacks: Array<() => void> = []
 
 export function onTilesetReady(cb: () => void): void {
+  if (tilesetReady) {
+    // Assets already loaded (e.g. HMR re-render) — fire immediately
+    cb()
+    return
+  }
   onTilesetReadyCallbacks.push(cb)
 }
 
-export function loadAllAssets(): void {
+export function loadAllAssets(appearances: CharacterAppearance[]): void {
   if (loaded) return
   loaded = true
   loadFloorAssets()
-  loadCharacterAssets() // char_0..12.png for all agents
+  if (appearances.length > 0) {
+    loadCharacterAssets(appearances)
+  }
   loadTilesetCache().then(() => {
+    tilesetReady = true
     for (const cb of onTilesetReadyCallbacks) cb()
   })
 }

@@ -237,15 +237,16 @@ but SidePanel routes tab rendering through `PanelContent`.
 
 ### Mobile Variant (Bottom Sheet)
 
-- [ ] **Bottom sheet on mobile:** On screens < 768px, the SidePanel renders as a fixed
-      bottom sheet (`position: fixed; bottom: 0`) with a dark backdrop overlay.
-- [ ] **Max height:** The sheet has `max-height: 55vh`.
-- [ ] **Drag handle:** A centered gold bar appears at the top for visual grab affordance.
-- [ ] **Backdrop dismiss:** Clicking the dark backdrop (`bg-black/40`) closes the sheet.
-- [ ] **Escape dismiss:** Pressing Escape closes the bottom sheet.
-- [ ] **Sheet animation:** The sheet animates in from the bottom
-      (`animate-[slideUp_200ms_ease-out]`).
-- [ ] **Dialog role:** The sheet has `role="dialog"` and `aria-modal="true"`.
+- [ ] **Inline panel on mobile:** On screens < 768px, the SidePanel renders as an inline
+      element below the canvas in a vertical flex layout (no fixed positioning, no backdrop).
+- [ ] **50/50 split:** When the panel is open, the canvas area and panel each get 50% of
+      the available height via `flex-basis: 50%`.
+- [ ] **CSS transition:** The panel opens and closes with a `flex-basis 200ms ease-in-out`
+      transition -- no instant appear/disappear.
+- [ ] **Independent scroll:** The panel content is independently scrollable via ScrollArea
+      when content overflows.
+- [ ] **Close restores full height:** Closing the panel returns the canvas to full height
+      (`flex-basis: 100%`) with the reverse transition.
 
 ### Agent Override (Back Button)
 

@@ -11,6 +11,8 @@ import {
   DECO,
   SEAT_POSITIONS,
   WALL_GIDS,
+  COLLISION,
+  SEAT_APPROACH_POINTS,
 } from './generated/office-tmx-data'
 
 export { WALL_GIDS }
@@ -29,4 +31,6 @@ export const OFFICE_LAYOUT: OfficeLayout = {
   furniture: [],
   gidLayers: [FLOOR, FURNITURE_BASE, FURNITURE_TOP, DECO],
   seatPositions: [...SEAT_POSITIONS],
+  collisionLayer: COLLISION,
+  seatApproachPoints: [...SEAT_APPROACH_POINTS],
 }

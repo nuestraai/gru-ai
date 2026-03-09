@@ -17,10 +17,34 @@ import { ROOM_ZONES, getZoneAt } from './engine/roomZones'
 
 // Agent lookup maps — built from runtime agents inside the component via useMemo
 
-// Zoom bounds
-const MIN_ZOOM_ABSOLUTE = 1
+// Zoom bounds — see clampZoom() for the actual formula.
+// MIN_ZOOM_ABSOLUTE is a hard floor (never zoom smaller than this regardless of fitZoom).
+// MAX_ZOOM_ABSOLUTE is a hard ceiling.
+const MIN_ZOOM_ABSOLUTE = 0.1
 const MAX_ZOOM_ABSOLUTE = 8
 const ZOOM_STEP = 0.15 // per wheel tick
+
+// Touch gesture thresholds
+const TAP_DISTANCE_THRESHOLD = 10 // px — movement beyond this converts tap to drag
+const TAP_TIME_THRESHOLD = 300 // ms — touches longer than this are never taps
+
+/**
+ * Compute zoom bounds based on fitZoom (map-fills-container width).
+ * minZoom = fitZoom so the map always at least fills the container width.
+ * maxZoom = max(fitZoom * 4, MAX_ZOOM_ABSOLUTE) so there is always meaningful zoom range.
+ * Both are clamped to absolute bounds as a safety rail.
+ */
+function getZoomBounds(fitZoom: number): { minZoom: number; maxZoom: number } {
+  const minZoom = Math.max(MIN_ZOOM_ABSOLUTE, fitZoom)
+  const maxZoom = Math.max(fitZoom * 4, MAX_ZOOM_ABSOLUTE)
+  return { minZoom, maxZoom }
+}
+
+/** Clamp a zoom value to the computed bounds. */
+function clampZoom(z: number, fitZoom: number): number {
+  const { minZoom, maxZoom } = getZoomBounds(fitZoom)
+  return Math.max(minZoom, Math.min(maxZoom, z))
+}
 
 const TOOL_VERBS: Record<string, string> = {
   Read: 'reading', Edit: 'editing', Write: 'writing',
@@ -102,18 +126,22 @@ export default function CanvasOffice({
   propsRef.current = { onAgentClick, onItemClick, agentStatuses, agentSessionInfos, agentBusyMap, agentInteractions, subagentsByParent, reviewInteractions, selectedAgentName }
 
   // Zoom state: fitZoom is the baseline (fit map width to container), zoom is current
-  const [fitZoom, setFitZoom] = useState(3)
-  const [zoom, setZoom] = useState(3)
+  // Initial value: estimate from window width so the first frame isn't over-zoomed
+  const [fitZoom, setFitZoom] = useState(
+    () => typeof window !== 'undefined' ? window.innerWidth / (OFFICE_LAYOUT.cols * TILE_SIZE) : 1,
+  )
+  const [zoom, setZoom] = useState(fitZoom)
   const zoomRef = useRef(zoom)
   zoomRef.current = zoom
 
   const [tooltip, setTooltip] = useState<TooltipState | null>(null)
+  const [assetsReady, setAssetsReady] = useState(false)
 
-  // Get map dimensions from state (or fallback)
+  // Get map dimensions from state, falling back to static layout
   const getMapDims = useCallback(() => {
     const state = stateRef.current
-    const cols = state ? (state.tileMap[0]?.length ?? 1) : 1
-    const rows = state ? state.tileMap.length : 1
+    const cols = state ? (state.tileMap[0]?.length ?? OFFICE_LAYOUT.cols) : OFFICE_LAYOUT.cols
+    const rows = state ? state.tileMap.length : OFFICE_LAYOUT.rows
     return { cols, rows }
   }, [])
 
@@ -139,9 +167,15 @@ export default function CanvasOffice({
     }
     stateRef.current = state
     ;(window as any).__officeState = state
-    loadAllAssets()
+    // Build appearances array indexed by palette for runtime compositing
+    const appearances = agents
+      .filter((a) => a.appearance)
+      .sort((a, b) => a.palette - b.palette)
+      .map((a) => a.appearance!)
+    loadAllAssets(appearances)
     onTilesetReady(() => {
       state.rebuildFurnitureInstances()
+      setAssetsReady(true)
     })
   }, [agents, CEO_ID])
 
@@ -366,9 +400,7 @@ export default function CanvasOffice({
 
       const delta = e.deltaY > 0 ? -ZOOM_STEP : ZOOM_STEP
       setZoom((prev) => {
-        const minZoom = Math.max(MIN_ZOOM_ABSOLUTE, fitZoomRef.current * 0.5)
-        const maxZoom = Math.min(MAX_ZOOM_ABSOLUTE, fitZoomRef.current * 3)
-        return Math.max(minZoom, Math.min(maxZoom, prev + delta * prev))
+        return clampZoom(prev + delta * prev, fitZoomRef.current)
       })
     }
 
@@ -615,12 +647,12 @@ export default function CanvasOffice({
   // Resolve character id -> display name ("You" for CEO)
   const resolveAgentName = useCallback((charId: number): string => {
     return AGENT_ID_TO_NAME.get(charId) ?? ''
-  }, [])
+  }, [AGENT_ID_TO_NAME])
 
   // Resolve character id -> real agent name (for data lookups, never "You")
   const resolveRealAgentName = useCallback((charId: number): string => {
     return AGENT_ID_TO_REAL_NAME.get(charId) ?? ''
-  }, [])
+  }, [AGENT_ID_TO_REAL_NAME])
 
   // ---------------------------------------------------------------------------
   // Click handler: process a click at world coordinates.
@@ -694,7 +726,7 @@ export default function CanvasOffice({
         }
       }
     },
-    [resolveAgentName, resolveRealAgentName],
+    [resolveAgentName, resolveRealAgentName, CEO_ID],
   )
 
   // Keep processClick in a ref for touch handler closure
@@ -770,54 +802,199 @@ export default function CanvasOffice({
     setTooltip(null)
   }, [])
 
-  // Touch handlers (tap-to-click only, no drag/pan or pinch-to-zoom)
+  // ─── Touch gesture handler ─────────────────────────────────────────────
+  // Handles three distinct gestures on the canvas (which has CSS touch-none):
+  //   1. Single-finger tap: fires processClick (agent/furniture/click-to-move)
+  //   2. Single-finger drag: programmatically scrolls the parent overflow container
+  //   3. Two-finger pinch: adjusts zoom level centered between the two touches
+  //
+  // Because the canvas has `touch-action: none`, the browser will NOT scroll or
+  // zoom natively. All behavior is implemented in JS via preventDefault.
+  // ──────────────────────────────────────────────────────────────────────────
   useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas) return
+    const scrollParent = wrapperRef.current?.parentElement
+    if (!scrollParent) return
 
-    function touchOffset(t: Touch) {
+    // ── Shared state across touch lifecycle ──
+
+    /** The gesture mode we've committed to for the current touch sequence. */
+    type GestureMode = 'undecided' | 'tap' | 'drag' | 'pinch'
+    let gesture: GestureMode = 'undecided'
+
+    // Single-finger tracking
+    let startX = 0 // client coords at touchstart
+    let startY = 0
+    let startTime = 0
+    /** Canvas-local coords at touchstart (for tap → processClick) */
+    let canvasStartX = 0
+    let canvasStartY = 0
+    /** Last known client coords for computing drag deltas */
+    let lastX = 0
+    let lastY = 0
+
+    // Two-finger pinch tracking
+    let pinchStartDist = 0
+    let pinchStartZoom = 0
+    /** Midpoint of the two fingers in canvas-local coords at pinch start */
+    let pinchMidCanvasX = 0
+    let pinchMidCanvasY = 0
+
+    /** Euclidean distance between two Touch objects. */
+    function touchDist(a: Touch, b: Touch): number {
+      const dx = a.clientX - b.clientX
+      const dy = a.clientY - b.clientY
+      return Math.sqrt(dx * dx + dy * dy)
+    }
+
+    /** Convert a Touch to canvas-local coordinates. */
+    function canvasLocal(t: Touch): { x: number; y: number } {
       const rect = canvas!.getBoundingClientRect()
       return { x: t.clientX - rect.left, y: t.clientY - rect.top }
     }
 
-    let touchStart: { x: number; y: number } | null = null
+    // ── Touch event handlers ──
 
     function onTouchStart(e: TouchEvent) {
-      // Don't preventDefault -- allow native scroll on touch
+      e.preventDefault()
+
+      if (e.touches.length === 2) {
+        // Immediately switch to pinch (even if we were dragging with one finger)
+        gesture = 'pinch'
+        const t0 = e.touches[0]
+        const t1 = e.touches[1]
+        pinchStartDist = touchDist(t0, t1)
+        pinchStartZoom = zoomRef.current
+
+        // Midpoint in canvas-local coords (used for zoom centering)
+        const p0 = canvasLocal(t0)
+        const p1 = canvasLocal(t1)
+        pinchMidCanvasX = (p0.x + p1.x) / 2
+        pinchMidCanvasY = (p0.y + p1.y) / 2
+        return
+      }
+
       if (e.touches.length === 1) {
-        touchStart = touchOffset(e.touches[0])
+        gesture = 'undecided'
+        const t = e.touches[0]
+        startX = t.clientX
+        startY = t.clientY
+        startTime = performance.now()
+        lastX = t.clientX
+        lastY = t.clientY
+        const local = canvasLocal(t)
+        canvasStartX = local.x
+        canvasStartY = local.y
       }
     }
 
     function onTouchMove(e: TouchEvent) {
-      // If finger moves too far, cancel the tap (let browser scroll)
-      if (touchStart && e.touches.length === 1) {
-        const pos = touchOffset(e.touches[0])
-        const dx = pos.x - touchStart.x
-        const dy = pos.y - touchStart.y
-        if (Math.sqrt(dx * dx + dy * dy) >= 10) {
-          touchStart = null
+      e.preventDefault()
+
+      // ── Pinch-to-zoom (two fingers) ──
+      if (gesture === 'pinch' && e.touches.length === 2) {
+        const t0 = e.touches[0]
+        const t1 = e.touches[1]
+        const currentDist = touchDist(t0, t1)
+        if (pinchStartDist === 0) return // safety
+
+        const scale = currentDist / pinchStartDist
+        const newZoom = clampZoom(pinchStartZoom * scale, fitZoomRef.current)
+
+        // Adjust scroll so the pinch midpoint stays stationary on screen.
+        // The midpoint in world coords = pinchMidCanvas / pinchStartZoom.
+        // After zoom, its screen position would shift; compensate via scroll.
+        const worldMidX = pinchMidCanvasX / pinchStartZoom
+        const worldMidY = pinchMidCanvasY / pinchStartZoom
+
+        // Current midpoint on screen (client coords relative to scroll parent)
+        const parentRect = scrollParent!.getBoundingClientRect()
+        const screenMidX = (t0.clientX + t1.clientX) / 2 - parentRect.left
+        const screenMidY = (t0.clientY + t1.clientY) / 2 - parentRect.top
+
+        setZoom(newZoom)
+
+        // After zoom change, the world point should appear at screenMid.
+        // worldPoint in new canvas coords = worldMid * newZoom
+        // scrollLeft = canvasCoord - screenOffset
+        requestAnimationFrame(() => {
+          scrollParent!.scrollLeft = worldMidX * newZoom - screenMidX
+          scrollParent!.scrollTop = worldMidY * newZoom - screenMidY
+        })
+        return
+      }
+
+      // ── Single-finger drag / tap discrimination ──
+      if (e.touches.length === 1) {
+        const t = e.touches[0]
+        const dx = t.clientX - startX
+        const dy = t.clientY - startY
+
+        if (gesture === 'undecided') {
+          const dist = Math.sqrt(dx * dx + dy * dy)
+          if (dist >= TAP_DISTANCE_THRESHOLD) {
+            gesture = 'drag'
+          } else {
+            return // still undecided, wait for more movement
+          }
+        }
+
+        if (gesture === 'drag') {
+          // Scroll the parent container by the inverse of finger movement delta
+          const deltaX = lastX - t.clientX
+          const deltaY = lastY - t.clientY
+          scrollParent!.scrollLeft += deltaX
+          scrollParent!.scrollTop += deltaY
+          lastX = t.clientX
+          lastY = t.clientY
         }
       }
     }
 
     function onTouchEnd(e: TouchEvent) {
-      if (e.touches.length === 0 && touchStart) {
-        const currentZoom = zoomRef.current
-        const worldX = touchStart.x / currentZoom
-        const worldY = touchStart.y / currentZoom
-        processClickRef.current(worldX, worldY)
+      // If a second finger lifts during pinch but one remains, reset to drag
+      if (gesture === 'pinch' && e.touches.length === 1) {
+        gesture = 'drag'
+        const t = e.touches[0]
+        lastX = t.clientX
+        lastY = t.clientY
+        return
       }
-      touchStart = null
+
+      // All fingers lifted
+      if (e.touches.length === 0) {
+        if (gesture === 'undecided' || gesture === 'tap') {
+          // Finger stayed within threshold and duration — treat as tap
+          const elapsed = performance.now() - startTime
+          if (elapsed < TAP_TIME_THRESHOLD) {
+            const currentZoom = zoomRef.current
+            const worldX = canvasStartX / currentZoom
+            const worldY = canvasStartY / currentZoom
+            processClickRef.current(worldX, worldY)
+          }
+        }
+        // Reset gesture state
+        gesture = 'undecided'
+      }
     }
 
-    canvas.addEventListener('touchstart', onTouchStart, { passive: true })
-    canvas.addEventListener('touchmove', onTouchMove, { passive: true })
-    canvas.addEventListener('touchend', onTouchEnd, { passive: true })
+    function onTouchCancel(_e: TouchEvent) {
+      gesture = 'undecided'
+    }
+
+    // Use { passive: false } so we can call preventDefault to suppress native
+    // scrolling and browser zoom (the canvas already has CSS touch-none, but
+    // this is defense-in-depth for browsers that ignore the CSS hint).
+    canvas.addEventListener('touchstart', onTouchStart, { passive: false })
+    canvas.addEventListener('touchmove', onTouchMove, { passive: false })
+    canvas.addEventListener('touchend', onTouchEnd, { passive: false })
+    canvas.addEventListener('touchcancel', onTouchCancel, { passive: false })
     return () => {
       canvas.removeEventListener('touchstart', onTouchStart)
       canvas.removeEventListener('touchmove', onTouchMove)
       canvas.removeEventListener('touchend', onTouchEnd)
+      canvas.removeEventListener('touchcancel', onTouchCancel)
     }
   }, [])
 
@@ -828,8 +1005,12 @@ export default function CanvasOffice({
       style={{
         width: Math.ceil(canvasLogicalW),
         height: Math.ceil(canvasLogicalH),
+        minWidth: '100%',
+        minHeight: '100%',
       }}
     >
+      {/* No loading overlay — canvas renders immediately with fallback flat colors,
+           then sprites replace them seamlessly once the tileset cache loads. */}
       <canvas
         ref={canvasRef}
         className="block touch-none outline-none"

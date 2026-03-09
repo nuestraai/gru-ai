@@ -24,8 +24,8 @@ export type FurnitureActivityType = (typeof FurnitureActivityType)[keyof typeof 
 
 // ── Grid & Layout ────────────────────────────────────────────
 export const TILE_SIZE = 48
-/** Character sprites are 16x32px pixel art. Scale them up to match the tile grid. */
-export const CHARACTER_SPRITE_SCALE = TILE_SIZE / 16  // 3 for 48px tiles
+/** Character sprites are 32x32px pixel art. Scale 3× so each art pixel = 3×3 screen pixels. */
+export const CHARACTER_SPRITE_SCALE = 3
 export const DEFAULT_COLS = 30
 export const DEFAULT_ROWS = 20
 export const MAX_COLS = 64
@@ -58,8 +58,8 @@ export const PERSONALITY_FRAME_COUNT = 4
 // ── Matrix Effect ────────────────────────────────────────────
 export const MATRIX_EFFECT_DURATION_SEC = 0.3
 export const MATRIX_TRAIL_LENGTH = 6
-export const MATRIX_SPRITE_COLS = 16
-export const MATRIX_SPRITE_ROWS = 24
+export const MATRIX_SPRITE_COLS = 32
+export const MATRIX_SPRITE_ROWS = 32
 export const MATRIX_FLICKER_FPS = 30
 export const MATRIX_FLICKER_VISIBILITY_THRESHOLD = 180
 export const MATRIX_COLUMN_STAGGER_RANGE = 0.3
@@ -110,16 +110,6 @@ export const CAMERA_FOLLOW_SNAP_THRESHOLD = 0.5
 /** Fraction of viewport each side that forms the deadzone border (center 40% is deadzone when 0.3) */
 export const CAMERA_DEADZONE_FRACTION = 0.3
 
-// ── Zoom ─────────────────────────────────────────────────────
-export const ZOOM_MIN = 1
-export const ZOOM_MAX = 10
-export const ZOOM_DEFAULT_DPR_FACTOR = 2
-export const ZOOM_LEVEL_FADE_DELAY_MS = 1500
-export const ZOOM_LEVEL_HIDE_DELAY_MS = 2000
-export const ZOOM_LEVEL_FADE_DURATION_SEC = 0.5
-export const ZOOM_SCROLL_THRESHOLD = 50
-export const PAN_MARGIN_FRACTION = 0.25
-
 // ── Editor ───────────────────────────────────────────────────
 export const UNDO_STACK_MAX_SIZE = 50
 export const LAYOUT_SAVE_DEBOUNCE_MS = 500
@@ -136,7 +126,7 @@ export const NOTIFICATION_NOTE_DURATION_SEC = 0.18
 export const NOTIFICATION_VOLUME = 0.14
 
 // ── Identity Plates & Status Indicators ─────────────────────
-export const NAME_LABEL_VERTICAL_OFFSET_PX = 104
+export const NAME_LABEL_VERTICAL_OFFSET_PX = 96
 /** Extra offset when character is sitting (typing state) */
 export const NAME_LABEL_SITTING_OFFSET_PX = 10
 /** Identity plate horizontal padding in pre-zoom pixels */
@@ -178,7 +168,6 @@ export const WAITING_BUBBLE_DURATION_SEC = 2.0
 export const DISMISS_BUBBLE_FAST_FADE_SEC = 0.3
 export const INACTIVE_SEAT_TIMER_MIN_SEC = 30.0
 export const INACTIVE_SEAT_TIMER_RANGE_SEC = 60.0
-export const PALETTE_COUNT = 13
 export const HUE_SHIFT_MIN_DEG = 45
 export const HUE_SHIFT_RANGE_DEG = 271
 export const AUTO_ON_FACING_DEPTH = 3

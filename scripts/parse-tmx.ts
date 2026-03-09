@@ -366,7 +366,90 @@ for (const ts of findAll(doc, 'tileset')) {
 console.log(`Found ${inlineTilesets.length} inline tilesets, ${animEntries.length} animated tiles`)
 
 // ---------------------------------------------------------------------------
-// 7. Generate TypeScript output
+// 7. Collision layer — derived from furniture_base + furniture_top
+// ---------------------------------------------------------------------------
+// Any tile with a non-zero GID in furniture_base (layer 1) or furniture_top (layer 2)
+// is blocked (1). Seats ARE blocked — they're furniture tiles.
+
+const collision: number[] = new Array(expectedCount).fill(0)
+for (let i = 0; i < expectedCount; i++) {
+  if (layerArrays.furniture_base[i] !== 0 || layerArrays.furniture_top[i] !== 0) {
+    collision[i] = 1
+  }
+}
+const blockedCount = collision.filter((v) => v === 1).length
+console.log(`COLLISION: ${blockedCount} blocked tiles out of ${expectedCount}`)
+
+// ---------------------------------------------------------------------------
+// 8. Seat approach points — nearest walkable tile to each seat via BFS
+// ---------------------------------------------------------------------------
+// For each seat, BFS outward through blocked tiles until we find a tile where
+// collision=0 AND the floor layer has a walkable GID (non-wall).
+
+interface SeatApproachPoint {
+  seatName: string
+  col: number
+  row: number
+}
+
+function isFloorWalkable(idx: number): boolean {
+  if (idx < 0 || idx >= expectedCount) return false
+  // collision=0 means the tile is not blocked by furniture
+  if (collision[idx] !== 0) return false
+  // Also check floor layer — wall GIDs are not walkable
+  const floorGid = floorGids[idx]
+  if (floorGid === 0) return false
+  if (wallGids.has(floorGid)) return false
+  return true
+}
+
+const seatApproachPoints: SeatApproachPoint[] = []
+
+for (const seat of seats) {
+  const seatIdx = seat.row * width + seat.col
+  // BFS from the seat tile outward
+  const visited = new Set<number>()
+  visited.add(seatIdx)
+  const queue: number[] = [seatIdx]
+  let found = false
+
+  while (queue.length > 0 && !found) {
+    const curr = queue.shift()!
+    const currCol = curr % width
+    const currRow = Math.floor(curr / width)
+
+    // Check 4-connected neighbors
+    const neighbors = [
+      { c: currCol - 1, r: currRow },
+      { c: currCol + 1, r: currRow },
+      { c: currCol, r: currRow - 1 },
+      { c: currCol, r: currRow + 1 },
+    ]
+    for (const n of neighbors) {
+      if (n.c < 0 || n.c >= width || n.r < 0 || n.r >= height) continue
+      const nIdx = n.r * width + n.c
+      if (visited.has(nIdx)) continue
+      visited.add(nIdx)
+
+      if (isFloorWalkable(nIdx)) {
+        seatApproachPoints.push({ seatName: `seat-${seat.name}`, col: n.c, row: n.r })
+        found = true
+        break
+      }
+      // Continue BFS through blocked tiles
+      queue.push(nIdx)
+    }
+  }
+
+  if (!found) {
+    console.warn(`  WARNING: No approach point found for seat-${seat.name} at (${seat.col},${seat.row})`)
+  }
+}
+
+console.log(`Found ${seatApproachPoints.length} seat approach points`)
+
+// ---------------------------------------------------------------------------
+// 9. Generate TypeScript output
 // ---------------------------------------------------------------------------
 
 function formatArray(arr: number[], cols: number): string {
@@ -449,6 +532,17 @@ ${inlineTilesets.map((t) => `  { firstgid: ${t.firstgid}, filename: '${t.filenam
 export const ANIMATED_TILE_DEFS: Array<{ baseGid: number; frames: number[]; frameDurationSec: number }> = [
 ${animEntries.map((a) => `  { baseGid: ${a.baseGid}, frames: [${a.frames.join(',')}], frameDurationSec: ${a.frameDurationSec} },`).join('\n')}
 ]
+
+// -- Collision layer (0=walkable, 1=blocked by furniture_base or furniture_top) --
+// prettier-ignore
+export const COLLISION: number[] = [
+${formatArray(collision, width)}
+]
+
+// -- Seat approach points (nearest walkable tile to each seat) --
+export const SEAT_APPROACH_POINTS: Array<{ seatName: string; col: number; row: number }> = [
+${seatApproachPoints.map((s) => `  { seatName: '${s.seatName}', col: ${s.col}, row: ${s.row} },`).join('\n')}
+]
 `
 
 mkdirSync(dirname(OUT_PATH), { recursive: true })
@@ -464,3 +558,5 @@ console.log(`  TILESET_REGISTRY: ${tilesetRegistry.length} entries`)
 console.log(`  WALL_GIDS: ${wallGids.size} entries`)
 console.log(`  INLINE_TILESETS: ${inlineTilesets.length} entries`)
 console.log(`  ANIMATED_TILE_DEFS: ${animEntries.length} entries`)
+console.log(`  COLLISION: ${blockedCount} blocked / ${expectedCount} total`)
+console.log(`  SEAT_APPROACH_POINTS: ${seatApproachPoints.length} entries`)
