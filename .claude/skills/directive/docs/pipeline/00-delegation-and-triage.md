@@ -8,15 +8,17 @@ Before doing anything else, kill orphaned CLI agents from prior runs. These accu
 
 ```bash
 # Kill orphaned CLI agent processes from prior runs
-ps aux | grep "claude.*--agent.*-p" | grep -v grep | awk '{print $2}' | xargs kill 2>/dev/null
-# Also kill any orphaned -p (print mode) processes without --agent
-ps aux | grep "claude -p" | grep -v grep | awk '{print $2}' | xargs kill 2>/dev/null
-# Kill orphaned spawn-agent.ts processes
+# ONLY target --agent processes (spawned workers), NOT plain "claude -p" processes.
+# Reason: this directive session itself runs inside a "claude -p" process.
+# Killing all "claude -p" matches would kill our own parent process (the session
+# running this pipeline). Orphans are always --agent child processes, never the
+# parent session.
+ps aux | grep "claude.*--agent" | grep -v grep | awk '{print $2}' | xargs kill 2>/dev/null
 ps aux | grep "spawn-agent" | grep -v grep | awk '{print $2}' | xargs kill 2>/dev/null
 echo "Pre-flight cleanup: killed orphaned agent processes"
 ```
 
-This is safe — active CLI agents for the current directive haven't been spawned yet, so there's nothing to accidentally kill.
+This is safe — active CLI agents for the current directive haven't been spawned yet, and we only target `--agent` child processes (not the parent `claude -p` session).
 
 ### Classify the Directive
 

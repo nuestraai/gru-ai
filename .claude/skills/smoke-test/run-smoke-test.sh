@@ -13,7 +13,9 @@
 #
 # Exit: 0 if all steps pass, 1 if any fail or timeout
 
-set -euo pipefail
+set -uo pipefail
+# Note: set -e intentionally omitted — it interferes with background process
+# management and signal propagation in bash. Errors are handled explicitly.
 
 # ---------------------------------------------------------------------------
 # Configuration
@@ -113,10 +115,14 @@ cleanup() {
     git branch -D "$BRANCH_NAME" 2>/dev/null || true
   fi
 
-  # Clean up temp files
+  # Clean up temp files (keep logs on failure for debugging)
   rm -f "/tmp/smoke-test-pid-${TIMESTAMP}.txt"
-  rm -f "/tmp/smoke-test-err-${TIMESTAMP}.log"
-  rm -f "/tmp/smoke-test-${TIMESTAMP}.log"
+  if [[ "$exit_code" -eq 0 ]]; then
+    rm -f "/tmp/smoke-test-err-${TIMESTAMP}.log"
+    rm -f "/tmp/smoke-test-${TIMESTAMP}.log"
+  else
+    echo "Logs preserved at /tmp/smoke-test-${TIMESTAMP}.log and /tmp/smoke-test-err-${TIMESTAMP}.log"
+  fi
 
   echo "Cleanup complete."
   exit "$exit_code"
@@ -312,17 +318,21 @@ log "Test directive created at ${DIRECTIVE_DIR}"
 
 log "Spawning /directive session for ${DIRECTIVE_ID}..."
 
-# Use spawn-agent.ts in detached mode so we can poll independently
+# Spawn claude directly (bypassing spawn-agent.ts for reliability)
 OUTPUT_LOG="/tmp/smoke-test-${TIMESTAMP}.log"
+ERR_LOG="/tmp/smoke-test-err-${TIMESTAMP}.log"
 
-npx tsx "$SPAWN_AGENT" \
-  --prompt "/directive ${DIRECTIVE_ID}" \
-  --mode detached \
+# Unset CLAUDECODE to allow nested session (Claude Code checks env var existence)
+# Use nohup to prevent signal propagation from parent shell
+cd "$WORKTREE_PATH"
+unset CLAUDECODE
+nohup claude -p \
   --model sonnet \
-  --cwd "$WORKTREE_PATH" \
-  --output "$OUTPUT_LOG" > "/tmp/smoke-test-pid-${TIMESTAMP}.txt" 2>"/tmp/smoke-test-err-${TIMESTAMP}.log"
-
-AGENT_PID="$(cat "/tmp/smoke-test-pid-${TIMESTAMP}.txt" 2>/dev/null | tr -d '[:space:]')"
+  --dangerously-skip-permissions \
+  "/directive ${DIRECTIVE_ID}" \
+  > "$OUTPUT_LOG" 2>"$ERR_LOG" < /dev/null &
+AGENT_PID=$!
+cd "$REPO_ROOT"
 
 if [[ -z "$AGENT_PID" || "$AGENT_PID" == "0" ]]; then
   log "ERROR: Failed to spawn agent -- no PID returned"

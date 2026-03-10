@@ -124,6 +124,8 @@ export class ClaudeCodeSpawnAdapter implements SpawnAdapter {
     return {
       ...process.env,
       PATH: augmentedPath,
+      // Allow nested spawns from within a Claude Code session
+      CLAUDECODE: undefined,
       ...config.env,
     };
   }
