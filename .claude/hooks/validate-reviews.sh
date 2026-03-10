@@ -7,10 +7,10 @@
 # Usage: echo '{"directive_dir":".context/directives/my-dir","project_id":"my-project"}' | ./validate-reviews.sh
 #
 # Checks project.json for completed tasks and verifies that:
-# 1. Tasks with "review" in their phases array were actually reviewed
-#    (at least one DOD criterion evidence of external review)
-# 2. No completed task has ALL dod items marked true with zero reviewer spawns
-#    (self-certification detection)
+# 1. Project has reviewers assigned (existing check)
+# 2. Review artifact files exist: review-{task-id}.md in the project directory
+# 3. Task agent != project reviewers (catches self-review)
+# 4. Self-certification heuristic (all DOD met with no review artifact)
 #
 # Exit 0, JSON output = validation result (valid: true/false, violations: [...])
 
@@ -40,10 +40,14 @@ if [[ ! -f "$PROJECT_PATH" ]]; then
   exit 0
 fi
 
+# Derive project directory from project.json path
+PROJECT_DIR=$(dirname "$PROJECT_PATH")
+
 violations=()
 
-# Get project-level reviewers
-PROJECT_REVIEWERS=$(jq -r '.reviewers | length' "$PROJECT_PATH" 2>/dev/null || echo "0")
+# Get project-level reviewers as newline-separated list (bash 3.2 safe — no associative arrays)
+PROJECT_REVIEWERS_COUNT=$(jq -r '.reviewers | length' "$PROJECT_PATH" 2>/dev/null || echo "0")
+PROJECT_REVIEWERS_LIST=$(jq -r '.reviewers[]?' "$PROJECT_PATH" 2>/dev/null || echo "")
 
 TASK_COUNT=$(jq '.tasks | length' "$PROJECT_PATH" 2>/dev/null || echo "0")
 
@@ -60,16 +64,51 @@ for i in $(seq 0 $((TASK_COUNT - 1))); do
   HAS_REVIEW_PHASE=$(jq -r ".tasks[$i].phases | if . then (. | index(\"review\")) else null end" "$PROJECT_PATH" 2>/dev/null)
 
   if [[ "$HAS_REVIEW_PHASE" != "null" && "$HAS_REVIEW_PHASE" != "" ]]; then
-    # Task has a review phase and is completed — verify project has reviewers
-    if [[ "$PROJECT_REVIEWERS" -eq 0 ]]; then
+
+    # --- Check 1: Project has reviewers assigned ---
+    if [[ "$PROJECT_REVIEWERS_COUNT" -eq 0 ]]; then
       violations+=("Task '${TASK_ID}' is completed with review phase but has NO reviewers assigned")
     fi
 
-    # Check if ALL DOD criteria are met — flag if the task was likely self-certified
-    # (This is a heuristic: if all DOD = true but no review artifact directory exists, suspicious)
+    # --- Check 2: Review artifact file exists ---
+    # 09-execute-projects.md specifies: review-{task-id}.md or build-{task-id}.md
+    REVIEW_ARTIFACT="${PROJECT_DIR}/review-${TASK_ID}.md"
+    BUILD_ARTIFACT="${PROJECT_DIR}/build-${TASK_ID}.md"
+    if [[ ! -f "$REVIEW_ARTIFACT" && ! -f "$BUILD_ARTIFACT" ]]; then
+      violations+=("Task '${TASK_ID}' has no review artifact (expected review-${TASK_ID}.md or build-${TASK_ID}.md in ${PROJECT_DIR})")
+    fi
+
+    # --- Check 3: Self-review detection (task agent == project reviewer) ---
+    # Get the task-level agent (could be a string or array)
+    TASK_AGENT=$(jq -r ".tasks[$i].agent | if type == \"array\" then .[0] else . end // empty" "$PROJECT_PATH" 2>/dev/null)
+
+    if [[ -n "$TASK_AGENT" && -n "$PROJECT_REVIEWERS_LIST" ]]; then
+      # Check if the task agent appears in the project reviewers list
+      SELF_REVIEW="false"
+      while IFS= read -r reviewer; do
+        if [[ -n "$reviewer" && "$reviewer" = "$TASK_AGENT" ]]; then
+          SELF_REVIEW="true"
+          break
+        fi
+      done <<EOF
+$PROJECT_REVIEWERS_LIST
+EOF
+      if [[ "$SELF_REVIEW" = "true" ]]; then
+        # Self-review: task builder is also a reviewer — only flag if they are the ONLY reviewer
+        if [[ "$PROJECT_REVIEWERS_COUNT" -eq 1 ]]; then
+          violations+=("Task '${TASK_ID}' builder ('${TASK_AGENT}') is the only project reviewer — self-review detected")
+        fi
+      fi
+    fi
+
+    # --- Check 4: Self-certification heuristic ---
+    # All DOD met + no review artifact = likely self-certified
     DOD_COUNT=$(jq ".tasks[$i].dod | length" "$PROJECT_PATH" 2>/dev/null || echo "0")
     DOD_MET=$(jq "[.tasks[$i].dod[] | select(.met == true)] | length" "$PROJECT_PATH" 2>/dev/null || echo "0")
-    DOD_UNMET=$(jq "[.tasks[$i].dod[] | select(.met == false)] | length" "$PROJECT_PATH" 2>/dev/null || echo "0")
+
+    if [[ "$DOD_COUNT" -gt 0 && "$DOD_MET" -eq "$DOD_COUNT" && ! -f "$REVIEW_ARTIFACT" ]]; then
+      violations+=("Task '${TASK_ID}' has ALL DOD criteria met but no review artifact — possible self-certification")
+    fi
 
     # Check for VISUAL GATE criteria that require browser verification
     VISUAL_GATES=$(jq -r "[.tasks[$i].dod[] | select(.criterion | test(\"VISUAL GATE|browser screenshot|verified by human\"; \"i\")) | select(.met == true)] | length" "$PROJECT_PATH" 2>/dev/null || echo "0")

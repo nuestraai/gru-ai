@@ -19,6 +19,13 @@
 - **Code-reviewer gets full files + diff, not diff-only.** Diff-only prevents the reviewer from seeing whether changes interact correctly with surrounding code. The fresh-eyes benefit comes from stripping builder intent, not from hiding context.
 - **"It compiles" is not "it works" — so don't pretend it is.** Phase 3 data-binding passed type-check and build but was completely broken at runtime. The `verify` field was removed from the COO's plan schema because `npm run type-check` gave false confidence. Real verification is code-review (catches logic bugs) + Chrome MCP visual testing (catches UI bugs). Don't substitute compilation for correctness.
 
+## Intent Propagation (learned from Pipeline Iteration Model directive)
+
+- **Intent degradation is the #1 root cause of CEO reopens.** CEO's words pass through COO scope_summary → CTO task decomposition → builder prompt, arriving as fourth-generation abstraction. Fix: CEO brief + verified intent flow verbatim to builder and reviewer prompts. The builder should see the CEO's actual words, not a summary of a summary.
+- **Review fix cycles need convergence detection, not just a count cap.** Code-review gets 3 cycles, standard review gets 2. But the real gate is convergence: if the same bugs recur across cycles, escalate to a different builder — don't keep retrying. Total budget across both review types: 5 fix cycles per task.
+- **User-centric DOD outperforms technical checklists.** "Open game → see X" catches bugs that "component renders without errors" misses. The derivation chain (directive DOD → project DOD → task DOD) ensures every task traces back to what the CEO actually wanted. given/when/then format for acceptance scenarios.
+- **Clarification step prevents planning on misunderstood intent.** After brainstorm, extract structured intent (goal, constraints, quality_bar, acceptance_scenarios, out_of_scope) from CEO brief + audit + brainstorm. CEO verifies piece-by-piece for heavyweight/strategic. Catches misunderstandings before the COO plans around them.
+
 ## Planning & Sequencing
 
 - **Strategic planning should be separate from codebase scanning.** The COO plans WHAT and WHO. The auditor scans WHERE and HOW. Mixing them produced a 97K token, 218s planning phase. Splitting reduced it to 41K tokens, 15s for Morgan + separate audit.

@@ -60,12 +60,14 @@ export function statusBadgeVariant(status: AgentStatus): string {
   switch (status) {
     case 'working': return 'bg-green-100 text-green-700';
     case 'idle':    return 'bg-gray-100 text-gray-600';
+    case 'offline': return 'bg-gray-200 text-gray-500';
   }
 }
 
 export function statusDotColor(status: string): string {
   switch (status) {
     case 'working': return 'bg-green-500';
+    case 'offline': return 'bg-gray-500';
     default: return 'bg-gray-400';
   }
 }
@@ -73,6 +75,7 @@ export function statusDotColor(status: string): string {
 export function statusPriority(status: string): number {
   switch (status) {
     case 'working': return 0;
+    case 'offline': return 2;
     default: return 1;
   }
 }
@@ -265,6 +268,9 @@ export function StatusChip({ status, animated = false }: { status: string; anima
   switch (status) {
     case 'working':
       bg = '#22C55E'; text = '#052E16'; label = 'Working';
+      break;
+    case 'offline':
+      bg = '#4B5563'; text = '#E5E7EB'; label = 'Offline';
       break;
     case 'idle':
     default:

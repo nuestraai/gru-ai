@@ -19,7 +19,9 @@
   "pipeline": {
     "triage": {
       "status": "completed",
-      "agent": "CEO",
+      "agent": [
+        "ceo"
+      ],
       "output": {
         "weight": "medium",
         "rationale": "Clear scope, 4 related tasks within asset pipeline domain"
@@ -27,42 +29,54 @@
     },
     "read": {
       "status": "completed",
-      "agent": "CEO",
+      "agent": [
+        "ceo"
+      ],
       "output": {
         "summary": "Asset audit completed: LimeZu paid (no redistribution), free (non-commercial), characters CC0, walls.png MIT."
       }
     },
     "context": {
       "status": "completed",
-      "agent": "CEO",
+      "agent": [
+        "ceo"
+      ],
       "output": {
         "summary": "Vision, game goal, game context, agent-behavior lessons read."
       }
     },
     "challenge": {
       "status": "skipped",
-      "agent": "C-suite",
+      "agent": [
+        "ceo"
+      ],
       "output": {
         "summary": "Skipped for medium weight"
       }
     },
     "brainstorm": {
       "status": "skipped",
-      "agent": "C-suite",
+      "agent": [
+        "ceo"
+      ],
       "output": {
         "summary": "Skipped for medium weight"
       }
     },
     "plan": {
       "status": "completed",
-      "agent": "CEO (inline)",
+      "agent": [
+        "ceo"
+      ],
       "output": {
         "summary": "Single project: asset-license-compliance. Devon builds, Sarah reviews."
       }
     },
     "audit": {
       "status": "completed",
-      "agent": "Sarah",
+      "agent": [
+        "sarah"
+      ],
       "output": {
         "summary": "11 files audited. Fallback rendering already works. Main gaps: .gitignore, free pack removal, setup script, console messages, credits.",
         "findings": 11
@@ -70,7 +84,9 @@
     },
     "approve": {
       "status": "completed",
-      "agent": "CEO",
+      "agent": [
+        "ceo"
+      ],
       "output": {
         "status": "auto-approved",
         "decision": "approved",
@@ -79,14 +95,18 @@
     },
     "project-brainstorm": {
       "status": "completed",
-      "agent": "Sarah",
+      "agent": [
+        "sarah"
+      ],
       "output": {
         "summary": "4 tasks decomposed: gitignore-and-untrack, setup-script, improve-fallback-messages, readme-and-credits"
       }
     },
     "setup": {
       "status": "completed",
-      "agent": "CEO",
+      "agent": [
+        "ceo"
+      ],
       "output": {
         "mode": "branch",
         "branch": "game (existing)"
@@ -94,7 +114,9 @@
     },
     "execute": {
       "status": "completed",
-      "agent": "Devon",
+      "agent": [
+        "devon"
+      ],
       "output": {
         "summary": "All 4 tasks completed. gitignore rules in place, setup-assets.sh created, console warnings updated, README and game credits added.",
         "tasks_completed": 4,
@@ -103,21 +125,27 @@
     },
     "review-gate": {
       "status": "completed",
-      "agent": "CEO",
+      "agent": [
+        "ceo"
+      ],
       "output": {
         "summary": "All DOD criteria verified against codebase: .gitignore has rules (lines 12-14), assets untracked (git ls-files empty), setup-assets.sh executable with URL and checks, all 3 catch blocks mention setup-assets.sh, README has license table, GamePage has credits footer."
       }
     },
     "wrapup": {
       "status": "completed",
-      "agent": "CEO",
+      "agent": [
+        "ceo"
+      ],
       "output": {
         "summary": "No follow-ups needed. All open-source compliance items addressed."
       }
     },
     "completion": {
       "status": "completed",
-      "agent": "CEO",
+      "agent": [
+        "ceo"
+      ],
       "output": {
         "summary": "CEO verified all work complete. Directive closed."
       }

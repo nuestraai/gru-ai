@@ -31,12 +31,13 @@ import { Button } from '@/components/ui/button';
 
 const stepIconMap: Record<string, LucideIcon> = {
   triage: Filter,
+  checkpoint: BookOpen,
   read: BookOpen,
   context: FolderSearch,
-  challenge: Swords,
-  brainstorm: Lightbulb,
-  plan: MapIcon,
   audit: SearchCheck,
+  brainstorm: Lightbulb,
+  clarification: Swords,
+  plan: MapIcon,
   approve: ThumbsUp,
   'project-brainstorm': Sparkles,
   setup: Settings,
@@ -51,6 +52,7 @@ const stepIconMap: Record<string, LucideIcon> = {
 // ---------------------------------------------------------------------------
 
 const actionBannerText: Record<string, string> = {
+  clarification: 'Intent extracted. Verify each field before planning begins.',
   approve: 'Plan ready for review. Approve to begin execution or reject with feedback.',
   completion: 'All projects complete. Sign off to finalize this directive.',
 };

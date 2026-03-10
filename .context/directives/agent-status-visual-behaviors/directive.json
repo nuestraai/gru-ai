@@ -14,7 +14,9 @@
   "pipeline": {
     "triage": {
       "status": "completed",
-      "agent": "CEO",
+      "agent": [
+        "ceo"
+      ],
       "output": {
         "weight": "medium",
         "summary": "Medium weight -- single game domain, clear spec."
@@ -22,84 +24,108 @@
     },
     "read": {
       "status": "completed",
-      "agent": "CEO",
+      "agent": [
+        "ceo"
+      ],
       "output": {
         "summary": "Read directive.md -- add paused/done as distinct visual states."
       }
     },
     "context": {
       "status": "completed",
-      "agent": "CEO",
+      "agent": [
+        "ceo"
+      ],
       "output": {
         "summary": "Read vision.md, lessons. Reopened to add fix-status-detection project — later cancelled by CEO."
       }
     },
     "challenge": {
       "status": "skipped",
-      "agent": "C-suite",
+      "agent": [
+        "ceo"
+      ],
       "output": {
         "summary": "Skipped for medium weight"
       }
     },
     "plan": {
       "status": "completed",
-      "agent": "CEO",
+      "agent": [
+        "ceo"
+      ],
       "output": {
         "summary": "Superseded — CEO implemented working/idle simplification directly."
       }
     },
     "audit": {
       "status": "skipped",
-      "agent": "CEO",
+      "agent": [
+        "ceo"
+      ],
       "output": {
         "summary": "Skipped — fix-status-detection cancelled, original project already completed."
       }
     },
     "approve": {
       "status": "skipped",
-      "agent": "CEO",
+      "agent": [
+        "ceo"
+      ],
       "output": {
         "summary": "Auto-approved for medium weight"
       }
     },
     "project-brainstorm": {
       "status": "skipped",
-      "agent": "CEO",
+      "agent": [
+        "ceo"
+      ],
       "output": {
         "summary": "Skipped — no remaining pending projects."
       }
     },
     "setup": {
       "status": "completed",
-      "agent": "CEO",
+      "agent": [
+        "ceo"
+      ],
       "output": {
         "summary": "Working on game branch directly."
       }
     },
     "execute": {
       "status": "completed",
-      "agent": "CEO",
+      "agent": [
+        "ceo"
+      ],
       "output": {
         "summary": "Original project completed. fix-status-detection cancelled — CEO confirmed status should remain working/idle only."
       }
     },
     "review-gate": {
       "status": "completed",
-      "agent": "CEO",
+      "agent": [
+        "ceo"
+      ],
       "output": {
         "summary": "Original project verified. Second project removed per CEO direction."
       }
     },
     "wrapup": {
       "status": "completed",
-      "agent": "CEO",
+      "agent": [
+        "ceo"
+      ],
       "output": {
         "summary": "Directive complete. AgentStatus stays as working/idle — no expansion needed."
       }
     },
     "completion": {
       "status": "completed",
-      "agent": "CEO",
+      "agent": [
+        "ceo"
+      ],
       "output": {
         "summary": "CEO closed directive. fix-status-detection removed — status expansion was wrong direction."
       }

@@ -9,7 +9,9 @@
   "pipeline": {
     "triage": {
       "status": "completed",
-      "agent": "CEO",
+      "agent": [
+        "ceo"
+      ],
       "output": {
         "summary": "Strategic weight."
       },
@@ -17,7 +19,9 @@
     },
     "read": {
       "status": "completed",
-      "agent": "CEO",
+      "agent": [
+        "ceo"
+      ],
       "output": {
         "summary": "Read directive.md."
       },
@@ -25,7 +29,9 @@
     },
     "context": {
       "status": "completed",
-      "agent": "CEO",
+      "agent": [
+        "ceo"
+      ],
       "output": {
         "summary": "Read vision, lessons, registry."
       },
@@ -33,7 +39,11 @@
     },
     "challenge": {
       "status": "completed",
-      "agent": "Sarah Chen, Marcus Rivera, Sam Nakamura",
+      "agent": [
+        "sarah",
+        "marcus",
+        "sam"
+      ],
       "output": {
         "summary": "3 proposals + deliberation. CEO resolved all disagreements."
       },
@@ -43,7 +53,9 @@
     },
     "plan": {
       "status": "completed",
-      "agent": "COO",
+      "agent": [
+        "morgan"
+      ],
       "output": {
         "summary": "4 projects planned. Cast validated."
       },
@@ -53,7 +65,9 @@
     },
     "audit": {
       "status": "completed",
-      "agent": "Sarah Chen",
+      "agent": [
+        "sarah"
+      ],
       "output": {
         "summary": "PORT bug one-liner, config template needs fields, fixture needs CLAUDE.md."
       },
@@ -63,7 +77,9 @@
     },
     "approve": {
       "status": "completed",
-      "agent": "CEO",
+      "agent": [
+        "ceo"
+      ],
       "output": {
         "summary": "CEO approved plan. Additional requirements: landing page benchmark should use game pixel art aesthetic. Test Type B = build gruai landing page (real deliverable). 3 agent configs each attempt it, CEO compares results."
       },
@@ -71,7 +87,9 @@
     },
     "project-brainstorm": {
       "status": "completed",
-      "agent": "CEO",
+      "agent": [
+        "ceo"
+      ],
       "output": {
         "summary": "4 project.json files created with tasks, DOD, agents, reviewers. All pass validate-project-json.sh."
       },
@@ -84,7 +102,9 @@
     },
     "setup": {
       "status": "completed",
-      "agent": "CEO",
+      "agent": [
+        "ceo"
+      ],
       "output": {
         "summary": "Using existing game branch. No worktree needed — uncommitted changes present."
       },
@@ -92,7 +112,11 @@
     },
     "execute": {
       "status": "completed",
-      "agent": "Jordan Reeves, Sam Park, CEO",
+      "agent": [
+        "jordan",
+        "sam",
+        "ceo"
+      ],
       "output": {
         "summary": "All 4 projects + 3 gap-fill dimensions completed. 16 original tasks + 3 new dimensions (pipeline, cli, update). Final suite: 555 pass, 0 fail across 9 dimensions in 27.3s.",
         "projects": {
@@ -126,7 +150,9 @@
     },
     "review-gate": {
       "status": "completed",
-      "agent": "CEO",
+      "agent": [
+        "ceo"
+      ],
       "output": {
         "summary": "CEO identified missing pipeline tests. 3 new dimensions added (pipeline 86 tests, cli 17 tests, update 33 tests). Full suite re-verified: 555 pass, 0 fail. Landing pages reviewed via Chrome MCP."
       },
@@ -139,7 +165,9 @@
     },
     "wrapup": {
       "status": "completed",
-      "agent": "CEO",
+      "agent": [
+        "ceo"
+      ],
       "output": {
         "summary": "555 tests across 9 dimensions. 4 bugs fixed. 3 landing pages built. Pipeline state machine fully tested (14 steps, 3 weight classes, validation hooks, server integration). Follow-up: publish v0.2.1 with bug fixes."
       },

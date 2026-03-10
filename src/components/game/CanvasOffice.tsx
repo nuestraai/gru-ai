@@ -538,12 +538,21 @@ export default function CanvasOffice({
         }
       }
 
+      // Build idle tier map from character data (computed per-frame from sessionInfo)
+      const idleTierMap = new Map<number, import('./pixel-types').IdleTier>()
+      for (const ch of state.getCharacters()) {
+        if (ch.agentStatus === 'idle') {
+          idleTierMap.set(ch.id, ch.idleTier)
+        }
+      }
+
       const identity: IdentityOverlay = {
         nameMap: AGENT_ID_TO_NAME,
         statusMap,
         colorMap: AGENT_ID_TO_COLOR,
         taskTextMap,
         interactionMap,
+        idleTierMap,
         time: time / 1000,
       }
 

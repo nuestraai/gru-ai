@@ -9,6 +9,7 @@ All brainstorm participants (C-suite + auditor) output this in both heavyweight 
 ```json
 {
   "agent": "{name}",
+  "challenge": "Critical assessment of the directive itself — risks, scope concerns, alternatives. Required for heavyweight/strategic, omit for other weights.",
   "approach": "Your recommended approach in 3-5 sentences — be specific about what to build/change and in what order",
   "tradeoffs": ["Key trade-off 1", "Key trade-off 2"],
   "avoid": "What approach you'd explicitly NOT take and why",
@@ -40,7 +41,7 @@ The orchestrator collects all outputs into a single brainstorm artifact:
   "weight": "heavyweight | strategic",
   "participants": ["agent names"],
   "proposals": [
-    { "agent": "...", "approach": "...", "tradeoffs": [], "avoid": "...", "confidence": "...", "feasibility_flags": [] }
+    { "agent": "...", "challenge": "...", "approach": "...", "tradeoffs": [], "avoid": "...", "confidence": "...", "feasibility_flags": [] }
   ],
   "rebuttals": [
     { "agent": "...", "target_agent": "...", "critique": "...", "alternative": "..." }

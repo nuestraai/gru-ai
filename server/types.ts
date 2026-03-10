@@ -81,6 +81,7 @@ export interface PipelineStep {
   label: string;
   status: PipelineStepStatus;
   artifacts?: Record<string, string>;
+  agents?: string[];
   needsAction?: boolean;
   startedAt?: string;
 }

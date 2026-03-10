@@ -6,7 +6,9 @@
   "completed": "2026-03-09",
   "weight": "medium",
   "revision": 3,
-  "produced_features": ["game-tmx-rendering"],
+  "produced_features": [
+    "game-tmx-rendering"
+  ],
   "report": "game-ui-tmx-update-r3-2026-03-09",
   "backlog_sources": [],
   "started_at": "2026-03-09T00:15:00Z",
@@ -27,74 +29,159 @@
   "pipeline": {
     "triage": {
       "status": "completed",
-      "agent": "CEO",
-      "output": { "weight": "medium", "summary": "Medium — 4 bug fixes + 2 new features within game rendering system." }
+      "agent": [
+        "ceo"
+      ],
+      "output": {
+        "weight": "medium",
+        "summary": "Medium — 4 bug fixes + 2 new features within game rendering system."
+      }
     },
     "read": {
       "status": "completed",
-      "agent": "CEO",
-      "output": { "summary": "Reopened directive rev 3." }
+      "agent": [
+        "ceo"
+      ],
+      "output": {
+        "summary": "Reopened directive rev 3."
+      }
     },
     "context": {
       "status": "completed",
-      "agent": "CEO",
-      "output": { "summary": "Context files read, game rendering files analyzed." }
+      "agent": [
+        "ceo"
+      ],
+      "output": {
+        "summary": "Context files read, game rendering files analyzed."
+      }
     },
-    "challenge": { "status": "skipped", "output": { "summary": "Skipped for medium weight" } },
-    "brainstorm": { "status": "skipped", "output": { "summary": "Skipped for medium weight" } },
+    "challenge": {
+      "status": "skipped",
+      "output": {
+        "summary": "Skipped for medium weight"
+      }
+    },
+    "brainstorm": {
+      "status": "skipped",
+      "output": {
+        "summary": "Skipped for medium weight"
+      }
+    },
     "plan": {
       "status": "completed",
-      "agent": "COO",
-      "output": { "summary": "Single project: game-rendering-fixes-v3. Riley builds, Sarah reviews." },
-      "artifacts": [".context/directives/game-ui-tmx-update/plan.json"]
+      "agent": [
+        "morgan"
+      ],
+      "output": {
+        "summary": "Single project: game-rendering-fixes-v3. Riley builds, Sarah reviews."
+      },
+      "artifacts": [
+        ".context/directives/game-ui-tmx-update/plan.json"
+      ]
     },
     "audit": {
       "status": "completed",
-      "agent": "CEO",
-      "output": { "summary": "CEO pre-investigation identified all bugs and analyzed LimeZu sprites." }
+      "agent": [
+        "ceo"
+      ],
+      "output": {
+        "summary": "CEO pre-investigation identified all bugs and analyzed LimeZu sprites."
+      }
     },
     "approve": {
       "status": "completed",
-      "agent": "CEO",
-      "output": { "decision": "auto-approved", "summary": "Medium weight auto-approved." }
+      "agent": [
+        "ceo"
+      ],
+      "output": {
+        "decision": "auto-approved",
+        "summary": "Medium weight auto-approved."
+      }
     },
     "project-brainstorm": {
       "status": "completed",
-      "agent": "CTO",
-      "output": { "summary": "4 tasks with DOD created." },
-      "artifacts": [".context/directives/game-ui-tmx-update/projects/game-rendering-fixes-v3/project.json"]
+      "agent": [
+        "sarah"
+      ],
+      "output": {
+        "summary": "4 tasks with DOD created."
+      },
+      "artifacts": [
+        ".context/directives/game-ui-tmx-update/projects/game-rendering-fixes-v3/project.json"
+      ]
     },
     "setup": {
       "status": "completed",
-      "agent": "CEO",
-      "output": { "mode": "branch", "branch": "directive/game-ui-tmx-update" }
+      "agent": [
+        "ceo"
+      ],
+      "output": {
+        "mode": "branch",
+        "branch": "directive/game-ui-tmx-update"
+      }
     },
     "execute": {
       "status": "completed",
-      "agent": "riley",
-      "output": { "summary": "All 4 tasks completed: TMX sync, hit detection fix, label+font replacement, LimeZu icon integration." }
+      "agent": [
+        "riley"
+      ],
+      "output": {
+        "summary": "All 4 tasks completed: TMX sync, hit detection fix, label+font replacement, LimeZu icon integration."
+      }
     },
     "review-gate": {
       "status": "completed",
-      "agent": "CTO",
-      "output": { "summary": "CTO found 1 HIGH (double-scaled hit detection — constants were 3x AND code multiplied by SPRITE_SCALE), 2 LOW (dead bitmapFont.ts, stale comment). All 3 fixed. TSC clean." }
+      "agent": [
+        "sarah"
+      ],
+      "output": {
+        "summary": "CTO found 1 HIGH (double-scaled hit detection — constants were 3x AND code multiplied by SPRITE_SCALE), 2 LOW (dead bitmapFont.ts, stale comment). All 3 fixed. TSC clean."
+      }
     },
     "wrapup": {
       "status": "completed",
-      "agent": "CEO",
-      "output": { "summary": "Digest written. Directive marked awaiting_completion." },
-      "artifacts": [".context/reports/game-ui-tmx-update-r3-2026-03-09.md"]
+      "agent": [
+        "ceo"
+      ],
+      "output": {
+        "summary": "Digest written. Directive marked awaiting_completion."
+      },
+      "artifacts": [
+        ".context/reports/game-ui-tmx-update-r3-2026-03-09.md"
+      ]
     },
-    "completion": { "status": "completed", "agent": "CEO", "output": { "summary": "CEO approved completion. All work verified done." } }
+    "completion": {
+      "status": "completed",
+      "agent": [
+        "ceo"
+      ],
+      "output": {
+        "summary": "CEO approved completion. All work verified done."
+      }
+    }
   },
   "projects": [
-    { "id": "gruai-map-migration", "status": "completed" },
-    { "id": "tmx-office-migration", "status": "completed" },
-    { "id": "game-rendering-fixes-v3", "status": "completed" }
+    {
+      "id": "gruai-map-migration",
+      "status": "completed"
+    },
+    {
+      "id": "tmx-office-migration",
+      "status": "completed"
+    },
+    {
+      "id": "game-rendering-fixes-v3",
+      "status": "completed"
+    }
   ],
   "planning": {
-    "coo_plan": { "goal": "Fix 4 bugs from TMX v2 migration and deliver 2 new features" },
-    "ceo_approval": { "status": "auto-approved", "modifications": [] },
+    "coo_plan": {
+      "goal": "Fix 4 bugs from TMX v2 migration and deliver 2 new features"
+    },
+    "ceo_approval": {
+      "status": "auto-approved",
+      "modifications": []
+    },
     "worktree_path": null
   },
   "wrapup": {

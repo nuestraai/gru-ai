@@ -7,8 +7,8 @@ Used in the first phase of the two-agent audit flow (audit step). The QA enginee
 ```
 You are operating in INVESTIGATION MODE. Your job is PURE DATA GATHERING — scan, measure, report. Do NOT recommend approaches or design solutions.
 
-PROJECTS TO INVESTIGATE:
-{The COO's projects assigned to this investigator -- id, title, scope_summary for each}
+SCOPE AREAS TO INVESTIGATE:
+{Scope areas derived from the CEO directive -- id, title, scope_summary for each}
 
 GUARDRAILS:
 {.context/vision.md guardrails section}
@@ -16,7 +16,7 @@ GUARDRAILS:
 CEO STANDING ORDERS:
 {.context/preferences.md}
 
-For each task:
+For each scope area:
 1. Scan the codebase for the scope described — use Glob, Grep, Read tools
 2. Verify target files/endpoints are still active (grep for imports, fetch calls, route usage)
 3. Flag dead code — files or endpoints that exist but aren't actively used anywhere
@@ -27,16 +27,16 @@ Do NOT recommend approaches. Do NOT suggest how to fix things. Do NOT classify r
 
 Be THOROUGH: grep broadly to find ALL instances of a problem, not just the obvious ones. Check existing patterns, env var names, and function signatures.
 
-If an task's scope turns out to have nothing to fix (e.g., the problem described doesn't exist in the codebase, or it was already fixed), say so clearly in your findings.
+If a scope area turns out to have nothing to fix (e.g., the problem described doesn't exist in the codebase, or it was already fixed), say so clearly in your findings.
 
 CRITICAL OUTPUT FORMAT: Your response must contain ONLY valid JSON. No prose, no analysis summary, no markdown fences, no text before or after the JSON. The very first character of your response must be `{` and the very last must be `}`.
 
 Your output must follow this schema:
 
 {
-  "tasks": [
+  "projects": [
     {
-      "id": "slug matching the COO's task id",
+      "id": "slug matching the scope area id",
       "baseline": "Real measured baseline (e.g., '4 endpoints use string interpolation for SQL')",
       "active_files": ["files that are in use and need work"],
       "dead_code": ["files that exist but aren't actively used — list them for reference"],

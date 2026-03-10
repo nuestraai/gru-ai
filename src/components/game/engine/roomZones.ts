@@ -66,6 +66,7 @@ export const ROOM_ZONES: Record<RoomZoneId, RoomZone> = {
       { col: 27, row: 7 },
       { col: 26, row: 9 },
     ],
+    restricted: true,
   },
   kitchen: {
     id: 'kitchen',
@@ -172,6 +173,10 @@ export function chooseDestination(
       if (zones.length === 0) return null
       return pickWaypoint(zones[Math.floor(Math.random() * zones.length)])
     }
+
+    case 'offline':
+      // Offline agents go to desk (stay seated like idle) — handled externally
+      return null
 
     default:
       return null

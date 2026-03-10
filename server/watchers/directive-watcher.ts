@@ -5,15 +5,16 @@ import type { Aggregator } from '../state/aggregator.js';
 import type { DirectiveState, DirectiveProject, PipelineStep } from '../types.js';
 import { directivesDir as resolveDirectivesDir } from '../paths.js';
 
-// Pipeline steps by weight class. Steps not in a weight's list are skipped.
+// Pipeline steps in correct order. Steps not in a weight's skip set always run (some auto-approve).
 const FULL_PIPELINE_STEPS: Array<{ id: string; label: string }> = [
   { id: 'triage',             label: 'Triage' },
+  { id: 'checkpoint',         label: 'Checkpoint' },
   { id: 'read',               label: 'Read' },
   { id: 'context',            label: 'Context' },
-  { id: 'challenge',          label: 'Challenge' },
-  { id: 'brainstorm',         label: 'Brainstorm' },
-  { id: 'plan',               label: 'Plan' },
   { id: 'audit',              label: 'Audit' },
+  { id: 'brainstorm',         label: 'Brainstorm' },
+  { id: 'clarification',      label: 'Clarification' },
+  { id: 'plan',               label: 'Plan' },
   { id: 'approve',            label: 'Approve' },
   { id: 'project-brainstorm', label: 'Project Brainstorm' },
   { id: 'setup',              label: 'Setup' },
@@ -23,9 +24,10 @@ const FULL_PIPELINE_STEPS: Array<{ id: string; label: string }> = [
   { id: 'completion',         label: 'Completion' },
 ];
 
+// Only 'brainstorm' is skipped for lightweight/medium. Clarification and approve auto-approve (not skipped).
 const SKIPPED_STEPS: Record<string, Set<string>> = {
-  lightweight: new Set(['challenge', 'brainstorm', 'approve']),
-  medium: new Set(['challenge']),
+  lightweight: new Set(['brainstorm']),
+  medium: new Set(['brainstorm']),
   heavyweight: new Set([]),
   strategic: new Set([]),
 };
@@ -63,7 +65,15 @@ function buildPipelineFromDirective(directive: any): PipelineStep[] {
 
       // Build artifacts from step output + agent
       const artifacts: Record<string, string> = {};
-      if (stepData?.agent) artifacts['Agent'] = stepData.agent;
+      if (stepData?.agent) {
+        if (Array.isArray(stepData.agent)) {
+          artifacts['Agent'] = stepData.agent
+            .map((n: string) => n.charAt(0).toUpperCase() + n.slice(1))
+            .join(', ');
+        } else {
+          artifacts['Agent'] = String(stepData.agent);
+        }
+      }
       if (stepData?.reviewers?.length > 0) {
         artifacts['Reviewers'] = stepData.reviewers
           .map((r: string) => r.charAt(0).toUpperCase() + r.slice(1))
@@ -83,6 +93,16 @@ function buildPipelineFromDirective(directive: any): PipelineStep[] {
       }
 
       if (Object.keys(artifacts).length > 0) step.artifacts = artifacts;
+      // Parse agent field — can be an array of names or a legacy string
+      if (stepData?.agent) {
+        if (Array.isArray(stepData.agent)) {
+          step.agents = stepData.agent;
+        } else if (typeof stepData.agent === 'string') {
+          // Legacy: "CTO, COO, CPO" or single "CEO" — keep as display artifact only
+          step.agents = stepData.agent.split(',').map((s: string) => s.trim());
+        }
+      }
+      if (step.status === 'active' && def.id === 'clarification') step.needsAction = true;
       if (step.status === 'active' && def.id === 'approve') step.needsAction = true;
       if (step.status === 'active' && def.id === 'completion') step.needsAction = true;
       if (directive.status === 'awaiting_completion' && def.id === 'completion') {
@@ -390,7 +410,7 @@ export class DirectiveWatcher {
     if (currentStep === 'execute' || currentStep === 'review-gate') currentPhase = 'executing';
     else if (currentStep === 'wrapup') currentPhase = 'wrapup';
     else if (currentStep === 'completion') currentPhase = 'completion';
-    else if (['triage', 'read', 'context', 'challenge', 'brainstorm', 'plan', 'audit', 'approve', 'project-brainstorm', 'setup'].includes(currentStep)) currentPhase = 'planning';
+    else if (['triage', 'checkpoint', 'read', 'context', 'audit', 'brainstorm', 'clarification', 'plan', 'approve', 'project-brainstorm', 'setup'].includes(currentStep)) currentPhase = 'planning';
     else if (directive.pipeline?.execute?.status === 'completed') currentPhase = 'wrapup';
 
     // Build pipeline steps
@@ -405,7 +425,7 @@ export class DirectiveWatcher {
     // Stall detection: all tasks done but pipeline stuck (not at CEO-action step)
     // -----------------------------------------------------------------------
     const mappedStatus = mapStatus(directive.status);
-    const ceoActionSteps = new Set(['approve', 'completion']);
+    const ceoActionSteps = new Set(['clarification', 'approve', 'completion']);
     const terminalTaskStatuses = new Set(['completed', 'done', 'skipped', 'cancelled']);
     const ONE_HOUR_MS = 60 * 60 * 1000;
 

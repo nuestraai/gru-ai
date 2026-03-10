@@ -35,7 +35,7 @@ DO NOT read source code. DO NOT edit files. DO NOT start solving the problem. Th
 
 Your FIRST action must be: Read the triage doc, classify the directive weight, output the triage block, and create directive.json. Only then proceed to the next pipeline step.
 
-If you catch yourself wanting to "just fix it quickly" — STOP. That impulse is exactly what the pipeline prevents. Even lightweight directives have a defined process (triage → context → plan → audit → build → review → digest → completion). The COO plans for ALL weights.
+If you catch yourself wanting to "just fix it quickly" — STOP. That impulse is exactly what the pipeline prevents. Even lightweight directives have a defined process (triage → context → audit → plan → build → review → digest → completion). The COO plans for ALL weights.
 
 ---
 
@@ -64,10 +64,11 @@ The server's directive-watcher reads `directive.json` directly (NOT `current.jso
 
 After completing a step and updating directive.json, **immediately** read the next step's doc from the routing table below and execute it. Do NOT stop, do NOT pause, do NOT ask for confirmation between steps. The pipeline is designed to run end-to-end in a single pass.
 
-**STOP gates — the only two points where you must stop and wait for the CEO:**
+**STOP gates — the only points where you must stop and wait for the CEO:**
 
-1. **`approve`** — heavyweight/strategic directives only. Lightweight and medium directives auto-approve and skip this gate entirely.
-2. **`completion`** — all weights. The CEO must approve the final result or reopen the directive.
+1. **`clarification`** — heavyweight/strategic directives only. Present synthesized intent for CEO verification. Lightweight and medium auto-approve.
+2. **`approve`** — heavyweight/strategic directives only. Lightweight and medium directives auto-approve and skip this gate entirely.
+3. **`completion`** — all weights. The CEO must approve, amend, extend, or redirect the directive.
 
 At every other step, transition directly to the next step without delay. If a step is skipped for the current weight class, advance past it and continue to the next applicable step.
 
@@ -79,16 +80,17 @@ At every other step, transition directly to the next step without delay. If a st
 | 2 | checkpoint | [01-checkpoint.md](docs/pipeline/01-checkpoint.md) | Check for existing checkpoint, resume if found | — |
 | 3 | read | [02-read-directive.md](docs/pipeline/02-read-directive.md) | Read directive file + create directive.json | triage |
 | 4 | context | [03-read-context.md](docs/pipeline/03-read-context.md) | Read all context files before planning | read |
-| 5 | challenge | [04-challenge.md](docs/pipeline/04-challenge.md) | C-suite challenge (heavyweight only) | context |
-| 6 | plan | [05-planning.md](docs/pipeline/05-planning.md) | COO strategic planning | context |
-| 7 | audit | [06-technical-audit.md](docs/pipeline/06-technical-audit.md) | Technical codebase audit | plan |
-| 8 | approve | [07-plan-approval.md](docs/pipeline/07-plan-approval.md) | Present plan to CEO for approval | audit |
-| 9 | project-brainstorm | [07b-project-brainstorm.md](docs/pipeline/07b-project-brainstorm.md) | CTO + builder decompose projects into tasks with DOD | approve |
-| 10 | setup | [08-worktree-and-state.md](docs/pipeline/08-worktree-and-state.md) | Worktree isolation + directive state init | project-brainstorm |
-| 11 | execute | [09-execute-projects.md](docs/pipeline/09-execute-projects.md) | Execute all tasks (phases, agents, UX) | setup |
-| 12 | review-gate | [09-execute-projects.md](docs/pipeline/09-execute-projects.md) | Review verification gate (end of doc) | execute |
-| 13 | wrapup | [10-wrapup.md](docs/pipeline/10-wrapup.md) | OKRs, follow-ups, stale doc detection, digest, lessons, report | review-gate |
-| 14 | completion | [11-completion-gate.md](docs/pipeline/11-completion-gate.md) | CEO completion gate -- approve or reopen | wrapup |
+| 5 | audit | [06-technical-audit.md](docs/pipeline/06-technical-audit.md) | Technical codebase audit | context |
+| 6 | brainstorm | [04-brainstorm.md](docs/pipeline/04-brainstorm.md) | Approach brainstorm (includes challenge for heavyweight/strategic) | audit |
+| 7 | clarification | [04b-clarification.md](docs/pipeline/04b-clarification.md) | CEO clarification on unresolved brainstorm questions | brainstorm |
+| 8 | plan | [05-planning.md](docs/pipeline/05-planning.md) | COO strategic planning | clarification |
+| 9 | approve | [07-plan-approval.md](docs/pipeline/07-plan-approval.md) | Present plan to CEO for approval | plan |
+| 10 | project-brainstorm | [07b-project-brainstorm.md](docs/pipeline/07b-project-brainstorm.md) | CTO + builder decompose projects into tasks with DOD | approve |
+| 11 | setup | [08-worktree-and-state.md](docs/pipeline/08-worktree-and-state.md) | Worktree isolation + directive state init | project-brainstorm |
+| 12 | execute | [09-execute-projects.md](docs/pipeline/09-execute-projects.md) | Execute all tasks (phases, agents, UX) | setup |
+| 13 | review-gate | [09-execute-projects.md](docs/pipeline/09-execute-projects.md) | Review verification gate (end of doc) | execute |
+| 14 | wrapup | [10-wrapup.md](docs/pipeline/10-wrapup.md) | OKRs, follow-ups, stale doc detection, digest, lessons, report | review-gate |
+| 15 | completion | [11-completion-gate.md](docs/pipeline/11-completion-gate.md) | CEO completion gate -- approve, amend, extend, or redirect | wrapup |
 
 ### Reference Docs — Schemas
 
@@ -97,10 +99,9 @@ At every other step, transition directly to the next step without delay. If a st
 | [plan-schema.md](docs/reference/schemas/plan-schema.md) | COO plan output JSON schema |
 | [audit-output.md](docs/reference/schemas/audit-output.md) | Architect output JSON schema (design recommendations — second phase of two-agent audit) |
 | [investigation-output.md](docs/reference/schemas/investigation-output.md) | QA Engineer's investigation output JSON schema (pure data — first phase of two-agent audit) |
-| [checkpoint.md](docs/reference/schemas/checkpoint.md) | Checkpoint JSON schema (includes dod_verification field) |
+| [checkpoint.md](docs/reference/schemas/checkpoint.md) | Checkpoint JSON schema (deprecated — merged into directive-json.md) |
 | [directive-json.md](docs/reference/schemas/directive-json.md) | Directive JSON schema (THE source of truth — includes pipeline progress for dashboard) |
-| [challenger-output.md](docs/reference/schemas/challenger-output.md) | Challenger output JSON schema |
-| [brainstorm-output.md](docs/reference/schemas/brainstorm-output.md) | Brainstorm output JSON schema (proposals + rebuttals) |
+| [brainstorm-output.md](docs/reference/schemas/brainstorm-output.md) | Brainstorm output JSON schema (proposals + rebuttals + challenge) |
 
 ### Reference Docs — Templates
 
@@ -110,8 +111,7 @@ At every other step, transition directly to the next step without delay. If a st
 | [investigator-prompt.md](docs/reference/templates/investigator-prompt.md) | Investigation prompt template for the QA Engineer (pure data gathering — first phase of audit) |
 | [architect-prompt.md](docs/reference/templates/architect-prompt.md) | Architect prompt template (design recommendations — second phase of audit) |
 | [auditor-prompt.md](docs/reference/templates/auditor-prompt.md) | Combined audit prompt for the CTO (single-agent path for simple tasks) |
-| [challenger-prompt.md](docs/reference/templates/challenger-prompt.md) | Challenger prompt template |
-| [brainstorm-prompt.md](docs/reference/templates/brainstorm-prompt.md) | Brainstorm agent prompt template (Phase 1 proposals + Phase 2 deliberation) |
+| [brainstorm-prompt.md](docs/reference/templates/brainstorm-prompt.md) | Brainstorm agent prompt template (Phase 1 proposals + challenge + Phase 2 deliberation) |
 | [digest.md](docs/reference/templates/digest.md) | Digest report template |
 
 ### Reference Docs — Rules
@@ -127,6 +127,8 @@ At every other step, transition directly to the next step without delay. If a st
 
 | Script | Content |
 |--------|---------|
-| [validate-cast.sh](../../hooks/validate-cast.sh) | Mechanical casting validation — checks auditor present, builder != reviewer, complex has C-suite reviewer |
+| [validate-cast.sh](../../hooks/validate-cast.sh) | Mechanical casting validation — checks reviewer present, builder != reviewer, complex/moderate has C-suite reviewer, no self-review of own prompts, depends_on valid, no circular deps |
 | [validate-project-json.sh](../../hooks/validate-project-json.sh) | Pre-execution gate — blocks execute step if project.json missing or incomplete (no tasks, no DOD, no scope) |
 | [detect-stale-docs.sh](../../hooks/detect-stale-docs.sh) | Post-directive — scans docs for references to modified files, flags potentially stale docs |
+| [validate-gate.sh](../../hooks/validate-gate.sh) | Pipeline step gate — validates prerequisites before advancing to next step |
+| [validate-reviews.sh](../../hooks/validate-reviews.sh) | Review-gate hard gate — blocks completion if reviews missing, detects self-review and self-certification |

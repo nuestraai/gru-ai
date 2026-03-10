@@ -80,7 +80,7 @@ Capture the output — it goes into the "Potentially Stale Docs" section of the 
 
 ## Step 6d: Generate Digest
 
-**This step runs LAST** — after OKRs are updated, follow-ups are processed, and stale docs are detected, so all data is available.
+**This step runs LAST** — after follow-ups are processed and stale docs are detected, so all data is available.
 
 Write a digest to `.context/reports/$ARGUMENTS-{date}.md`.
 
@@ -121,7 +121,7 @@ Replace the contents between `## Learned Patterns` and the next `##` heading. Ke
 
 The dashboard reads source files directly via glob + chokidar. No indexer step needed. Changes to project.json, directive.json are picked up automatically.
 
-**Update directive.json:** Set `wrapup.digest_path` to the report path. Set `current_step: "wrapup"`. Update `pipeline.wrapup.status` to `"completed"` with output summary.
+**Update directive.json:** Set `wrapup.digest_path` to the report path. Set `current_step: "completion"` (the next step). Update `pipeline.wrapup.status` to `"completed"` with output summary.
 
 ## Step 6g: Mark Directive Awaiting Completion
 
@@ -135,11 +135,11 @@ Update the directive JSON to signal the CEO completion gate. The directive is NO
 ### Directive JSON
 - Read `.context/directives/$ARGUMENTS/directive.json`
 - Set `status` to `"awaiting_completion"`
-- Set `report_summary` to the digest filename
+- Set `report` to the digest filename
 - Write the updated JSON back
 
 ### Project JSON(s)
-- For each project in the directive's `produced_projects` array, read its `project.json`
+- For each project in the directive's `projects` array, read its `project.json`
 - Do NOT set project status to `"completed"` yet -- that happens in the completion step after CEO approval
 - If some tasks are incomplete, note this in the digest with explanations
 
@@ -162,9 +162,9 @@ Show the CEO:
 
 | Situation | Action |
 |-----------|--------|
-| Challenger's output doesn't parse as JSON | Log the error, continue. Challenge is advisory, not blocking. |
-| All challengers endorse | Note in approval presentation, proceed normally. |
-| A challenger challenges the directive | Highlight prominently in approval presentation. CEO decides whether to proceed. |
+| Brainstorm agent's output doesn't parse as JSON | Log the error, continue. Brainstorm is advisory, not blocking. |
+| All brainstorm agents endorse the directive | Note in approval presentation, proceed normally. |
+| A brainstorm agent's challenge assessment raises concerns | Highlight prominently in approval presentation. CEO decides whether to proceed. |
 | The COO's plan doesn't parse as JSON | Stop, show the raw output, ask CEO to intervene |
 | Worktree creation fails | Warn CEO, work in the main repo instead. All changes are uncommitted, CEO can review with `git diff`. |
 | Audit finds nothing for ALL tasks | Skip to stale doc detection, generate digest noting "no issues found", recommend CEO review the directive scope. |
@@ -186,7 +186,7 @@ Show the CEO:
 - Execute heavyweight directives without CEO approval of the combined plan (COO + audit)
 - Skip the planning phase (COO evaluation)
 - Skip the technical audit (audit step) — always verify scope before CEO approval
-- Skip the challenge step — the COO's inline challenge is always required; separate challengers only for heavyweight/controversial
+- Skip the challenge step -- the COO's inline challenge is always required; separate brainstorm agents (with challenge) only for heavyweight/strategic
 - Have the COO scan the codebase (the COO plans strategy, not code)
 - Run tasks in parallel without checking active_files overlap (see Parallelism Analysis in 09-execute-projects.md) -- tasks sharing files MUST be sequential; only non-overlapping tasks in the same priority tier can be parallelized
 - Treat reviewer findings as blockers (they're advisory)
@@ -202,7 +202,7 @@ Show the CEO:
 ### ALWAYS
 - Triage the directive before choosing which process to run
 - Upgrade to heavyweight if ANY guardrail in vision.md could be affected
-- Include the COO's inline challenge analysis in every plan — separate challengers for heavyweight/controversial only
+- Include the COO's inline challenge analysis in every plan -- separate brainstorm agents (with challenge) for heavyweight/strategic only
 - Read preferences.md + vision.md guardrails before spawning any agent
 - Run technical audit before CEO approval to verify scope
 - Read .context/lessons/ topic files before spawning any agent

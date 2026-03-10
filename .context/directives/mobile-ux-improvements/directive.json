@@ -14,7 +14,9 @@
   "pipeline": {
     "triage": {
       "status": "completed",
-      "agent": "CEO",
+      "agent": [
+        "ceo"
+      ],
       "output": {
         "weight": "medium",
         "rationale": "Frontend-only work across ~7 files in a single domain (game UI)."
@@ -22,42 +24,54 @@
     },
     "checkpoint": {
       "status": "completed",
-      "agent": "CEO",
+      "agent": [
+        "ceo"
+      ],
       "output": {
         "summary": "No prior progress found."
       }
     },
     "read": {
       "status": "completed",
-      "agent": "CEO",
+      "agent": [
+        "ceo"
+      ],
       "output": {
         "summary": "Created directive.md and directive.json."
       }
     },
     "context": {
       "status": "completed",
-      "agent": "CEO",
+      "agent": [
+        "ceo"
+      ],
       "output": {
         "summary": "Read vision.md, lessons/agent-behavior.md, lessons/orchestration.md."
       }
     },
     "challenge": {
       "status": "skipped",
-      "agent": "C-suite",
+      "agent": [
+        "ceo"
+      ],
       "output": {
         "summary": "Skipped for medium weight"
       }
     },
     "brainstorm": {
       "status": "skipped",
-      "agent": "C-suite",
+      "agent": [
+        "ceo"
+      ],
       "output": {
         "summary": "Skipped for medium weight"
       }
     },
     "audit": {
       "status": "completed",
-      "agent": "CTO",
+      "agent": [
+        "sarah"
+      ],
       "output": {
         "summary": "7 active files, 9 issues found. Critical: zoom bounds broken, touch-none blocks gestures, bottom sheet is overlay.",
         "findings": 9
@@ -68,7 +82,9 @@
     },
     "plan": {
       "status": "completed",
-      "agent": "COO",
+      "agent": [
+        "morgan"
+      ],
       "output": {
         "summary": "1 project (mobile-game-ux), P0, moderate complexity. Riley builds, Sarah reviews.",
         "projects": [
@@ -81,7 +97,9 @@
     },
     "approve": {
       "status": "completed",
-      "agent": "CEO",
+      "agent": [
+        "ceo"
+      ],
       "output": {
         "decision": "auto-approved",
         "modifications": []
@@ -89,7 +107,9 @@
     },
     "project-brainstorm": {
       "status": "completed",
-      "agent": "CTO",
+      "agent": [
+        "sarah"
+      ],
       "output": {
         "summary": "3 tasks decomposed with DOD: touch gestures, inline panel layout, header/viewport polish."
       },
@@ -99,7 +119,9 @@
     },
     "setup": {
       "status": "completed",
-      "agent": "CEO",
+      "agent": [
+        "ceo"
+      ],
       "output": {
         "mode": "branch",
         "branch": "directive/mobile-ux-improvements"
@@ -107,7 +129,9 @@
     },
     "execute": {
       "status": "completed",
-      "agent": "riley",
+      "agent": [
+        "riley"
+      ],
       "output": {
         "progress": "5 of 5 tasks complete (across 2 projects)",
         "summary": "All tasks built, reviewed, and verified."
@@ -115,14 +139,18 @@
     },
     "review-gate": {
       "status": "completed",
-      "agent": "sarah",
+      "agent": [
+        "sarah"
+      ],
       "output": {
         "summary": "All tasks reviewed. All validation gates passed."
       }
     },
     "wrapup": {
       "status": "completed",
-      "agent": "CEO",
+      "agent": [
+        "ceo"
+      ],
       "output": {
         "summary": "All gates passed. Awaiting CEO completion approval."
       }

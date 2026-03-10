@@ -16,20 +16,32 @@ import {
   PERSONALITY_FRAME_COUNT,
   PERSONALITY_IDLE_MIN_SEC,
   PERSONALITY_IDLE_MAX_SEC,
+  IDLE_TIER_RECENT_MS,
+  IDLE_TIER_MODERATE_MS,
+  WANDER_IDLE_THRESHOLD_MS,
 } from '../constants'
 // Personality idle sprites removed — were hand-drawn templates that looked bad next to PNG characters.
 // Stubs return null/default so the personality timer logic still works but never overrides the sprite.
 const getPersonalityIdleFrame = (_p: number, _d: number, _f: number) => null
 const getPersonalityFrameCount = (_p: number) => PERSONALITY_FRAME_COUNT
 
-/** Idle agents only start wandering after this many ms without activity */
-const IDLE_WANDER_THRESHOLD_MS = 30 * 60 * 1000
+import type { IdleTier } from '../pixel-types'
 
-/** Check if an idle agent has been idle long enough to wander (≥30 min) */
+/** Compute idle tier from session info. Returns 'long' when no activity data exists. */
+export function computeIdleTier(lastActivityMs: number | undefined): IdleTier {
+  if (!lastActivityMs) return 'long' // no session data → treat as long idle
+  const elapsed = Date.now() - lastActivityMs
+  if (elapsed < IDLE_TIER_RECENT_MS) return 'recent'
+  if (elapsed < IDLE_TIER_MODERATE_MS) return 'moderate'
+  return 'long'
+}
+
+/** Check if an idle agent has been idle long enough to wander (> 30 min idle).
+ *  Agents idle < 30 min stay at their workspace desk. No session data → wander (demo mode). */
 function shouldWander(ch: Character): boolean {
-  const lastMs = ch.sessionInfo.lastActivityMs
-  if (!lastMs) return true // no session data → wander freely
-  return Date.now() - lastMs >= IDLE_WANDER_THRESHOLD_MS
+  if (!ch.sessionInfo.lastActivityMs) return true // no session data → wander
+  const elapsed = Date.now() - ch.sessionInfo.lastActivityMs
+  return elapsed >= WANDER_IDLE_THRESHOLD_MS
 }
 
 /** Tools that show reading animation instead of typing */
@@ -124,6 +136,7 @@ export function createCharacter(
     matrixEffectTimer: 0,
     matrixEffectSeeds: [],
     agentStatus: 'idle',
+    idleTier: 'long',
     sessionInfo: {},
     pendingStatus: null,
     statusChangeTimer: 0,
@@ -143,6 +156,9 @@ export function createCharacter(
     activityStartTime: 0,
     activityType: null,
     isSeated: seat !== null,
+    chatEmoji: null,
+    chatEmojiTimer: 0,
+    chatEmojiVisible: false,
   }
 }
 
@@ -182,8 +198,28 @@ export function updateCharacter(
 ): void {
   ch.frameTimer += dt
 
-  // Player-controlled characters only process walk animation — no AI FSM
+  // Player-controlled characters: walk + typing animation, no AI FSM
   if (ch.isPlayerControlled) {
+    // TYPE state: animate typing, break out when player presses movement keys
+    if (ch.state === CharacterState.TYPE) {
+      if (ch.frameTimer >= TYPE_FRAME_DURATION_SEC) {
+        ch.frameTimer -= TYPE_FRAME_DURATION_SEC
+        ch.frame = (ch.frame + 1) % 2
+      }
+      // If keys pressed, exit TYPE to IDLE so movement can start
+      if (heldKeys && heldKeys.size > 0) {
+        ch.state = CharacterState.IDLE
+        ch.frame = 0
+        ch.frameTimer = 0
+      }
+      // If no longer working, exit TYPE
+      if (ch.agentStatus !== 'working') {
+        ch.state = CharacterState.IDLE
+        ch.frame = 0
+        ch.frameTimer = 0
+      }
+      return
+    }
     if (ch.state === CharacterState.WALK) {
       if (ch.frameTimer >= WALK_FRAME_DURATION_SEC) {
         ch.frameTimer -= WALK_FRAME_DURATION_SEC
@@ -265,6 +301,11 @@ export function updateCharacter(
           ch.blockedTile = { col: targetCol, row: targetRow }
         }
       }
+    } else if (ch.state === CharacterState.IDLE && ch.agentStatus === 'working' && (!heldKeys || heldKeys.size === 0)) {
+      // Player is idle and working — show typing animation
+      ch.state = CharacterState.TYPE
+      ch.frame = 0
+      ch.frameTimer = 0
     }
     return
   }
@@ -370,7 +411,7 @@ export function updateCharacter(
       }
       if (ch.routingZone) break
 
-      // Idle < 30 min: stay at desk (coffee break). Idle ≥ 30 min: wander.
+      // Not yet long-idle: stay at desk. Long-idle (wandering tier): wander to furniture.
       if (!shouldWander(ch)) {
         // Recently idle — go back to seat if not already there
         if (ch.seatId) {
@@ -467,10 +508,10 @@ export function updateCharacter(
             if (seat && isAtSeatOrApproach(ch, seat)) {
               snapToSeat(ch, seat)
               if (!shouldWander(ch)) {
-                // Idle < 30 min — stay seated quietly (no typing)
+                // Not long-idle — stay seated quietly (no typing)
                 ch.state = CharacterState.IDLE
               } else {
-                // Idle ≥ 30 min — brief rest at desk then wander again
+                // Long-idle — brief rest at desk then wander again
                 ch.state = CharacterState.TYPE
                 // seatTimer < 0 is a sentinel from setAgentActive(false) meaning
                 // "turn just ended" — skip the long rest so idle transition is immediate
@@ -517,12 +558,13 @@ export function updateCharacter(
         ch.moveProgress = 0
 
         // Re-validate next step: if another character now occupies it, clear path.
-        // The character will go IDLE and pick a new destination next frame.
+        // Also clear activityTarget so the agent goes IDLE (not ACTIVITY at wrong tile).
         if (ch.path.length > 0 && occupiedTiles) {
           const ahead = ch.path[0]
           if (occupiedTiles.has(`${ahead.col},${ahead.row}`)) {
             ch.path = []
-            // Don't break — fall through to path-empty handling above
+            ch.activityTarget = null
+            ch.activityType = null
           }
         }
       }
@@ -555,20 +597,39 @@ export function updateCharacter(
         break
       }
 
-      // Advance animation for activity types that animate
+      // Advance animation for all activity types
       const actType = ch.activityType
       if (
         actType === FurnitureActivityType.WATCHING_TV ||
         actType === FurnitureActivityType.ARCADE ||
-        actType === FurnitureActivityType.READING
+        actType === FurnitureActivityType.READING ||
+        actType === FurnitureActivityType.VENDING
       ) {
         // 2-frame animation using typing/reading frame timing
         if (ch.frameTimer >= TYPE_FRAME_DURATION_SEC) {
           ch.frameTimer -= TYPE_FRAME_DURATION_SEC
           ch.frame = (ch.frame + 1) % 2
         }
+      } else if (
+        actType === FurnitureActivityType.EXERCISING ||
+        actType === FurnitureActivityType.PLAYING_PINGPONG
+      ) {
+        // 4-frame walk cycle — bouncing/swinging motion
+        const speed = actType === FurnitureActivityType.PLAYING_PINGPONG ? 0.2 : 0.25
+        if (ch.frameTimer >= speed) {
+          ch.frameTimer -= speed
+          ch.frame = (ch.frame + 1) % 4
+        }
+      } else if (
+        actType === FurnitureActivityType.PLAYING_POOL ||
+        actType === FurnitureActivityType.LOUNGING
+      ) {
+        // Slow 2-frame — subtle leaning/shifting
+        if (ch.frameTimer >= 0.5) {
+          ch.frameTimer -= 0.5
+          ch.frame = (ch.frame + 1) % 2
+        }
       }
-      // Other activity types hold a static idle pose — no frame cycling needed
 
       // Count down activity duration
       ch.activityStartTime -= dt
@@ -588,6 +649,10 @@ function exitActivity(ch: Character): void {
   ch.wanderTimer = randomRange(WANDER_PAUSE_MIN_SEC, WANDER_PAUSE_MAX_SEC)
   ch.wanderCount = 0
   ch.wanderLimit = randomInt(WANDER_MOVES_BEFORE_REST_MIN, WANDER_MOVES_BEFORE_REST_MAX)
+  // If seated at a furniture chair (snapped to a blocked tile), we need to stand up.
+  // The character will be at the blocked seat tile — just mark as not seated.
+  // The next wander cycle will pathfind from the current tile, which handles blocked-tile escape.
+  ch.isSeated = false
   ch.activityTarget = null
   ch.activityType = null
   ch.activityStartTime = 0
@@ -608,10 +673,17 @@ export function getCharacterSprite(ch: Character, sprites: CharacterSprites): Sp
       if (actType === FurnitureActivityType.WATCHING_TV || actType === FurnitureActivityType.ARCADE) {
         return sprites.typing[ch.dir][ch.frame % 2]
       }
-      if (actType === FurnitureActivityType.READING) {
+      if (actType === FurnitureActivityType.READING || actType === FurnitureActivityType.VENDING) {
         return sprites.reading[ch.dir][ch.frame % 2]
       }
-      // LOUNGING, EXERCISING, PLAYING_POOL, PLAYING_PINGPONG, VENDING — static idle pose
+      if (actType === FurnitureActivityType.EXERCISING || actType === FurnitureActivityType.PLAYING_PINGPONG) {
+        // Walk cycle frames — bouncing/swinging motion
+        return sprites.walk[ch.dir][ch.frame % 4]
+      }
+      if (actType === FurnitureActivityType.PLAYING_POOL || actType === FurnitureActivityType.LOUNGING) {
+        // Slow 2-frame shift between walk poses
+        return sprites.walk[ch.dir][ch.frame % 2 === 0 ? 1 : 3]
+      }
       return sprites.walk[ch.dir][1]
     }
     case CharacterState.IDLE: {

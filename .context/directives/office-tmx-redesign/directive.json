@@ -9,7 +9,9 @@
   "pipeline": {
     "triage": {
       "status": "completed",
-      "agent": "CEO",
+      "agent": [
+        "ceo"
+      ],
       "output": {
         "summary": "Classified as medium weight. Single-domain game category work: asset copying + TMX data editing.",
         "weight": "medium",
@@ -22,7 +24,9 @@
     },
     "read": {
       "status": "completed",
-      "agent": "CEO",
+      "agent": [
+        "ceo"
+      ],
       "output": {
         "summary": "Read directive brief, vision, preferences, lessons, agent registry. Category: game."
       },
@@ -30,7 +34,9 @@
     },
     "context": {
       "status": "completed",
-      "agent": "CEO",
+      "agent": [
+        "ceo"
+      ],
       "output": {
         "summary": "Context loaded: TMX is 32x32 @ 16x16px, 2 existing tilesets (room-builder firstgid=1, furniture firstgid=225). Limezu pack at /Users/yangyang/Downloads/moderninteriors-win."
       },
@@ -41,7 +47,9 @@
     },
     "plan": {
       "status": "completed",
-      "agent": "COO",
+      "agent": [
+        "morgan"
+      ],
       "output": {
         "summary": "Single project: limezu-office-redesign. Builder: devon, Reviewers: quinn + sarah, Auditor: sarah. Use Theme_Sorter PNGs not master sheet."
       },
@@ -51,7 +59,9 @@
     },
     "audit": {
       "status": "completed",
-      "agent": "CTO",
+      "agent": [
+        "sarah"
+      ],
       "output": {
         "summary": "TMX is NOT parsed at runtime — office-layout.ts has hardcoded gidLayers arrays. tilesetCache.ts loads PNGs with hardcoded firstgid. Next firstgid=1073. Right half and bottom of map nearly empty. .tsx files are Tiled metadata, not React. Must update both TMX and office-layout.ts in lockstep.",
         "key_files": [
@@ -68,7 +78,9 @@
     },
     "project-brainstorm": {
       "status": "cancelled",
-      "output": { "summary": "Superseded by game-ui-tmx-update directive which completed the TMX redesign." }
+      "output": {
+        "summary": "Superseded by game-ui-tmx-update directive which completed the TMX redesign."
+      }
     },
     "setup": {
       "status": "pending"

@@ -10,7 +10,9 @@
   "pipeline": {
     "triage": {
       "status": "completed",
-      "agent": "CEO",
+      "agent": [
+        "ceo"
+      ],
       "output": {
         "summary": "Classified as strategic. Crosses every boundary (pipeline, agents, platform, install flow, testing). Multiple valid approaches need brainstorm.",
         "weight": "strategic"
@@ -21,28 +23,38 @@
     },
     "read": {
       "status": "completed",
-      "agent": "CEO",
+      "agent": [
+        "ceo"
+      ],
       "output": {
         "summary": "Directive file created. Scope: fresh repo validation, benchmark app, multi-platform testing, custom team testing, pipeline integrity."
       }
     },
     "context": {
       "status": "completed",
-      "agent": "CEO",
+      "agent": [
+        "ceo"
+      ],
       "output": {
         "summary": "Full context loaded: vision.md, lessons, 80+ directives scanned, 6 prior related directives reviewed."
       }
     },
     "challenge": {
       "status": "completed",
-      "agent": "COO (inline)",
+      "agent": [
+        "coo (inline)"
+      ],
       "output": {
         "summary": "COO inline challenge: 3 risks (path resolution blast radius, CLI is net-new, custom teams need refactoring). Recommendation: simplify CLI to readline, dashboard launch = print instructions, Codex = smoke test. CEO overrode: dashboard NOT optional, expanded to 4 platforms (CC + Aider + Gemini + Codex)."
       }
     },
     "brainstorm": {
       "status": "completed",
-      "agent": "Sarah Chen, Marcus Rivera, Morgan Park",
+      "agent": [
+        "sarah",
+        "marcus",
+        "morgan"
+      ],
       "output": {
         "summary": "Phase 1 + Phase 2 deliberation. Convergence on path resolution, copy-to-consumer, sequential layers. Sarah vs Marcus on dashboard packaging — CEO resolved: ship the game, not optional. CEO added: .gruai/ canonical dir, symlinks for platform-specific."
       },
@@ -52,7 +64,9 @@
     },
     "plan": {
       "status": "completed",
-      "agent": "COO",
+      "agent": [
+        "morgan"
+      ],
       "output": {
         "summary": "7 projects after CEO revision: P0 path-resolution (Devon), P0 cli-entrypoint (Jordan), P0 benchmark-fixture (Sam), P1 dashboard-packaging (Riley), P1 custom-team-sizes (Devon), P0 e2e-validation (Sam), P1 multi-platform-validation (Devon). Waves: 1=[path-res+fixture], 2=[CLI+dashboard], 3=[team-sizes], 4=[E2E], 5=[multi-platform].",
         "projects": [
@@ -71,14 +85,18 @@
     },
     "audit": {
       "status": "completed",
-      "agent": "CEO",
+      "agent": [
+        "ceo"
+      ],
       "output": {
         "summary": "Skipped formal two-agent audit — brainstorm phase already included deep codebase investigation by Sarah (CTO). Key findings already captured: hooks missing from files array, template path resolution broken, dist/dist-server coupling. CEO directed zero-trust posture — E2E validation will serve as the real audit."
       }
     },
     "approve": {
       "status": "completed",
-      "agent": "CEO",
+      "agent": [
+        "ceo"
+      ],
       "output": {
         "summary": "CEO approved revised 7-project plan. Key decisions: ship game (not optional), npx gru-ai as primary install, .gruai/ canonical dir, Starter/Standard/Full/Custom team presets, 4 platforms (CC+Aider+Gemini+Codex), zero-trust on prior adapter work, benchmark fixture for repeatable testing.",
         "decision": "approved"
@@ -86,7 +104,9 @@
     },
     "project-brainstorm": {
       "status": "completed",
-      "agent": "Sarah Chen (CTO)",
+      "agent": [
+        "sarah"
+      ],
       "output": {
         "summary": "CTO decomposed all 7 projects into 30 total tasks. path-resolution (4 tasks), cli-entrypoint (5 tasks), benchmark-fixture (4 tasks), dashboard-packaging (4 tasks), custom-team-sizes (3 tasks), e2e-validation (6 tasks), multi-platform (4 tasks). All project.json files validated with validate-project-json.sh.",
         "total_tasks": 30,

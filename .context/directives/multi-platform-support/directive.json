@@ -9,7 +9,9 @@
   "pipeline": {
     "triage": {
       "status": "completed",
-      "agent": "CEO",
+      "agent": [
+        "ceo"
+      ],
       "output": {
         "summary": "Classified as strategic.",
         "weight": "strategic"
@@ -20,14 +22,18 @@
     },
     "read": {
       "status": "completed",
-      "agent": "CEO",
+      "agent": [
+        "ceo"
+      ],
       "output": {
         "summary": "Deep Claude Code coupling identified."
       }
     },
     "context": {
       "status": "completed",
-      "agent": "CEO",
+      "agent": [
+        "ceo"
+      ],
       "output": {
         "summary": "Full context loaded."
       }
@@ -37,7 +43,11 @@
     },
     "brainstorm": {
       "status": "completed",
-      "agent": "Sarah Chen, Marcus Rivera, Priya Sharma",
+      "agent": [
+        "sarah",
+        "marcus",
+        "priya"
+      ],
       "output": {
         "summary": "Phase 1 + Phase 2 deliberation. Converged on PlatformAdapter first, CLI-first waves, deep-on-few."
       },
@@ -47,7 +57,9 @@
     },
     "plan": {
       "status": "completed",
-      "agent": "COO",
+      "agent": [
+        "morgan"
+      ],
       "output": {
         "summary": "Single project. Devon builds, Sarah reviews."
       },
@@ -57,35 +69,46 @@
     },
     "audit": {
       "status": "completed",
-      "agent": "Sam Nakamura, Sarah Chen",
+      "agent": [
+        "sam",
+        "sarah"
+      ],
       "output": {
         "summary": "4,439 lines investigated. PlatformAdapter interface designed (12 methods, Strangler Fig)."
       }
     },
     "approve": {
       "status": "completed",
-      "agent": "CEO",
+      "agent": [
+        "ceo"
+      ],
       "output": {
         "summary": "Approved as-is."
       }
     },
     "project-brainstorm": {
       "status": "completed",
-      "agent": "Sarah Chen",
+      "agent": [
+        "sarah"
+      ],
       "output": {
         "summary": "4 tasks: research, interface, adapter impl, tests."
       }
     },
     "setup": {
       "status": "completed",
-      "agent": "CEO",
+      "agent": [
+        "ceo"
+      ],
       "output": {
         "summary": "Project.json created and validated."
       }
     },
     "execute": {
       "status": "completed",
-      "agent": "Devon Lee",
+      "agent": [
+        "devon"
+      ],
       "output": {
         "summary": "All 4 tasks completed. Research report covers 6 platforms. PlatformAdapter interface defined (13 methods + 5 types). ClaudeCodeAdapter implemented with singleton state moved to instance. 75 tests pass (61 existing + 14 new). Type-check and build pass.",
         "tasks_completed": 4,
@@ -112,21 +135,27 @@
     },
     "review-gate": {
       "status": "completed",
-      "agent": "CEO",
+      "agent": [
+        "ceo"
+      ],
       "output": {
         "summary": "All tests pass. Type-check clean. Build succeeds. Zero behavior change confirmed."
       }
     },
     "wrapup": {
       "status": "completed",
-      "agent": "CEO",
+      "agent": [
+        "ceo"
+      ],
       "output": {
         "summary": "All DOD criteria met. Project marked complete."
       }
     },
     "completion": {
       "status": "completed",
-      "agent": "CEO",
+      "agent": [
+        "ceo"
+      ],
       "output": {
         "summary": "CEO approved completion. Full strategic directive delivered."
       }

@@ -18,7 +18,9 @@
   "pipeline": {
     "triage": {
       "status": "completed",
-      "agent": "CEO",
+      "agent": [
+        "ceo"
+      ],
       "output": {
         "weight": "medium",
         "rationale": "2-3 related UI features within game domain"
@@ -26,35 +28,45 @@
     },
     "read": {
       "status": "completed",
-      "agent": "CEO",
+      "agent": [
+        "ceo"
+      ],
       "output": {
         "summary": "Created directive files"
       }
     },
     "context": {
       "status": "completed",
-      "agent": "CEO",
+      "agent": [
+        "ceo"
+      ],
       "output": {
         "summary": "Read all game UI components, server watchers, types"
       }
     },
     "challenge": {
       "status": "skipped",
-      "agent": "C-suite",
+      "agent": [
+        "ceo"
+      ],
       "output": {
         "summary": "Skipped for medium weight"
       }
     },
     "brainstorm": {
       "status": "skipped",
-      "agent": "C-suite",
+      "agent": [
+        "ceo"
+      ],
       "output": {
         "summary": "Skipped for medium weight"
       }
     },
     "plan": {
       "status": "completed",
-      "agent": "COO",
+      "agent": [
+        "morgan"
+      ],
       "output": {
         "summary": "Single project, riley builds, quinn+marcus review, sarah audits"
       },
@@ -64,28 +76,36 @@
     },
     "audit": {
       "status": "completed",
-      "agent": "CTO",
+      "agent": [
+        "sarah"
+      ],
       "output": {
         "summary": "9 active files, no dead code. Data pipeline already built."
       }
     },
     "approve": {
       "status": "completed",
-      "agent": "CEO",
+      "agent": [
+        "ceo"
+      ],
       "output": {
         "decision": "auto-approved"
       }
     },
     "project-brainstorm": {
       "status": "completed",
-      "agent": "CTO",
+      "agent": [
+        "sarah"
+      ],
       "output": {
         "summary": "3 tasks: streaming log, header ticker, sprite status text. Sequenced by data dependency."
       }
     },
     "setup": {
       "status": "completed",
-      "agent": "CEO",
+      "agent": [
+        "ceo"
+      ],
       "output": {
         "mode": "existing-branch",
         "branch": "game",
@@ -94,7 +114,9 @@
     },
     "execute": {
       "status": "completed",
-      "agent": "riley",
+      "agent": [
+        "riley"
+      ],
       "output": {
         "progress": "3/3 tasks",
         "summary": "All 3 tasks built, code-reviewed, and DOD verified"
@@ -102,14 +124,18 @@
     },
     "review-gate": {
       "status": "completed",
-      "agent": "CEO",
+      "agent": [
+        "ceo"
+      ],
       "output": {
         "summary": "Code review pass (quinn+marcus), all 15 DOD criteria met, UX verified via Chrome MCP, auto-scroll fix applied"
       }
     },
     "wrapup": {
       "status": "completed",
-      "agent": "CEO",
+      "agent": [
+        "ceo"
+      ],
       "output": {
         "summary": "No lessons to update. No follow-ups identified."
       }

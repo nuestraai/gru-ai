@@ -14,26 +14,7 @@ interface GameHeaderProps {
   activePanel?: HudPanel | null;
   workingCount?: number;
   staffCount?: number;
-}
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function formatGameTime(date: Date): string {
-  return date.toLocaleTimeString('en-US', {
-    hour: 'numeric',
-    minute: '2-digit',
-    second: '2-digit',
-    hour12: true,
-  });
-}
-
-function formatGameDate(date: Date): string {
-  const dayName = date.toLocaleDateString('en-US', { weekday: 'short' });
-  const month = date.toLocaleDateString('en-US', { month: 'short' });
-  const day = date.getDate();
-  return `${dayName}, ${month} ${day}`;
+  liveTaskCount?: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -60,19 +41,21 @@ const HEADER = {
 interface HudButtonProps {
   icon: React.ReactNode;
   label: string;
+  mobileLabel?: string;
   onClick: () => void;
   active?: boolean;
   ariaLabel: string;
   badge?: number;
+  glow?: boolean;
 }
 
-function HudButton({ icon, label, onClick, active, ariaLabel, badge, glow }: HudButtonProps & { glow?: boolean }) {
+function HudButton({ icon, label, mobileLabel, onClick, active, ariaLabel, badge, glow }: HudButtonProps) {
   return (
     <button
       type="button"
       onClick={onClick}
       aria-label={ariaLabel}
-      className={`flex items-center gap-1.5 px-2.5 py-1 font-mono text-[12px] select-none transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400`}
+      className="flex items-center gap-1.5 px-2.5 py-1.5 sm:py-1 font-mono text-[13px] sm:text-[12px] select-none transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400"
       style={{
         backgroundColor: active ? HEADER.buttonActive : HEADER.buttonBg,
         color: active ? HEADER.highlight : HEADER.text,
@@ -86,7 +69,9 @@ function HudButton({ icon, label, onClick, active, ariaLabel, badge, glow }: Hud
       }}
     >
       <span aria-hidden="true" className="flex items-center">{icon}</span>
+      {/* Desktop: full label, Mobile: short label if provided */}
       {label && <span className="hidden sm:inline">{label}</span>}
+      {mobileLabel && <span className="sm:hidden">{mobileLabel}</span>}
       {badge !== undefined && badge > 0 && (
         <span
           className="ml-0.5 min-w-[18px] text-center px-1 rounded text-[10px] font-bold leading-tight"
@@ -107,7 +92,7 @@ function HudButton({ icon, label, onClick, active, ariaLabel, badge, glow }: Hud
 // Component
 // ---------------------------------------------------------------------------
 
-export default function GameHeader({ onPanelRequest, gameContainerRef, activePanel, workingCount = 0, staffCount = 0 }: GameHeaderProps) {
+export default function GameHeader({ onPanelRequest, gameContainerRef, activePanel, workingCount = 0, staffCount = 0, liveTaskCount = 0 }: GameHeaderProps) {
   const badges = useBadgeCounts();
 
   // Fullscreen state + feature detection (iOS Safari lacks fullscreen API)
@@ -133,19 +118,6 @@ export default function GameHeader({ onPanelRequest, gameContainerRef, activePan
     }
   }, [gameContainerRef]);
 
-  // Live clock
-  const [now, setNow] = useState(() => new Date());
-  useEffect(() => {
-    const id = setInterval(() => setNow(new Date()), 1000);
-    return () => clearInterval(id);
-  }, []);
-
-  // Total badge for header = Team + Action + Directive
-  const totalBadge = badges.team + badges.tasks;
-
-  const dateStr = formatGameDate(now);
-  const timeStr = formatGameTime(now);
-
   return (
     <header
       className="px-3 sm:px-4 py-1.5 flex items-center justify-between text-sm select-none"
@@ -157,13 +129,13 @@ export default function GameHeader({ onPanelRequest, gameContainerRef, activePan
         boxShadow: `inset 0 1px 0 0 ${HEADER.bgLight}`,
       }}
     >
-      {/* Left: Office branding */}
+      {/* Left: gruAI branding */}
       <div className="flex items-center gap-2">
         <span
           className="font-mono font-bold text-base tracking-tight"
           style={{ color: HEADER.highlight, textShadow: `0 1px 2px ${HEADER.border}` }}
         >
-          Office
+          gruAI
         </span>
         <span
           className="h-2 w-2 rounded-full bg-emerald-400 inline-block"
@@ -172,23 +144,12 @@ export default function GameHeader({ onPanelRequest, gameContainerRef, activePan
         />
       </div>
 
-      {/* Center: Date & Time */}
-      <div className="hidden sm:flex items-center gap-2 font-mono text-xs" style={{ color: HEADER.textDim }}>
-        <span>{dateStr}</span>
-        <span style={{ color: HEADER.border }} aria-hidden="true">&#x2022;</span>
-        <span className="tabular-nums" style={{ color: HEADER.text }}>{timeStr}</span>
-      </div>
-
-      {/* Mobile: time only */}
-      <span className="sm:hidden font-mono text-xs tabular-nums" style={{ color: HEADER.text }}>
-        {timeStr}
-      </span>
-
       {/* Right: Game-style buttons */}
       <div className="flex items-center gap-1.5">
         <HudButton
-          icon={<Users className="h-3.5 w-3.5" />}
+          icon={<Users className="h-4 w-4 sm:h-3.5 sm:w-3.5" />}
           label={`Team ${workingCount}/${staffCount}`}
+          mobileLabel={`${workingCount}/${staffCount}`}
           onClick={() => onPanelRequest?.('team')}
           active={activePanel === 'team'}
           ariaLabel="Team overview"
@@ -196,15 +157,16 @@ export default function GameHeader({ onPanelRequest, gameContainerRef, activePan
           glow={workingCount > 0}
         />
         <HudButton
-          icon={<Zap className="h-3.5 w-3.5" />}
+          icon={<Zap className="h-4 w-4 sm:h-3.5 sm:w-3.5" />}
           label="Tasks"
+          mobileLabel={liveTaskCount > 0 ? `${liveTaskCount}` : undefined}
           onClick={() => onPanelRequest?.('tasks')}
           active={activePanel === 'tasks'}
           ariaLabel="Tasks and directives"
           badge={badges.tasks > 0 ? badges.tasks : undefined}
         />
         <HudButton
-          icon={<Activity className="h-3.5 w-3.5" />}
+          icon={<Activity className="h-4 w-4 sm:h-3.5 sm:w-3.5" />}
           label="Status"
           onClick={() => onPanelRequest?.('status')}
           active={activePanel === 'status'}
@@ -212,7 +174,7 @@ export default function GameHeader({ onPanelRequest, gameContainerRef, activePan
           badge={badges.status > 0 ? badges.status : undefined}
         />
         <HudButton
-          icon={<ScrollText className="h-3.5 w-3.5" />}
+          icon={<ScrollText className="h-4 w-4 sm:h-3.5 sm:w-3.5" />}
           label="Log"
           onClick={() => onPanelRequest?.('log')}
           active={activePanel === 'log'}
@@ -220,7 +182,7 @@ export default function GameHeader({ onPanelRequest, gameContainerRef, activePan
         />
         {canFullscreen && (
           <HudButton
-            icon={isFullscreen ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
+            icon={isFullscreen ? <Minimize2 className="h-4 w-4 sm:h-3.5 sm:w-3.5" /> : <Maximize2 className="h-4 w-4 sm:h-3.5 sm:w-3.5" />}
             label=""
             onClick={toggleFullscreen}
             ariaLabel={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}

@@ -30,33 +30,45 @@
   "pipeline": {
     "triage": {
       "status": "completed",
-      "agent": "CEO",
+      "agent": [
+        "ceo"
+      ],
       "output": {
         "weight": "strategic"
       }
     },
     "read": {
       "status": "completed",
-      "agent": "CEO"
+      "agent": [
+        "ceo"
+      ]
     },
     "context": {
       "status": "completed",
-      "agent": "CEO"
+      "agent": [
+        "ceo"
+      ]
     },
     "challenge": {
       "status": "completed",
-      "agent": "C-suite"
+      "agent": [
+        "ceo"
+      ]
     },
     "brainstorm": {
       "status": "completed",
-      "agent": "C-suite",
+      "agent": [
+        "ceo"
+      ],
       "output": {
         "artifact": "brainstorm.md"
       }
     },
     "plan": {
       "status": "completed",
-      "agent": "COO",
+      "agent": [
+        "morgan"
+      ],
       "output": {
         "summary": "2 new projects: cli-to-skills (delete CLI, create skills) + build-and-publish-config (fix build, .npmignore, npm publish). Sequential dependency.",
         "projects_count": 2
@@ -64,14 +76,18 @@
     },
     "audit": {
       "status": "skipped",
-      "agent": "CTO",
+      "agent": [
+        "sarah"
+      ],
       "output": {
         "summary": "Skipped — reopened directive, scope is clear from CEO feedback. Files already known."
       }
     },
     "approve": {
       "status": "completed",
-      "agent": "CEO",
+      "agent": [
+        "ceo"
+      ],
       "output": {
         "decision": "approved",
         "summary": "CEO approved 2-project plan as-is"
@@ -79,7 +95,10 @@
     },
     "project-brainstorm": {
       "status": "active",
-      "agent": "CTO + builders"
+      "agent": [
+        "sarah",
+        "builders"
+      ]
     },
     "setup": {
       "status": "pending"
@@ -95,7 +114,9 @@
     },
     "completion": {
       "status": "completed",
-      "agent": "CEO"
+      "agent": [
+        "ceo"
+      ]
     }
   },
   "projects": [

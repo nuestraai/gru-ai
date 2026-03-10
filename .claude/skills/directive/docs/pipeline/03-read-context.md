@@ -11,3 +11,7 @@ Read ALL of these before spawning the COO:
 - `.context/lessons/agent-behavior.md` — for all agents
 - All `.context/directives/*/projects/*/project.json` — current project states and task status
 - The C-suite agent personality files (resolve names from `.claude/agent-registry.json`)
+
+### Update directive.json
+
+Set `current_step: "audit"` (the next step). Update `pipeline.context.status` to `"completed"` with output summary listing what was read.

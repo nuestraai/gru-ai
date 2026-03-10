@@ -12,6 +12,7 @@
 #
 # Exit 0, no output = valid
 # Exit 0, JSON output = validation result (valid: true/false, violations: [...])
+# Exit 1 = validation failure (violations found)
 
 set -euo pipefail
 
@@ -44,7 +45,7 @@ violations=()
 if [[ ! -f "$PROJECT_PATH" ]]; then
   violations+=("project.json does not exist at ${PROJECT_PATH}. The approve step must create it before execution begins.")
   echo "{\"valid\": false, \"violations\": $(printf '%s\n' "${violations[@]}" | jq -R . | jq -s .)}"
-  exit 0
+  exit 1
 fi
 
 # Validate required fields
@@ -102,8 +103,42 @@ for i in $(seq 0 $((TASK_COUNT - 1))); do
   fi
 done
 
+## DOD completion check: completed tasks must have at least one dod[].met = true
+for i in $(seq 0 $((TASK_COUNT - 1))); do
+  TASK_ID=$(jq -r ".tasks[$i].id // \"task-$i\"" "$PROJECT_PATH" 2>/dev/null)
+  TASK_STATUS=$(jq -r ".tasks[$i].status // \"\"" "$PROJECT_PATH" 2>/dev/null)
+  if [[ "$TASK_STATUS" == "completed" ]]; then
+    # Count how many DOD items have met=true
+    MET_COUNT=$(jq "[.tasks[$i].dod[]? | select(.met == true)] | length" "$PROJECT_PATH" 2>/dev/null || echo "0")
+    TOTAL_DOD=$(jq ".tasks[$i].dod | length" "$PROJECT_PATH" 2>/dev/null || echo "0")
+    if [[ "$TOTAL_DOD" -gt 0 && "$MET_COUNT" -eq 0 ]]; then
+      violations+=("tasks[$TASK_ID] is marked completed but ALL dod items have met=false — task was completed without DOD verification")
+    fi
+  fi
+done
+
+## Browser test check: if browser_test is true, warn if no design-review.md
+warnings=()
+BROWSER_TEST=$(jq -r '.browser_test // false' "$PROJECT_PATH" 2>/dev/null)
+if [[ "$BROWSER_TEST" == "true" ]]; then
+  PROJECT_DIR=$(dirname "$PROJECT_PATH")
+  if [[ ! -f "${PROJECT_DIR}/design-review.md" ]]; then
+    warnings+=("browser_test is true but no design-review.md found in ${PROJECT_DIR} — visual review may not have been recorded")
+  fi
+fi
+
 if [[ ${#violations[@]} -eq 0 ]]; then
-  echo '{"valid": true, "violations": []}'
+  if [[ ${#warnings[@]} -gt 0 ]]; then
+    echo "{\"valid\": true, \"violations\": [], \"warnings\": $(printf '%s\n' "${warnings[@]}" | jq -R . | jq -s .)}"
+  else
+    echo '{"valid": true, "violations": []}'
+  fi
+  exit 0
 else
-  echo "{\"valid\": false, \"violations\": $(printf '%s\n' "${violations[@]}" | jq -R . | jq -s .)}"
+  if [[ ${#warnings[@]} -gt 0 ]]; then
+    echo "{\"valid\": false, \"violations\": $(printf '%s\n' "${violations[@]}" | jq -R . | jq -s .), \"warnings\": $(printf '%s\n' "${warnings[@]}" | jq -R . | jq -s .)}"
+  else
+    echo "{\"valid\": false, \"violations\": $(printf '%s\n' "${violations[@]}" | jq -R . | jq -s .)}"
+  fi
+  exit 1
 fi

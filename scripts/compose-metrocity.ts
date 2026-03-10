@@ -81,8 +81,8 @@ function inferGender(firstName: string): InferredGender {
 
 const HAIR_ROWS_MALE = [0, 4, 5, 6, 7]
 const HAIR_ROWS_FEMALE = [1, 2, 3, 4]
-const OUTFIT_INDICES_MALE = [1, 3, 4, 5, 6]
-const OUTFIT_INDICES_FEMALE = [1, 2, 3, 5, 6]
+const OUTFIT_INDICES_MALE = [5, 6]
+const OUTFIT_INDICES_FEMALE = [2, 5, 6]
 
 function simpleHash(str: string): number {
   let hash = 0

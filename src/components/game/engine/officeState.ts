@@ -21,9 +21,16 @@ import {
   INTERACTION_POINTS,
   getAvailableInteractionPoint,
   type OccupancyInfo,
+  CHAT_PROXIMITY_TILES,
+  CHAT_SHOW_MIN_SEC,
+  CHAT_SHOW_MAX_SEC,
+  CHAT_HIDE_MIN_SEC,
+  CHAT_HIDE_MAX_SEC,
+  CHAT_EMOJI_POOL,
+  IDLE_TIER_MODERATE_MS,
 } from '../constants'
 import type { Character, Seat, FurnitureInstance, TileType as TileTypeVal, OfficeLayout, PlacedFurniture, AgentStatus, SessionInfo, InteractionPoint } from '../pixel-types'
-import { createCharacter, updateCharacter } from './characters'
+import { createCharacter, updateCharacter, computeIdleTier } from './characters'
 import { getCharacterTemplateCount } from '../sprites/spriteData'
 import { matrixEffectSeeds } from './matrixEffect'
 import { isWalkable, getWalkableTiles, findPath } from '../layout/tileMap'
@@ -781,22 +788,19 @@ export class OfficeState {
     const ch = this.characters.get(id)
     if (!ch) return
 
-    // Store the raw status for rendering/display regardless of debounce
     const previousStatus = ch.agentStatus
 
-    // If status hasn't changed, clear any pending transition and bail
+    // If status hasn't changed (committed), clear any pending transition and bail
     if (status === previousStatus) {
       ch.pendingStatus = null
       ch.statusChangeTimer = 0
       return
     }
 
-    // If a pending status is already queued and this new status matches the
-    // current (committed) status, cancel the pending transition — the status
-    // reverted before the debounce window elapsed
-    if (ch.pendingStatus !== null && status === previousStatus) {
-      ch.pendingStatus = null
-      ch.statusChangeTimer = 0
+    // If the same status is already pending, don't reset the timer —
+    // repeated calls (e.g. from useEffect re-runs) must not prevent
+    // the debounce from completing
+    if (ch.pendingStatus === status) {
       return
     }
 
@@ -810,6 +814,8 @@ export class OfficeState {
     const ch = this.characters.get(id)
     if (!ch) return
     ch.sessionInfo = info
+    // Recompute idle tier whenever session info changes
+    ch.idleTier = computeIdleTier(info.lastActivityMs)
   }
 
   /**
@@ -821,7 +827,7 @@ export class OfficeState {
     ch.agentStatus = status
     ch.hasError = false
 
-    // Derive isActive from status
+    // Derive isActive from status (offline treated like idle — not active)
     const wasActive = ch.isActive
     const nowActive = status === 'working'
     ch.isActive = nowActive
@@ -857,10 +863,10 @@ export class OfficeState {
     // If in a brainstorm meeting or review, don't override — those systems manage routing
     if (ch.routingZone === 'meeting' || ch.routingZone === 'review') return
 
-    // Idle agents with recent activity (< 30 min) stay at desk — don't route to break room
-    if (status === 'idle') {
+    // Idle/offline agents with recent activity stay at desk — don't route to break room
+    if (status === 'idle' || status === 'offline') {
       const lastMs = ch.sessionInfo.lastActivityMs
-      if (lastMs && Date.now() - lastMs < 30 * 60 * 1000) {
+      if (lastMs && Date.now() - lastMs < IDLE_TIER_MODERATE_MS) {
         // Send to seat if not already there
         ch.routingZone = null
         if (ch.seatId) {
@@ -902,34 +908,77 @@ export class OfficeState {
    */
   pickWanderDestination(ch: Character): { col: number; row: number; interactionPoint?: InteractionPoint; isSecondary?: boolean } | null {
     const roll = Math.random()
-    if (roll < 0.6) {
-      // Try to pick an available interaction point, filtering out restricted zones
+
+    // --- 85% furniture interaction point ---
+    if (roll < 0.85) {
       const result = getAvailableInteractionPoint(this.occupiedPoints)
       if (result) {
         const { point, isSecondary } = result
-        // Check if the interaction point is in a restricted zone the agent can't enter
         const pointZoneId = point.zoneId as RoomZoneId
-        if (pointZoneId in ROOM_ZONES && !isAgentAllowedInZone(ch, pointZoneId, this.seats)) {
-          // Skip this point — fall through to random tile
-        } else {
-          // For secondary position on capacity-2 points, use the secondary tile
+        if (!(pointZoneId in ROOM_ZONES) || isAgentAllowedInZone(ch, pointZoneId, this.seats)) {
           const col = isSecondary && point.tileX2 != null ? point.tileX2 : point.tileX
           const row = isSecondary && point.tileY2 != null ? point.tileY2 : point.tileY
           return { col, row, interactionPoint: point, isSecondary }
         }
       }
+      // Furniture unavailable — fall through to social approach
     }
-    // 40% random tile, or fallback when no interaction points available
-    if (this.walkableTiles.length === 0) return null
-    // Filter out tiles inside restricted zones this agent can't enter
-    const allowed = this.walkableTiles.filter((t) => {
-      const z = getZoneAt(t.col, t.row)
-      if (!z) return true
-      return isAgentAllowedInZone(ch, z, this.seats)
-    })
-    if (allowed.length === 0) return null
-    const target = allowed[Math.floor(Math.random() * allowed.length)]
-    return { col: target.col, row: target.row }
+
+    // --- 15% social approach: walk toward another idle agent ---
+    {
+      const idleAgents: Character[] = []
+      for (const other of this.characters.values()) {
+        if (other.id === ch.id) continue
+        if (other.isPlayerControlled || other.isActive) continue
+        if (other.agentStatus === 'working') continue
+        if (other.matrixEffect) continue
+        // Must be idle or in a low-activity state (not walking to seat)
+        if (other.state === CharacterState.IDLE || other.state === CharacterState.ACTIVITY) {
+          idleAgents.push(other)
+        }
+      }
+
+      if (idleAgents.length > 0) {
+        // Pick a random idle agent to approach
+        const target = idleAgents[Math.floor(Math.random() * idleAgents.length)]
+        // Find a walkable adjacent tile next to the target
+        const adjDirs = [
+          { dc: 0, dr: -1 }, { dc: 0, dr: 1 },
+          { dc: -1, dr: 0 }, { dc: 1, dr: 0 },
+        ]
+        // Shuffle so we don't always pick the same direction
+        for (let i = adjDirs.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1))
+          const tmp = adjDirs[i]
+          adjDirs[i] = adjDirs[j]
+          adjDirs[j] = tmp
+        }
+        for (const d of adjDirs) {
+          const ac = target.tileCol + d.dc
+          const ar = target.tileRow + d.dr
+          if (isWalkable(ac, ar, this.tileMap, this.blockedTiles)) {
+            // Check zone access
+            const z = getZoneAt(ac, ar)
+            if (z && !isAgentAllowedInZone(ch, z, this.seats)) continue
+            return { col: ac, row: ar }
+          }
+        }
+      }
+    }
+
+    // --- Fallback: zone waypoints (break-room or kitchen), never random tiles ---
+    const fallbackZones: RoomZoneId[] = ['break-room', 'kitchen']
+    const allowedZones = fallbackZones.filter((z) => isAgentAllowedInZone(ch, z, this.seats))
+    if (allowedZones.length > 0) {
+      const zoneId = allowedZones[Math.floor(Math.random() * allowedZones.length)]
+      const waypoints = ROOM_ZONES[zoneId].waypoints
+      if (waypoints.length > 0) {
+        const wp = waypoints[Math.floor(Math.random() * waypoints.length)]
+        return { col: wp.col, row: wp.row }
+      }
+    }
+
+    return null
   }
 
   /** Set the busy flag on an agent (multiple concurrent sessions) */
@@ -1355,10 +1404,45 @@ export class OfficeState {
       // picks one (60% furniture interaction point, 40% random walkable tile).
       if (ch.needsWanderDestination && !ch.isPlayerControlled) {
         ch.needsWanderDestination = false
-        const dest = this.pickWanderDestination(ch)
-        if (dest) {
-          const path = findPath(ch.tileCol, ch.tileRow, dest.col, dest.row, this.tileMap, this.blockedTiles, occupiedTiles)
+
+        // Retry up to 3 times if pathfinding fails (destination may be unreachable)
+        for (let attempt = 0; attempt < 3; attempt++) {
+          const dest = this.pickWanderDestination(ch)
+          if (!dest) continue
+
+          // Strategy 1: teleport to approach point (if seated at blocked tile)
+          // Strategy 2: fallback to withOwnSeatUnblocked (if approach point is in dead-end)
+          let path: Array<{ col: number; row: number }> = []
+          let teleportCol = ch.tileCol
+          let teleportRow = ch.tileRow
+
+          const seat = ch.seatId ? this.seats.get(ch.seatId) : null
+          if (seat && ch.isSeated && seat.approachCol != null && seat.approachRow != null) {
+            // Try from approach point first
+            path = findPath(seat.approachCol, seat.approachRow, dest.col, dest.row, this.tileMap, this.blockedTiles, occupiedTiles)
+            if (path.length > 0) {
+              teleportCol = seat.approachCol
+              teleportRow = seat.approachRow
+            } else {
+              // Approach point may be in dead-end — try unblocking seat neighbors
+              path = this.withOwnSeatUnblocked(ch, () =>
+                findPath(ch.tileCol, ch.tileRow, dest.col, dest.row, this.tileMap, this.blockedTiles, occupiedTiles)
+              )
+            }
+          } else {
+            // Not seated or no approach point — normal pathfinding
+            path = findPath(ch.tileCol, ch.tileRow, dest.col, dest.row, this.tileMap, this.blockedTiles, occupiedTiles)
+          }
+
           if (path.length > 0) {
+            // Snap to teleport position if needed
+            if (teleportCol !== ch.tileCol || teleportRow !== ch.tileRow) {
+              ch.tileCol = teleportCol
+              ch.tileRow = teleportRow
+              ch.x = teleportCol * TILE_SIZE + TILE_SIZE / 2
+              ch.y = teleportRow * TILE_SIZE + TILE_SIZE / 2
+              ch.isSeated = false
+            }
             ch.path = path
             ch.moveProgress = 0
             ch.state = CharacterState.WALK
@@ -1366,11 +1450,9 @@ export class OfficeState {
             ch.frameTimer = 0
             ch.wanderCount++
             if (dest.interactionPoint) {
-              // Store the target interaction point so WALK→ACTIVITY transition works.
-              // occupiedPoints rebuild (below) will count this character as claiming
-              // the point even while walking, preventing double-booking.
               ch.activityTarget = dest.interactionPoint.id
             }
+            break // Success — stop retrying
           }
         }
       }
@@ -1389,6 +1471,14 @@ export class OfficeState {
           ch.activityType = point.furnitureType
           ch.activityStartTime = point.activityDurationMin +
             Math.random() * (point.activityDurationMax - point.activityDurationMin)
+          // Snap to chair/couch seat if the interaction point has seat coordinates
+          if (point.seatCol != null && point.seatRow != null) {
+            ch.tileCol = point.seatCol
+            ch.tileRow = point.seatRow
+            ch.x = point.seatCol * TILE_SIZE + TILE_SIZE / 2
+            ch.y = point.seatRow * TILE_SIZE + TILE_SIZE / 2
+            ch.isSeated = true
+          }
           // Occupancy is tracked by the rebuild loop below (counts all chars with activityTarget).
         } else {
           // Invalid point — revert to idle
@@ -1455,6 +1545,123 @@ export class OfficeState {
           occ.agentIds.push(ch.id)
         } else {
           this.occupiedPoints.set(ch.activityTarget, { count: 1, agentIds: [ch.id] })
+        }
+      }
+    }
+
+    // ── Social chat: idle agents near each other show random emoji ──
+    // Build list of idle (non-active, non-despawning, non-player) characters
+    // Only allow chat in social zones (kitchen, break-room) — not workspace
+    const CHAT_ZONES: Set<string> = new Set(['kitchen', 'break-room'])
+    const idleChars: Character[] = []
+    for (const ch of this.characters.values()) {
+      if (ch.matrixEffect || ch.isPlayerControlled || ch.isActive) continue
+      if (ch.agentStatus === 'working') continue
+      const zone = getZoneAt(ch.tileCol, ch.tileRow)
+      if (!zone || !CHAT_ZONES.has(zone)) continue
+      idleChars.push(ch)
+    }
+
+    // Build paired proximity map: agentId → partnerId (closest idle neighbor)
+    const nearbyIdlePairs = new Set<number>()
+    const chatPartnerMap = new Map<number, number>() // agentId → closest partnerId
+    for (let i = 0; i < idleChars.length; i++) {
+      for (let j = i + 1; j < idleChars.length; j++) {
+        const a = idleChars[i]
+        const b = idleChars[j]
+        const dist = Math.max(
+          Math.abs(a.tileCol - b.tileCol),
+          Math.abs(a.tileRow - b.tileRow),
+        )
+        if (dist <= CHAT_PROXIMITY_TILES) {
+          nearbyIdlePairs.add(a.id)
+          nearbyIdlePairs.add(b.id)
+          // Track pairs (first match wins for each agent)
+          if (!chatPartnerMap.has(a.id)) chatPartnerMap.set(a.id, b.id)
+          if (!chatPartnerMap.has(b.id)) chatPartnerMap.set(b.id, a.id)
+        }
+      }
+    }
+
+    // ── Chat facing: agents in proximity chat face each other ──
+    // Set facing whenever both agents are stopped (not walking). Re-applied
+    // each frame so facing stays correct even if one agent was walking on entry.
+    for (const [aId, bId] of chatPartnerMap) {
+      if (aId > bId) continue // process each pair once
+      const a = this.characters.get(aId)
+      const b = this.characters.get(bId)
+      if (!a || !b) continue
+      // Skip if either agent is walking or doing a furniture activity (activity agents face their furniture)
+      if (a.state === CharacterState.WALK || b.state === CharacterState.WALK) continue
+      if (a.state === CharacterState.ACTIVITY || b.state === CharacterState.ACTIVITY) continue
+      const dc = b.tileCol - a.tileCol
+      const dr = b.tileRow - a.tileRow
+      // A faces toward B
+      if (dc > 0) a.dir = Direction.RIGHT
+      else if (dc < 0) a.dir = Direction.LEFT
+      else if (dr > 0) a.dir = Direction.DOWN
+      else a.dir = Direction.UP
+      // B faces toward A (opposite)
+      if (dc > 0) b.dir = Direction.LEFT
+      else if (dc < 0) b.dir = Direction.RIGHT
+      else if (dr > 0) b.dir = Direction.UP
+      else b.dir = Direction.DOWN
+    }
+
+    // Update chat emoji timers for all characters
+    for (const ch of this.characters.values()) {
+      if (ch.matrixEffect) continue
+
+      // If this character is NOT in a nearby idle pair, clear any chat state
+      if (!nearbyIdlePairs.has(ch.id)) {
+        if (ch.chatEmoji !== null) {
+          ch.chatEmoji = null
+          ch.chatEmojiTimer = 0
+          ch.chatEmojiVisible = false
+        }
+        continue
+      }
+
+      // Pipeline interactions take priority
+      if (ch.isActive || ch.agentStatus === 'working') {
+        ch.chatEmoji = null
+        ch.chatEmojiTimer = 0
+        ch.chatEmojiVisible = false
+        continue
+      }
+
+      // First proximity meeting: show emoji immediately (no hide delay)
+      if (ch.chatEmojiTimer === 0 && !ch.chatEmojiVisible && ch.chatEmoji === null) {
+        ch.chatEmoji = CHAT_EMOJI_POOL[Math.floor(Math.random() * CHAT_EMOJI_POOL.length)]
+        ch.chatEmojiVisible = true
+        ch.chatEmojiTimer = CHAT_SHOW_MIN_SEC + Math.random() * (CHAT_SHOW_MAX_SEC - CHAT_SHOW_MIN_SEC)
+        continue
+      }
+
+      // Tick the chat timer
+      ch.chatEmojiTimer -= dt
+
+      if (ch.chatEmojiTimer <= 0) {
+        if (ch.chatEmojiVisible) {
+          // Was showing — switch to hidden phase
+          ch.chatEmojiVisible = false
+          ch.chatEmoji = null
+          ch.chatEmojiTimer = CHAT_HIDE_MIN_SEC + Math.random() * (CHAT_HIDE_MAX_SEC - CHAT_HIDE_MIN_SEC)
+        } else {
+          // Was hidden — pick a random emoji and show it
+          ch.chatEmoji = CHAT_EMOJI_POOL[Math.floor(Math.random() * CHAT_EMOJI_POOL.length)]
+          ch.chatEmojiVisible = true
+          ch.chatEmojiTimer = CHAT_SHOW_MIN_SEC + Math.random() * (CHAT_SHOW_MAX_SEC - CHAT_SHOW_MIN_SEC)
+
+          // ── Chat pair sync: when one agent shows, nudge partner to show soon ──
+          const partnerId = chatPartnerMap.get(ch.id)
+          if (partnerId != null) {
+            const partner = this.characters.get(partnerId)
+            if (partner && !partner.chatEmojiVisible && partner.chatEmojiTimer > 0.5) {
+              // Shorten partner's hide timer so they show within 0.3-0.5s
+              partner.chatEmojiTimer = 0.3 + Math.random() * 0.2
+            }
+          }
         }
       }
     }

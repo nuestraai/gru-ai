@@ -35,11 +35,19 @@ set -euo pipefail
 #   path = relative to directive dir, supports {project-id} and {task-id} placeholders
 #   required_fields = comma-separated jq paths (for json type only)
 #
-# Weight skip rules (from directive-watcher.ts SKIPPED_STEPS):
-#   lightweight: skips challenge, brainstorm, approve (Morgan still plans, audit + project-brainstorm still run)
-#   medium: skips challenge
+# Pipeline step order (from SKILL.md):
+#   triage → checkpoint → read → context → audit → brainstorm → clarification →
+#   plan → approve → project-brainstorm → setup → execute → review-gate → wrapup → completion
+#
+# Weight skip rules (from SKILL.md / 00-delegation-and-triage.md):
+#   lightweight: skips brainstorm (no C-suite challenges, no separate brainstorm agents)
+#   medium: skips brainstorm (COO's inline challenge is included, but no brainstorm step)
 #   heavyweight: skips nothing
 #   strategic: skips nothing
+#
+# Note: 'challenge' was merged into 'brainstorm' — it is no longer a separate step ID.
+# Clarification is auto-approved (not skipped) for lightweight/medium — it still runs.
+# Approve is auto-approved (not skipped) for lightweight/medium — it still runs.
 #
 # .skip marker convention:
 #   For weight-conditional steps, a file named "{step}.skip" in the directive dir
@@ -49,8 +57,8 @@ set -euo pipefail
 
 # Steps that can be skipped per weight class
 # Format: SKIP_<WEIGHT> is a space-separated list of skippable steps
-SKIP_lightweight="challenge brainstorm project-brainstorm audit approve"
-SKIP_medium="challenge"
+SKIP_lightweight="brainstorm"
+SKIP_medium="brainstorm"
 SKIP_heavyweight=""
 SKIP_strategic=""
 
@@ -227,85 +235,106 @@ check_directive_field() {
   add_artifact "directive.json:${field_path}"
 }
 
+# Check a pipeline step is completed or skipped
+check_step_completed_or_skipped() {
+  local step_id="$1"   # the step that must be completed
+
+  # First check if the step has a completed status in directive.json
+  local status
+  status=$(jq -r ".pipeline.\"${step_id}\".status // empty" "$DIRECTIVE_JSON" 2>/dev/null)
+
+  if [[ "$status" == "completed" || "$status" == "skipped" ]]; then
+    add_artifact "directive.json:pipeline.${step_id}.status"
+    return 0
+  fi
+
+  # Check .skip marker for weight-conditional steps
+  if is_skippable "$step_id"; then
+    local skip_marker="${DIRECTIVE_DIR_ABS}/${step_id}.skip"
+    if [[ -f "$skip_marker" ]]; then
+      add_artifact "${DIRECTIVE_DIR}/${step_id}.skip"
+      return 0
+    fi
+    # Skippable but not completed/skipped — still valid (step was legitimately not run)
+    add_artifact "${DIRECTIVE_DIR}/${step_id} (skippable, not yet run)"
+    return 0
+  fi
+
+  add_violation "prerequisite_incomplete" "Prerequisite step '${step_id}' not completed (status: ${status:-missing}) (weight: ${WEIGHT})"
+  return 0
+}
+
 # ---------------------------------------------------------------------------
 # Gate Definitions: what each step requires before it can run
 # ---------------------------------------------------------------------------
-# The NEXT step's gate validates the PREVIOUS step's artifact.
-# Chain: triage -> read -> context -> challenge -> brainstorm -> plan -> audit ->
-#        approve -> project-brainstorm -> setup -> execute -> review-gate -> wrapup -> completion
-# Note: approve runs BEFORE project-brainstorm (project-brainstorm depends on approval).
+# The gate for each step checks that its PREREQUISITE step is completed.
+#
+# Pipeline order (from SKILL.md):
+#   triage → checkpoint → read → context → audit → brainstorm → clarification →
+#   plan → approve → project-brainstorm → setup → execute → review-gate → wrapup → completion
 # ---------------------------------------------------------------------------
 
-gate_read() {
+gate_checkpoint() {
   # Requires: triage completed (weight set in directive.json)
+  check_directive_field ".weight" "triage"
+  check_directive_field ".pipeline.triage.status" "triage"
+}
+
+gate_read() {
+  # Requires: checkpoint completed (or skipped — checkpoint just checks for resume)
+  # Checkpoint is not skippable per se but is always fast — require triage at minimum
   check_directive_field ".weight" "triage"
   check_directive_field ".pipeline.triage.status" "triage"
 }
 
 gate_context() {
   # Requires: read completed
-  check_directive_field ".pipeline.read.status" "read"
-}
-
-gate_brainstorm() {
-  # Requires: context completed
-  check_directive_field ".pipeline.context.status" "context"
-}
-
-gate_plan() {
-  # Requires: brainstorm completed (or .skip for lightweight)
-  check_file "brainstorm.md" "brainstorm"
+  check_step_completed_or_skipped "read"
 }
 
 gate_audit() {
-  # Requires: plan completed (plan.json exists)
-  check_json "plan.json" "plan" ".projects"
+  # Requires: context completed
+  check_step_completed_or_skipped "context"
+}
+
+gate_brainstorm() {
+  # Requires: audit completed (or skipped — audit always runs for all weights)
+  check_step_completed_or_skipped "audit"
+}
+
+gate_clarification() {
+  # Requires: brainstorm completed (or skipped for lightweight/medium)
+  check_step_completed_or_skipped "brainstorm"
+}
+
+gate_plan() {
+  # Requires: clarification completed (or skipped)
+  # Clarification is auto-approved for lightweight/medium but still produces a
+  # pipeline.clarification.status entry. Check it completed or was skipped.
+  check_step_completed_or_skipped "clarification"
 }
 
 gate_approve() {
-  # Requires: audit completed (audit artifact exists) + plan.json
-  # Audit can produce audit.md, investigation.md, or conflicts-audit.md
-  local found=false
-  for f in audit.md investigation.md conflicts-audit.md; do
-    if [[ -f "${DIRECTIVE_DIR_ABS}/${f}" ]]; then
-      add_artifact "${DIRECTIVE_DIR}/${f}"
-      found=true
-      break
-    fi
-  done
-  if [[ "$found" == "false" ]]; then
-    if is_skippable "audit"; then
-      local skip_marker="${DIRECTIVE_DIR_ABS}/audit.skip"
-      if [[ -f "$skip_marker" ]]; then
-        add_artifact "${DIRECTIVE_DIR}/audit.skip"
-      else
-        add_violation "missing_artifact" "Missing audit artifact: audit.md (weight: ${WEIGHT})"
-      fi
-    else
-      add_violation "missing_artifact" "Missing audit artifact: audit.md (weight: ${WEIGHT})"
-    fi
-  fi
-
-  # Also require plan.json
+  # Requires: plan completed (plan.json exists with .projects)
   check_json "plan.json" "plan" ".projects"
-}
-
-gate_challenge() {
-  # Requires: context completed
-  check_directive_field ".pipeline.context.status" "context"
+  check_step_completed_or_skipped "plan"
 }
 
 gate_project_brainstorm() {
   # Requires: approve completed (approve runs before project-brainstorm)
-  check_directive_field ".pipeline.approve.status" "approve"
+  check_step_completed_or_skipped "approve"
   # Also require plan.json (input to brainstorm)
   check_json "plan.json" "plan" ".projects"
 }
 
+gate_setup() {
+  # Requires: project-brainstorm completed
+  check_step_completed_or_skipped "project-brainstorm"
+}
+
 gate_execute() {
-  # Requires: project-brainstorm completed (project.json with tasks exists)
-  # Also requires approval
-  check_directive_field ".pipeline.approve.status" "approve"
+  # Requires: setup completed + project.json(s) with tasks exist
+  check_step_completed_or_skipped "setup"
 
   # Check project.json(s) exist with tasks (output of project-brainstorm)
   local found_project=false
@@ -318,16 +347,7 @@ gate_execute() {
     done
   fi
   if [[ "$found_project" == "false" ]]; then
-    if is_skippable "project-brainstorm"; then
-      local skip_marker="${DIRECTIVE_DIR_ABS}/project-brainstorm.skip"
-      if [[ -f "$skip_marker" ]]; then
-        add_artifact "${DIRECTIVE_DIR}/project-brainstorm.skip"
-      else
-        add_violation "missing_artifact" "No projects/*/project.json found (project-brainstorm not completed)"
-      fi
-    else
-      add_violation "missing_artifact" "No projects/*/project.json found (project-brainstorm not completed)"
-    fi
+    add_violation "missing_artifact" "No projects/*/project.json found (project-brainstorm not completed)"
   fi
 
   # Per-task gate: if task-id provided, check that specific task exists in a project
@@ -349,12 +369,10 @@ gate_execute() {
   fi
 }
 
-gate_setup() {
-  # Requires: project-brainstorm completed (or skipped for lightweight)
-  check_directive_field ".pipeline.approve.status" "approve"
-}
-
 gate_review_gate() {
+  # Requires: execute completed
+  check_step_completed_or_skipped "execute"
+
   # Per-task gate: requires build-{task-id}.md exists for the task being reviewed
   if [[ -n "$TASK_ID" ]]; then
     # Find which project this task belongs to
@@ -381,6 +399,12 @@ gate_review_gate() {
         local task_ids
         task_ids=$(jq -r '.tasks[].id' "${pdir}project.json" 2>/dev/null)
         for tid in $task_ids; do
+          local task_status
+          task_status=$(jq -r --arg tid "$tid" '.tasks[] | select(.id == $tid) | .status' "${pdir}project.json" 2>/dev/null)
+          # Skipped/blocked tasks don't need build artifacts
+          if [[ "$task_status" == "skipped" || "$task_status" == "blocked" ]]; then
+            continue
+          fi
           if [[ ! -f "${pdir}build-${tid}.md" ]]; then
             add_violation "missing_artifact" "Missing build artifact: projects/${project_id}/build-${tid}.md"
           else
@@ -393,7 +417,9 @@ gate_review_gate() {
 }
 
 gate_wrapup() {
-  # Requires: all tasks have review-{task-id}.md
+  # Requires: review-gate completed + all non-skipped tasks have review artifacts
+  check_step_completed_or_skipped "review-gate"
+
   for pdir in "${DIRECTIVE_DIR_ABS}"/projects/*/; do
     if [[ -f "${pdir}project.json" ]]; then
       local project_id
@@ -418,8 +444,43 @@ gate_wrapup() {
 }
 
 gate_completion() {
-  # Requires: digest.md exists
-  check_file "digest.md" "wrapup"
+  # Requires: wrapup completed + digest file exists at wrapup.digest_path
+  check_step_completed_or_skipped "wrapup"
+
+  # Check that the digest file exists. Wrapup writes to .context/reports/{name}-{date}.md
+  # and stores the path in directive.json at wrapup.digest_path
+  local digest_path
+  digest_path=$(jq -r '.wrapup.digest_path // empty' "$DIRECTIVE_JSON" 2>/dev/null)
+
+  if [[ -n "$digest_path" ]]; then
+    # digest_path may be relative to repo root or absolute
+    local full_digest_path
+    if [[ "$digest_path" = /* ]]; then
+      full_digest_path="$digest_path"
+    else
+      full_digest_path="${REPO_ROOT}/${digest_path}"
+    fi
+    if [[ -f "$full_digest_path" ]]; then
+      add_artifact "$digest_path"
+    else
+      add_violation "missing_artifact" "Digest file not found at wrapup.digest_path: ${digest_path}"
+    fi
+  else
+    # Fallback: check for report field (older convention: report = filename without extension)
+    local report
+    report=$(jq -r '.report // empty' "$DIRECTIVE_JSON" 2>/dev/null)
+    if [[ -n "$report" ]]; then
+      local report_path=".context/reports/${report}.md"
+      local full_report_path="${REPO_ROOT}/${report_path}"
+      if [[ -f "$full_report_path" ]]; then
+        add_artifact "$report_path"
+      else
+        add_violation "missing_artifact" "Digest file not found: ${report_path} (from directive.json .report)"
+      fi
+    else
+      add_violation "missing_field" "directive.json missing wrapup.digest_path (digest not written by wrapup step)"
+    fi
+  fi
 }
 
 # ---------------------------------------------------------------------------
@@ -428,12 +489,13 @@ gate_completion() {
 
 case "$TARGET_STEP" in
   triage)             ;; # No prerequisites for first step
+  checkpoint)         gate_checkpoint ;;
   read)               gate_read ;;
   context)            gate_context ;;
-  challenge)          gate_challenge ;;
-  brainstorm)         gate_brainstorm ;;
-  plan)               gate_plan ;;
   audit)              gate_audit ;;
+  brainstorm)         gate_brainstorm ;;
+  clarification)      gate_clarification ;;
+  plan)               gate_plan ;;
   approve)            gate_approve ;;
   project-brainstorm) gate_project_brainstorm ;;
   setup)              gate_setup ;;

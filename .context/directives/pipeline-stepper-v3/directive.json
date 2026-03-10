@@ -25,47 +25,64 @@
   "pipeline": {
     "triage": {
       "status": "completed",
-      "agent": "CEO",
+      "agent": [
+        "ceo"
+      ],
       "output": {
         "weight": "heavyweight"
       }
     },
     "read": {
       "status": "completed",
-      "agent": "CEO"
+      "agent": [
+        "ceo"
+      ]
     },
     "context": {
       "status": "completed",
-      "agent": "CEO"
+      "agent": [
+        "ceo"
+      ]
     },
     "challenge": {
       "status": "skipped",
-      "agent": "C-suite"
+      "agent": [
+        "ceo"
+      ]
     },
     "brainstorm": {
       "status": "completed",
-      "agent": "C-suite",
+      "agent": [
+        "ceo"
+      ],
       "artifacts": [
         ".context/directives/pipeline-stepper-v3/brainstorm.md"
       ]
     },
     "plan": {
       "status": "completed",
-      "agent": "Morgan",
+      "agent": [
+        "morgan"
+      ],
       "artifacts": [
         ".context/goals/ui/projects/pipeline-stepper-v3/morgan-plan.json"
       ]
     },
     "audit": {
       "status": "completed",
-      "agent": "Sarah + Marcus",
+      "agent": [
+        "sarah",
+        "marcus"
+      ],
       "artifacts": [
         ".context/directives/pipeline-stepper-v3/audit.md"
       ]
     },
     "approve": {
       "status": "completed",
-      "agent": "CEO",
+      "agent": [
+        "ceo"
+      ],
       "output": {
         "decision": "approved",
         "modifications": [
@@ -75,14 +92,18 @@
     },
     "project-brainstorm": {
       "status": "completed",
-      "agent": "Sarah",
+      "agent": [
+        "sarah"
+      ],
       "output": {
         "summary": "2 tasks for server project, 5 tasks for frontend project"
       }
     },
     "setup": {
       "status": "completed",
-      "agent": "CEO",
+      "agent": [
+        "ceo"
+      ],
       "output": {
         "mode": "branch",
         "branch": "game"
@@ -90,28 +111,37 @@
     },
     "execute": {
       "status": "completed",
-      "agent": "Jordan + Riley",
+      "agent": [
+        "jordan",
+        "riley"
+      ],
       "output": {
         "progress": "Both projects complete. 7/7 tasks completed."
       }
     },
     "review-gate": {
       "status": "completed",
-      "agent": "Marcus",
+      "agent": [
+        "marcus"
+      ],
       "output": {
         "summary": "All DOD criteria verified. All tasks reviewed and passed."
       }
     },
     "wrapup": {
       "status": "completed",
-      "agent": "CEO",
+      "agent": [
+        "ceo"
+      ],
       "output": {
         "summary": "Pipeline stepper v3 delivered: icons, skipped visuals, action banners, artifact links, history, cross-page integration"
       }
     },
     "completion": {
       "status": "completed",
-      "agent": "CEO"
+      "agent": [
+        "ceo"
+      ]
     }
   },
   "projects": [

@@ -12,7 +12,9 @@
   "pipeline": {
     "triage": {
       "status": "completed",
-      "agent": "CEO",
+      "agent": [
+        "ceo"
+      ],
       "output": {
         "weight": "lightweight",
         "summary": "Lightweight — single-domain server refactor, ~4 files."
@@ -20,21 +22,27 @@
     },
     "checkpoint": {
       "status": "completed",
-      "agent": "CEO",
+      "agent": [
+        "ceo"
+      ],
       "output": {
         "summary": "No prior progress."
       }
     },
     "read": {
       "status": "completed",
-      "agent": "CEO",
+      "agent": [
+        "ceo"
+      ],
       "output": {
         "summary": "Read directive.md."
       }
     },
     "context": {
       "status": "completed",
-      "agent": "CEO",
+      "agent": [
+        "ceo"
+      ],
       "output": {
         "summary": "Read vision.md guardrails."
       }
@@ -47,14 +55,18 @@
     },
     "audit": {
       "status": "completed",
-      "agent": "CEO",
+      "agent": [
+        "ceo"
+      ],
       "output": {
         "summary": "4 active files. Identity detection at 4 call sites in session-state.ts. PlatformAdapter already exists — needs resolveAgentIdentity() method."
       }
     },
     "plan": {
       "status": "completed",
-      "agent": "COO",
+      "agent": [
+        "morgan"
+      ],
       "output": {
         "summary": "1 project, 2 tasks: (1) add interface+implement, (2) rewire call sites. Jordan builds, Sarah reviews.",
         "projects": [
@@ -64,7 +76,9 @@
     },
     "approve": {
       "status": "completed",
-      "agent": "CEO",
+      "agent": [
+        "ceo"
+      ],
       "output": {
         "decision": "auto-approved",
         "summary": "Auto-approved (lightweight)."
@@ -72,21 +86,27 @@
     },
     "project-brainstorm": {
       "status": "completed",
-      "agent": "CEO",
+      "agent": [
+        "ceo"
+      ],
       "output": {
         "summary": "Tasks derived from COO plan. 2 tasks with DOD."
       }
     },
     "setup": {
       "status": "completed",
-      "agent": "CEO",
+      "agent": [
+        "ceo"
+      ],
       "output": {
         "summary": "Working on main branch. No worktree needed for lightweight."
       }
     },
     "execute": {
       "status": "completed",
-      "agent": "jordan",
+      "agent": [
+        "jordan"
+      ],
       "output": {
         "summary": "2 of 2 tasks complete. All DOD met.",
         "progress": "2 of 2 tasks complete"
@@ -94,21 +114,27 @@
     },
     "review-gate": {
       "status": "completed",
-      "agent": "sarah",
+      "agent": [
+        "sarah"
+      ],
       "output": {
         "summary": "CTO review passed. All 4 DOD criteria verified. No bugs. Clean refactor."
       }
     },
     "wrapup": {
       "status": "completed",
-      "agent": "CEO",
+      "agent": [
+        "ceo"
+      ],
       "output": {
         "summary": "Digest written to .context/reports/."
       }
     },
     "completion": {
       "status": "completed",
-      "agent": "CEO",
+      "agent": [
+        "ceo"
+      ],
       "output": {
         "summary": "Awaiting CEO approval."
       }

@@ -12,6 +12,12 @@
 - **Worktree isolation is essential for directives.** Without it, `git diff --stat` mixes directive changes with pre-existing uncommitted work.
 - **Worktree doesn't include uncommitted files from main.** Files created by previous directives but not yet committed won't exist in the worktree. Copy from main repo before editing. Always verify with `ls` first.
 
+## Pipeline Architecture (learned from Pipeline Iteration Model directive)
+
+- **Pipeline step order matters for data flow.** Audit before brainstorm means brainstorm is grounded in codebase reality (not speculation). Clarification after brainstorm means intent is verified with full context. Challenge merged into brainstorm eliminates a separate step while keeping the challenge function.
+- **Cross-file consistency is the hardest part of pipeline doc changes.** 15 pipeline docs with interdependent references (step IDs, current_step values, input/output chains). A dedicated consistency pass task with grep-based verification is essential — manual review misses cross-file drift. Task 8 found 11 issues that task-level reviews missed.
+- **Completion gate needs options, not binary approve/reopen.** Four options: approve (~0 tokens), amend (~40K, small fix from execute), extend (~80K, add scope from plan), redirect (~140K, full replanning). Each has defined JSON mutations and pipeline restart point. Prevents full pipeline restart for a one-line fix.
+
 ## Repo Separation
 
 - **Symlinks are the right separation mechanism.** Move framework code (skills, agents, conductor context) to the conductor repo, replace originals with symlinks. Consumer-owned state (inbox/, done/, logs) stays local. Relative paths `../../../gruai/...` work because both repos share a parent directory.

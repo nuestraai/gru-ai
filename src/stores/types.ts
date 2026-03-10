@@ -102,6 +102,8 @@ export interface PipelineStep {
   label: string;
   status: PipelineStepStatus;
   artifacts?: Record<string, string>;
+  /** Agent first names involved in this step */
+  agents?: string[];
   /** Whether this step needs CEO action (e.g. approval) */
   needsAction?: boolean;
   /** ISO timestamp when this step started (for elapsed time) */

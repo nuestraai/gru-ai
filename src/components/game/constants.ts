@@ -41,13 +41,21 @@ export const TYPE_FRAME_DURATION_SEC = 0.3
  *  Furniture animations are slow and ambient — not distracting. */
 export const FURNITURE_ANIM_FRAME_SEC = 0.8
 
+// ── Idle Tier Thresholds ────────────────────────────────────
+/** Idle < 2 min = 'recent' (just finished, still looks engaged) */
+export const IDLE_TIER_RECENT_MS = 2 * 60 * 1000
+/** Idle 2-5 min = 'moderate' (noticeably idle, dimmed appearance) */
+export const IDLE_TIER_MODERATE_MS = 5 * 60 * 1000
+/** Idle > 30 min = wander to break room / kitchen / gym */
+export const WANDER_IDLE_THRESHOLD_MS = 30 * 60 * 1000
+
 // ── Wander / Rest Timing ────────────────────────────────────
-export const WANDER_PAUSE_MIN_SEC = 2.0
-export const WANDER_PAUSE_MAX_SEC = 20.0
-export const WANDER_MOVES_BEFORE_REST_MIN = 3
-export const WANDER_MOVES_BEFORE_REST_MAX = 6
-export const SEAT_REST_MIN_SEC = 120.0
-export const SEAT_REST_MAX_SEC = 240.0
+export const WANDER_PAUSE_MIN_SEC = 1.0
+export const WANDER_PAUSE_MAX_SEC = 5.0
+export const WANDER_MOVES_BEFORE_REST_MIN = 5
+export const WANDER_MOVES_BEFORE_REST_MAX = 10
+export const SEAT_REST_MIN_SEC = 3.0
+export const SEAT_REST_MAX_SEC = 8.0
 
 // ── Personality Idle Animation ────────────────────────────────
 export const PERSONALITY_IDLE_MIN_SEC = 8.0
@@ -185,6 +193,32 @@ export const LINGER_MAX_SEC = 5.0
 /** Minimum active (non-despawning) subagents before parent triggers meeting room routing */
 export const MEETING_SUBAGENT_THRESHOLD = 2
 
+// ── Social Chat (idle agent proximity chatter) ─────────────
+/** Tile proximity for two idle agents to trigger chat bubbles (Chebyshev distance) */
+export const CHAT_PROXIMITY_TILES = 3
+/** Minimum duration a chat emoji is visible (seconds) */
+export const CHAT_SHOW_MIN_SEC = 4.0
+/** Maximum duration a chat emoji is visible (seconds) */
+export const CHAT_SHOW_MAX_SEC = 6.0
+/** Minimum pause between chat emoji cycles (seconds) */
+export const CHAT_HIDE_MIN_SEC = 10.0
+/** Maximum pause between chat emoji cycles (seconds) */
+export const CHAT_HIDE_MAX_SEC = 20.0
+/** Pool of social chat emoji for random selection */
+export const CHAT_EMOJI_POOL: string[] = [
+  '\uD83D\uDCAC',  // speech balloon
+  '\uD83D\uDE04',  // grinning face with smiling eyes
+  '\uD83D\uDE02',  // face with tears of joy
+  '\uD83E\uDD14',  // thinking face
+  '\uD83D\uDCA1',  // lightbulb
+  '\uD83D\uDC4D',  // thumbs up
+  '\uD83C\uDF89',  // party popper
+  '\u2615',         // hot beverage (coffee)
+  '\uD83C\uDF55',  // pizza
+  '\uD83C\uDFAE',  // video game
+  '\uD83D\uDCFA',  // television
+]
+
 // ── CEO Visual Distinction ──────────────────────────────────
 export const CEO_CROWN_COLOR = '#FFD700'
 export const CEO_GLOW_ALPHA = 0.6
@@ -284,28 +318,303 @@ export const INTERACTION_POINTS: InteractionPoint[] = [
     activityDurationMax: ACTIVITY_DURATION_MEDIUM[1],
   },
 
-  // --- Break Room (bottom open area) ---
+  // --- Break Room couch seating (bottom open area) ---
+  // The couch occupies blocked tiles ~(9-12, 17). Agents approach from walkable
+  // tiles and snap onto the couch to sit down facing the TV.
   {
-    id: 'break-room-lounge-1',
-    furnitureType: FurnitureActivityType.LOUNGING,
-    tileX: 14,
-    tileY: 16,
-    facing: Direction.DOWN,
+    id: 'break-room-couch-left',
+    furnitureType: FurnitureActivityType.ARCADE,  // 🎮 playing PS5/video games on couch
+    tileX: 8,        // approach tile (walkable)
+    tileY: 17,
+    facing: Direction.UP,   // face toward TV
     capacity: 1,
     zoneId: 'break-room',
+    seatCol: 9,       // couch tile (blocked)
+    seatRow: 17,
     activityDurationMin: ACTIVITY_DURATION_LONG[0],
     activityDurationMax: ACTIVITY_DURATION_LONG[1],
   },
   {
-    id: 'break-room-lounge-2',
-    furnitureType: FurnitureActivityType.LOUNGING,
-    tileX: 22,
+    id: 'break-room-couch-right',
+    furnitureType: FurnitureActivityType.ARCADE,  // 🎮 playing PS5/video games on couch
+    tileX: 13,       // approach tile (walkable)
     tileY: 17,
-    facing: Direction.RIGHT,
+    facing: Direction.UP,   // face toward TV
     capacity: 1,
     zoneId: 'break-room',
+    seatCol: 12,      // couch tile (blocked)
+    seatRow: 17,
     activityDurationMin: ACTIVITY_DURATION_LONG[0],
     activityDurationMax: ACTIVITY_DURATION_LONG[1],
+  },
+
+  // --- Kitchen table chairs (kitchen zone, cols 0-7, rows 12-19) ---
+  // Chairs are blocked furniture tiles. Agent walks to adjacent walkable approach tile,
+  // then snaps onto the chair tile (seatCol/seatRow) and sits down.
+  {
+    id: 'kitchen-chair-left',
+    furnitureType: FurnitureActivityType.VENDING,  // ☕ coffee/snack icon
+    tileX: 1,       // approach tile (walkable — col 0 is wall)
+    tileY: 18,
+    facing: Direction.RIGHT,  // face toward table (to the right)
+    capacity: 1,
+    zoneId: 'kitchen',
+    seatCol: 1,      // chair tile (blocked)
+    seatRow: 17,
+    activityDurationMin: ACTIVITY_DURATION_MEDIUM[0],
+    activityDurationMax: ACTIVITY_DURATION_MEDIUM[1],
+  },
+  {
+    id: 'kitchen-chair-right',
+    furnitureType: FurnitureActivityType.VENDING,  // ☕ coffee/snack icon
+    tileX: 6,       // approach tile (walkable)
+    tileY: 17,
+    facing: Direction.LEFT,   // face toward table
+    capacity: 1,
+    zoneId: 'kitchen',
+    seatCol: 5,      // chair tile (blocked)
+    seatRow: 17,
+    activityDurationMin: ACTIVITY_DURATION_MEDIUM[0],
+    activityDurationMax: ACTIVITY_DURATION_MEDIUM[1],
+  },
+
+  // --- Break room TV area (sit on the round table chair facing the TV) ---
+  {
+    id: 'break-room-tv',
+    furnitureType: FurnitureActivityType.ARCADE,  // 🎮 playing PS5/video games
+    tileX: 13,       // approach tile (walkable)
+    tileY: 15,
+    facing: Direction.LEFT,  // face toward TV
+    capacity: 1,
+    zoneId: 'break-room',
+    seatCol: 12,     // round table chair area (blocked)
+    seatRow: 15,
+    activityDurationMin: ACTIVITY_DURATION_LONG[0],
+    activityDurationMax: ACTIVITY_DURATION_LONG[1],
+  },
+
+  // --- Ping pong table (break room, cols 15-17, rows 14-17) ---
+  // Players stand above and below the table facing each other across the net
+  {
+    id: 'pingpong-table',
+    furnitureType: FurnitureActivityType.PLAYING_PINGPONG,
+    tileX: 16,       // player 1: above table (center)
+    tileY: 13,
+    facing: Direction.DOWN,   // face south toward table
+    capacity: 2,
+    tileX2: 18,      // player 2: below table (right edge, nearest walkable)
+    tileY2: 17,
+    facing2: Direction.UP,    // face north toward table
+    zoneId: 'break-room',
+    activityDurationMin: ACTIVITY_DURATION_MEDIUM[0],
+    activityDurationMax: ACTIVITY_DURATION_MEDIUM[1],
+  },
+
+  // --- Pool table (break room, cols 20-21) ---
+  {
+    id: 'pool-table-1',
+    furnitureType: FurnitureActivityType.PLAYING_POOL,
+    tileX: 22,       // walkway approach
+    tileY: 15,
+    facing: Direction.LEFT,  // face toward pool table
+    capacity: 2,
+    tileX2: 22,
+    tileY2: 16,
+    facing2: Direction.LEFT,
+    zoneId: 'break-room',
+    activityDurationMin: ACTIVITY_DURATION_MEDIUM[0],
+    activityDurationMax: ACTIVITY_DURATION_MEDIUM[1],
+  },
+
+  // --- Pool-area stools (red stools south of pool table) ---
+  // Agents sit here and spectate the pool game
+  {
+    id: 'pool-stool-left',
+    furnitureType: FurnitureActivityType.PLAYING_POOL,  // 🎱 pool icon
+    tileX: 20,
+    tileY: 19,
+    facing: Direction.UP,   // face toward pool table
+    capacity: 1,
+    zoneId: 'break-room',
+    activityDurationMin: ACTIVITY_DURATION_MEDIUM[0],
+    activityDurationMax: ACTIVITY_DURATION_MEDIUM[1],
+  },
+  {
+    id: 'pool-stool-right',
+    furnitureType: FurnitureActivityType.PLAYING_POOL,  // 🎱 pool icon
+    tileX: 21,
+    tileY: 19,
+    facing: Direction.UP,   // face toward pool table
+    capacity: 1,
+    zoneId: 'break-room',
+    activityDurationMin: ACTIVITY_DURATION_MEDIUM[0],
+    activityDurationMax: ACTIVITY_DURATION_MEDIUM[1],
+  },
+
+  // --- Gym / exercise machines (break room, cols 23-28) ---
+  {
+    id: 'gym-machine-1',
+    furnitureType: FurnitureActivityType.EXERCISING,
+    tileX: 22,       // walkway approach
+    tileY: 17,
+    facing: Direction.RIGHT,  // face toward machine
+    capacity: 1,
+    zoneId: 'break-room',
+    activityDurationMin: ACTIVITY_DURATION_MEDIUM[0],
+    activityDurationMax: ACTIVITY_DURATION_MEDIUM[1],
+  },
+  {
+    id: 'gym-machine-2',
+    furnitureType: FurnitureActivityType.EXERCISING,
+    tileX: 29,       // far side walkway
+    tileY: 16,
+    facing: Direction.LEFT,  // face toward machine
+    capacity: 1,
+    zoneId: 'break-room',
+    activityDurationMin: ACTIVITY_DURATION_MEDIUM[0],
+    activityDurationMax: ACTIVITY_DURATION_MEDIUM[1],
+  },
+  {
+    id: 'gym-machine-3',
+    furnitureType: FurnitureActivityType.EXERCISING,
+    tileX: 29,       // far side walkway
+    tileY: 17,
+    facing: Direction.LEFT,  // face toward machine
+    capacity: 1,
+    zoneId: 'break-room',
+    activityDurationMin: ACTIVITY_DURATION_MEDIUM[0],
+    activityDurationMax: ACTIVITY_DURATION_MEDIUM[1],
+  },
+
+  // --- Gym mats (agents snap onto the black mat to do floor exercises) ---
+  // Mat covers blocked tiles (25-28, 15-18). Agents approach from walkable edges.
+  {
+    id: 'gym-mat-1',
+    furnitureType: FurnitureActivityType.EXERCISING,
+    tileX: 24,       // approach from left walkway
+    tileY: 14,
+    facing: Direction.DOWN,
+    capacity: 1,
+    zoneId: 'break-room',
+    seatCol: 25,     // snap onto mat
+    seatRow: 15,
+    activityDurationMin: ACTIVITY_DURATION_MEDIUM[0],
+    activityDurationMax: ACTIVITY_DURATION_MEDIUM[1],
+  },
+  {
+    id: 'gym-mat-2',
+    furnitureType: FurnitureActivityType.EXERCISING,
+    tileX: 26,       // approach from top walkway
+    tileY: 14,
+    facing: Direction.DOWN,
+    capacity: 1,
+    zoneId: 'break-room',
+    seatCol: 26,     // snap onto mat center
+    seatRow: 15,
+    activityDurationMin: ACTIVITY_DURATION_MEDIUM[0],
+    activityDurationMax: ACTIVITY_DURATION_MEDIUM[1],
+  },
+  {
+    id: 'gym-mat-3',
+    furnitureType: FurnitureActivityType.EXERCISING,
+    tileX: 29,       // approach from right walkway
+    tileY: 15,
+    facing: Direction.LEFT,
+    capacity: 1,
+    zoneId: 'break-room',
+    seatCol: 28,     // snap onto mat right side
+    seatRow: 15,
+    activityDurationMin: ACTIVITY_DURATION_MEDIUM[0],
+    activityDurationMax: ACTIVITY_DURATION_MEDIUM[1],
+  },
+  {
+    id: 'gym-mat-4',
+    furnitureType: FurnitureActivityType.EXERCISING,
+    tileX: 25,       // approach from top-left walkway
+    tileY: 14,
+    facing: Direction.DOWN,
+    capacity: 1,
+    zoneId: 'break-room',
+    seatCol: 25,     // snap onto mat
+    seatRow: 16,
+    activityDurationMin: ACTIVITY_DURATION_MEDIUM[0],
+    activityDurationMax: ACTIVITY_DURATION_MEDIUM[1],
+  },
+
+  // --- Additional gym machines (walkable approach at row 14 and col 29) ---
+  {
+    id: 'gym-machine-4',
+    furnitureType: FurnitureActivityType.EXERCISING,
+    tileX: 24,       // walkable tile at top of gym area
+    tileY: 14,
+    facing: Direction.DOWN,  // face toward equipment below
+    capacity: 1,
+    zoneId: 'break-room',
+    activityDurationMin: ACTIVITY_DURATION_MEDIUM[0],
+    activityDurationMax: ACTIVITY_DURATION_MEDIUM[1],
+  },
+  {
+    id: 'gym-machine-5',
+    furnitureType: FurnitureActivityType.EXERCISING,
+    tileX: 29,       // right edge walkable column
+    tileY: 18,
+    facing: Direction.LEFT,  // face toward equipment
+    capacity: 1,
+    zoneId: 'break-room',
+    activityDurationMin: ACTIVITY_DURATION_MEDIUM[0],
+    activityDurationMax: ACTIVITY_DURATION_MEDIUM[1],
+  },
+
+  // --- Vending machine (break room, bottom row) ---
+  {
+    id: 'break-room-vending',
+    furnitureType: FurnitureActivityType.VENDING,
+    tileX: 27,       // walkable tile near vending machines
+    tileY: 19,
+    facing: Direction.UP,  // face toward machines
+    capacity: 1,
+    zoneId: 'break-room',
+    activityDurationMin: ACTIVITY_DURATION_SHORT[0],
+    activityDurationMax: ACTIVITY_DURATION_SHORT[1],
+  },
+
+  // --- Arcade machine (break room) ---
+  {
+    id: 'break-room-arcade',
+    furnitureType: FurnitureActivityType.ARCADE,
+    tileX: 18,
+    tileY: 14,
+    facing: Direction.DOWN,
+    capacity: 1,
+    zoneId: 'break-room',
+    activityDurationMin: ACTIVITY_DURATION_MEDIUM[0],
+    activityDurationMax: ACTIVITY_DURATION_MEDIUM[1],
+  },
+
+  // --- Kitchen extra seating (stool near counter) ---
+  {
+    id: 'kitchen-counter-seat',
+    furnitureType: FurnitureActivityType.VENDING,
+    tileX: 6,
+    tileY: 14,
+    facing: Direction.UP,   // face toward counter
+    capacity: 1,
+    zoneId: 'kitchen',
+    activityDurationMin: ACTIVITY_DURATION_SHORT[0],
+    activityDurationMax: ACTIVITY_DURATION_SHORT[1],
+  },
+
+  // --- Kitchen shelf browsing ---
+  {
+    id: 'kitchen-shelf',
+    furnitureType: FurnitureActivityType.VENDING,
+    tileX: 7,
+    tileY: 17,
+    facing: Direction.LEFT,   // face toward shelf/counter
+    capacity: 1,
+    zoneId: 'kitchen',
+    activityDurationMin: ACTIVITY_DURATION_SHORT[0],
+    activityDurationMax: ACTIVITY_DURATION_SHORT[1],
   },
 ]
 

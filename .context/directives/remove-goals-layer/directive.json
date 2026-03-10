@@ -14,41 +14,58 @@
   "pipeline": {
     "triage": {
       "status": "completed",
-      "agent": "CEO"
+      "agent": [
+        "ceo"
+      ]
     },
     "read": {
       "status": "completed",
-      "agent": "CEO"
+      "agent": [
+        "ceo"
+      ]
     },
     "context": {
       "status": "completed",
-      "agent": "CEO"
+      "agent": [
+        "ceo"
+      ]
     },
     "brainstorm": {
       "status": "completed",
-      "agent": "Sarah, Morgan"
+      "agent": [
+        "sarah",
+        "morgan"
+      ]
     },
     "plan": {
       "status": "completed",
-      "agent": "Morgan"
+      "agent": [
+        "morgan"
+      ]
     },
     "audit": {
       "status": "skipped"
     },
     "approve": {
       "status": "completed",
-      "agent": "CEO"
+      "agent": [
+        "ceo"
+      ]
     },
     "project-brainstorm": {
       "status": "completed",
-      "agent": "Sarah"
+      "agent": [
+        "sarah"
+      ]
     },
     "setup": {
       "status": "completed"
     },
     "execute": {
       "status": "completed",
-      "agent": "Devon"
+      "agent": [
+        "devon"
+      ]
     },
     "review-gate": {
       "status": "completed"
@@ -58,7 +75,9 @@
     },
     "completion": {
       "status": "completed",
-      "agent": "CEO"
+      "agent": [
+        "ceo"
+      ]
     }
   },
   "projects": [

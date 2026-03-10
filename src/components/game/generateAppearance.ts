@@ -64,14 +64,15 @@ const HAIR_ROWS_MALE = [0, 4, 5, 6, 7]
 const HAIR_ROWS_FEMALE = [1, 2, 3, 4]
 
 // Outfit pools by gender (from visual inspection):
-//   Outfit 1: light gray top (neutral)
+//   Outfit 1: light gray top — EXCLUDED (invisible against skin)
 //   Outfit 2: purple blouse (feminine)
-//   Outfit 3: white minimal (neutral)
-//   Outfit 4: orange top (neutral)
-//   Outfit 5: blue vest (neutral)
-//   Outfit 6: red top with collar (neutral)
-const OUTFIT_INDICES_MALE = [1, 3, 4, 5, 6]
-const OUTFIT_INDICES_FEMALE = [1, 2, 3, 5, 6]
+//   Outfit 3: white minimal — EXCLUDED (invisible against skin)
+//   Outfit 4: orange small top/vest — EXCLUDED (no pants, looks like shorts)
+//   Outfit 5: blue vest (neutral, full coverage)
+//   Outfit 6: red top with collar (neutral, full coverage)
+// Only outfits 2, 5, 6 have full body coverage and visible contrast
+const OUTFIT_INDICES_MALE = [5, 6]
+const OUTFIT_INDICES_FEMALE = [2, 5, 6]
 
 // Body rows 0-5 are skin tones (all unisex)
 const BODY_ROW_COUNT = 6

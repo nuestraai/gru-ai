@@ -2,7 +2,6 @@ import { TileType, TILE_SIZE, CharacterState, FurnitureActivityType, Direction }
 import type { TileType as TileTypeVal, FurnitureInstance, Character, SpriteData, Seat, FloorColor } from '../pixel-types'
 import { getCachedSprite, getOutlineSprite } from '../sprites/spriteCache'
 import { getCharacterSprites, BUBBLE_PERMISSION_SPRITE, BUBBLE_WAITING_SPRITE, BUBBLE_CHAT_SPRITE } from '../sprites/spriteData'
-// statusIcons and interactionIcons no longer used — all icons rendered as emoji inside pills
 import { getCharacterSprite } from './characters'
 import { renderMatrixEffect } from './matrixEffect'
 import { getColorizedFloorSprite, hasFloorSprites, WALL_COLOR } from '../floorTiles'
@@ -332,13 +331,40 @@ export function renderScene(
     // Outline priority: selected > hovered > CEO glow > proximity highlight
     const isSelected = selectedAgentId !== null && ch.id === selectedAgentId
     const isHovered = hoveredAgentId !== null && ch.id === hoveredAgentId
-    // Up-facing seated characters: clip at the seat-tile top edge so the body
-    // below the desk surface is hidden.  This keeps the character connected to
-    // the chair tile below (no gap) while hiding legs/lower-body.
-    const isUpSitting = ch.isSeated && ch.dir === Direction.UP
-    const clipScreenY = isUpSitting
-      ? Math.round(offsetY + Math.floor(ch.y / TILE_SIZE) * TILE_SIZE * zoom)
-      : 0
+    // Up-facing seated characters at desks: clip above the seat row so the
+    // torso/legs are hidden behind the desk surface. Only clip when there's
+    // a desk tile in the rows above (FURNITURE_BASE or FURNITURE_TOP).
+    // Conference room chairs have no desk surface — skip clipping for those.
+    let isUpSitting = false
+    let clipScreenY = 0
+    if (ch.isSeated && ch.dir === Direction.UP && overlayGidLayers && overlayLayoutCols) {
+      const seatTileY = Math.floor(ch.y / TILE_SIZE)
+      const col = ch.tileCol
+      const fbLayer = overlayGidLayers[1] // FURNITURE_BASE
+      const ftLayer = overlayGidLayers[2] // FURNITURE_TOP
+      // Scan 1-2 rows above seat for desk tiles in either furniture layer
+      let hasDeskAbove = false
+      for (let delta = 1; delta <= 2 && !hasDeskAbove; delta++) {
+        const checkRow = seatTileY - delta
+        if (checkRow < 0) continue
+        const idx = checkRow * overlayLayoutCols + col
+        if ((fbLayer && (fbLayer[idx] ?? 0) !== 0) ||
+            (ftLayer && (ftLayer[idx] ?? 0) !== 0)) {
+          hasDeskAbove = true
+        }
+      }
+      if (hasDeskAbove) {
+        isUpSitting = true
+        // If FURNITURE_TOP has a covering tile at the seat row (e.g. workspace
+        // chair backs), allow a 1/3-tile offset for smoother look. Otherwise
+        // clip at exact tile boundary to avoid a gap.
+        const hasCoveringTile = ftLayer
+          ? (ftLayer[seatTileY * overlayLayoutCols + col] ?? 0) !== 0
+          : false
+        const offset = hasCoveringTile ? TILE_SIZE / 3 : 0
+        clipScreenY = Math.round(offsetY + (seatTileY * TILE_SIZE - offset) * zoom)
+      }
+    }
 
     if (isSelected || isHovered) {
       // White outline for selected/hovered
@@ -406,17 +432,24 @@ export function renderScene(
       })
     }
 
+    // No alpha dimming — all agents render at full opacity
+    const charAlpha = 1.0
+
     drawables.push({
       zY: charZY,
       draw: (c) => {
-        if (isUpSitting) {
+        const needsAlpha = charAlpha < 1.0
+        if (isUpSitting || needsAlpha) {
           c.save()
-          c.beginPath()
-          c.rect(0, 0, c.canvas.width, clipScreenY)
-          c.clip()
+          if (needsAlpha) c.globalAlpha = charAlpha
+          if (isUpSitting) {
+            c.beginPath()
+            c.rect(0, 0, c.canvas.width, clipScreenY)
+            c.clip()
+          }
         }
         c.drawImage(cached, drawX, drawY)
-        if (isUpSitting) {
+        if (isUpSitting || needsAlpha) {
           c.restore()
         }
       },
@@ -720,6 +753,8 @@ export interface IdentityOverlay {
   taskTextMap: Map<number, string>
   /** Map from character id to interaction partner + type */
   interactionMap: Map<number, {partnerId: number, type: InteractionType}>
+  /** Map from character id to idle tier (only set for idle agents) */
+  idleTierMap: Map<number, import('../pixel-types').IdleTier>
   /** Monotonically increasing time (seconds) for animation */
   time: number
 }
@@ -742,10 +777,15 @@ function platesOverlap(a: PlateRect, b: PlateRect, threshold: number): boolean {
   return smallerArea > 0 && overlapArea > smallerArea * threshold
 }
 
-/** Status dot color for inline rendering inside pills */
+/** Status dot color for inline rendering inside pills.
+ *  Idle status uses composite keys: 'idle-recent', 'idle-moderate', 'idle-long'. */
 const PILL_DOT_COLORS: Record<string, string> = {
   working: '#22c55e',
-  idle: '#9ca3af',
+  'idle-recent': '#6b9e76',
+  'idle-moderate': '#f59e0b',
+  'idle-long': '#9ca3af',
+  idle: '#9ca3af',         // fallback for idle with unknown tier
+  offline: '#4b5563',
 }
 
 /** Single plate entry before grouping */
@@ -774,10 +814,15 @@ interface PlateGroup {
 
 // ── Emoji icon maps for identity plate rendering ─────────────────
 
-/** Status icons (default fallback when no interaction/activity) */
+/** Status icons (default fallback when no interaction/activity).
+ *  Idle tiers use composite keys: 'idle-recent' (no emoji), 'idle-moderate', 'idle-long'. */
 const STATUS_EMOJI: Record<string, string> = {
-  working: '\u2699\uFE0F',  // gear
-  idle: '\u2615',             // coffee
+  working: '\uD83D\uDCBB',         // laptop computer
+  'idle-recent': '\uD83D\uDCF1',   // mobile phone (checking phone)
+  'idle-moderate': '\uD83E\uDD71', // yawning face
+  // idle-long: deliberately absent — wandering agents show ACTIVITY emoji instead
+  idle: '\uD83D\uDCF1',             // fallback (phone)
+  offline: '\uD83D\uDCA4',          // zzz (sleeping)
 }
 
 /** Interaction icons (pipeline activities) */
@@ -793,6 +838,7 @@ const INTERACTION_EMOJI: Record<string, string> = {
 const ACTIVITY_EMOJI: Record<string, string> = {
   [FurnitureActivityType.WATCHING_TV]: '\uD83D\uDCFA',      // TV
   [FurnitureActivityType.READING]: '\uD83D\uDCD6',           // book
+  [FurnitureActivityType.LOUNGING]: '\uD83D\uDECB\uFE0F',   // couch and lamp
   [FurnitureActivityType.VENDING]: '\u2615',                  // coffee
   [FurnitureActivityType.ARCADE]: '\uD83C\uDFAE',            // gamepad
   [FurnitureActivityType.EXERCISING]: '\uD83D\uDCAA',        // flexed biceps
@@ -800,8 +846,15 @@ const ACTIVITY_EMOJI: Record<string, string> = {
   [FurnitureActivityType.PLAYING_PINGPONG]: '\uD83C\uDFD3',  // table tennis
 }
 
+/** Resolve a status + idle-tier into a composite key for PILL_DOT_COLORS / STATUS_EMOJI lookups.
+ *  'working' -> 'working', 'idle' + 'recent' -> 'idle-recent', 'offline' -> 'offline'. */
+function statusDotKey(status: AgentStatus, idleTier?: import('../pixel-types').IdleTier): string {
+  if (status === 'idle' && idleTier) return `idle-${idleTier}`
+  return status
+}
+
 /** Determine the best emoji icon for a character.
- *  Priority: interaction > activity > status > none */
+ *  Priority: interaction > activity > chat emoji > status > none */
 function getCharacterEmoji(
   chId: number,
   ch: Character,
@@ -816,16 +869,22 @@ function getCharacterEmoji(
   if (ch.state === CharacterState.ACTIVITY && ch.activityType) {
     return ACTIVITY_EMOJI[ch.activityType] ?? null
   }
-  // 3. Status
+  // 3. Social chat emoji (visible phase only)
+  if (ch.chatEmoji && ch.chatEmojiVisible) {
+    return ch.chatEmoji
+  }
+  // 4. Status (with idle tier)
   const status = identity.statusMap.get(chId)
   if (status) {
-    return STATUS_EMOJI[status] ?? null
+    const tier = identity.idleTierMap.get(chId)
+    const key = statusDotKey(status, tier)
+    return STATUS_EMOJI[key] ?? STATUS_EMOJI[status] ?? null
   }
   return null
 }
 
 /** Determine the best emoji icon for a merged group.
- *  Priority: interaction > activity > status > none.
+ *  Priority: interaction > activity > chat emoji > status > none.
  *  Returns the icon of the highest-priority member. */
 function getGroupEmoji(
   entries: PlateEntry[],
@@ -842,6 +901,12 @@ function getGroupEmoji(
   for (const e of entries) {
     if (e.ch.state === CharacterState.ACTIVITY && e.ch.activityType) {
       return ACTIVITY_EMOJI[e.ch.activityType] ?? null
+    }
+  }
+  // Check for any chat emoji
+  for (const e of entries) {
+    if (e.ch.chatEmoji && e.ch.chatEmojiVisible) {
+      return e.ch.chatEmoji
     }
   }
   // Fall back to status
@@ -862,26 +927,28 @@ export function renderIdentityPlates(
   identity: IdentityOverlay,
   selectedId: number | null,
 ): void {
-  // Hide entirely at very low zoom (text unreadable below 0.8)
-  if (zoom < 0.8) return
+  // On mobile (low zoom), use a minimum pill scale so text stays readable.
+  // Pills scale with zoom on desktop but never shrink below pillZoom on mobile.
+  const PILL_MIN_ZOOM = 0.7
+  const pillZoom = Math.max(zoom, PILL_MIN_ZOOM)
 
   // Set up font for measurement (consistent across all plates)
-  const fontSize = Math.round(11 * zoom)
+  const fontSize = Math.round(11 * pillZoom)
   const fontStr = `bold ${fontSize}px "Segoe UI", system-ui, -apple-system, sans-serif`
   ctx.font = fontStr
 
-  // Pre-zoom constants
-  const padX = Math.floor(IDENTITY_PLATE_PAD_X * zoom)
-  const padY = Math.floor(IDENTITY_PLATE_PAD_Y * zoom)
-  const scaledH = Math.floor(IDENTITY_PLATE_HEIGHT * zoom)
-  const dotRadius = Math.floor(STATUS_DOT_RADIUS * zoom)
-  const dotGap = Math.floor(STATUS_DOT_GAP * zoom)
-  const cornerRadius = Math.floor(IDENTITY_PLATE_CORNER_RADIUS * zoom)
+  // Pre-zoom constants (use pillZoom for sizing, zoom for positioning)
+  const padX = Math.floor(IDENTITY_PLATE_PAD_X * pillZoom)
+  const padY = Math.floor(IDENTITY_PLATE_PAD_Y * pillZoom)
+  const scaledH = Math.floor(IDENTITY_PLATE_HEIGHT * pillZoom)
+  const dotRadius = Math.floor(STATUS_DOT_RADIUS * pillZoom)
+  const dotGap = Math.floor(STATUS_DOT_GAP * pillZoom)
+  const cornerRadius = Math.floor(IDENTITY_PLATE_CORNER_RADIUS * pillZoom)
 
   // Emoji icon sizing: slightly smaller than name font so it fits inside the pill
-  const emojiFontSize = Math.round(10 * zoom)
+  const emojiFontSize = Math.round(10 * pillZoom)
   const emojiFont = `${emojiFontSize}px "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif`
-  const iconGap = Math.floor(3 * zoom)  // gap between icon and name text
+  const iconGap = Math.floor(3 * pillZoom)  // gap between icon and name text
 
   // ── Phase 1: Compute plate entries ──
   const plates: PlateEntry[] = []
@@ -1049,9 +1116,16 @@ export function renderIdentityPlates(
 
     // ── Inline status dot (RIGHT of text) ──
     if (group.hasStatus) {
-      const dotColor = isMerged
-        ? (group.anyWorking ? PILL_DOT_COLORS.working : PILL_DOT_COLORS.idle)
-        : (PILL_DOT_COLORS[group.entries[0].status ?? ''] ?? null)
+      let dotColor: string | null
+      if (isMerged) {
+        dotColor = group.anyWorking ? PILL_DOT_COLORS.working : PILL_DOT_COLORS.idle
+      } else {
+        const e0 = group.entries[0]
+        const s = e0.status ?? ''
+        const tier = identity.idleTierMap.get(e0.ch.id)
+        const key = s === 'idle' && tier ? `idle-${tier}` : s
+        dotColor = PILL_DOT_COLORS[key] ?? PILL_DOT_COLORS[s] ?? null
+      }
 
       if (dotColor) {
         const dotCenterX = cursorX + displayTextW + dotGap + dotRadius
@@ -1065,19 +1139,20 @@ export function renderIdentityPlates(
 
     ctx.restore()
 
-    // ── Task info card (single-agent working only, suppress for merged groups) ──
-    if (!isMerged) {
+    // ── Task info card (single-agent working only, suppress for merged groups and mobile) ──
+    const isMobileZoom = zoom < 0.8
+    if (!isMerged && !isMobileZoom) {
       const entry = group.entries[0]
       const status = entry.status
       if (status === 'working' || isSelected) {
         const rawTask = identity.taskTextMap.get(entry.ch.id)
         if (rawTask && rawTask.length > 0) {
           const taskText = rawTask.length > 30 ? rawTask.slice(0, 28) + '..' : rawTask
-          const taskFontSize = Math.max(9, Math.round(zoom * 3.5))
+          const taskFontSize = Math.max(9, Math.round(pillZoom * 3.5))
           ctx.font = `${taskFontSize}px monospace`
           const taskMetrics = ctx.measureText(taskText)
-          const tPadX = Math.round(zoom)
-          const tPadY = Math.round(zoom * 0.5)
+          const tPadX = Math.round(pillZoom)
+          const tPadY = Math.round(pillZoom * 0.5)
           const cardW = Math.ceil(taskMetrics.width) + tPadX * 2
           const cardH = taskFontSize + tPadY * 2
           const gap = Math.floor(1 * zoom)
@@ -1098,20 +1173,6 @@ export function renderIdentityPlates(
       }
     }
   }
-}
-
-/** Render activity icons above agents — NO-OP.
- *  All icons are now rendered inline inside identity pills as emoji. */
-export function renderStatusIcons(
-  _ctx: CanvasRenderingContext2D,
-  _characters: Character[],
-  _offsetX: number,
-  _offsetY: number,
-  _zoom: number,
-  _identity: IdentityOverlay,
-): void {
-  // All status/activity icons are now emoji rendered inside identity pills.
-  // This function is intentionally a no-op.
 }
 
 // ── Speech bubbles ──────────────────────────────────────────────
@@ -1149,20 +1210,6 @@ export function renderBubbles(
     ctx.drawImage(cached, bubbleX, bubbleY)
     ctx.restore()
   }
-}
-
-/** Render interaction icons above agents — NO-OP.
- *  All interaction icons are now rendered inline inside identity pills as emoji. */
-export function renderInteractionIcons(
-  _ctx: CanvasRenderingContext2D,
-  _characters: Character[],
-  _offsetX: number,
-  _offsetY: number,
-  _zoom: number,
-  _identity: IdentityOverlay,
-): void {
-  // All interaction icons are now emoji rendered inside identity pills.
-  // This function is intentionally a no-op.
 }
 
 export interface ButtonBounds {
@@ -1281,19 +1328,13 @@ export function renderFrame(
     animTimeSec,
   )
 
-  // Identity plates + status indicators (above characters, below bubbles)
+  // Identity plates (above characters, below bubbles)
   if (identity) {
     renderIdentityPlates(ctx, characters, offsetX, offsetY, zoom, identity, selectedId)
-    renderStatusIcons(ctx, characters, offsetX, offsetY, zoom, identity)
   }
 
   // Speech bubbles (always on top of characters)
   renderBubbles(ctx, characters, offsetX, offsetY, zoom)
-
-  // Interaction icons for agent interactions (pipeline-derived relationships)
-  if (identity) {
-    renderInteractionIcons(ctx, characters, offsetX, offsetY, zoom, identity)
-  }
 
   // Editor overlays
   if (editor) {

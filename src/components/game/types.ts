@@ -7,7 +7,7 @@ import registryJson from '../../../.claude/agent-registry.json';
 import { generateAppearance } from './generateAppearance';
 
 /** Agent status derived from session data */
-export type AgentStatus = 'working' | 'idle';
+export type AgentStatus = 'working' | 'idle' | 'offline';
 
 /** Interaction type derived from directive pipeline step */
 export type InteractionType = 'planning' | 'brainstorming' | 'building' | 'reviewing' | 'auditing';

@@ -159,6 +159,45 @@ For each step of the ideal flow, trace what the current system actually does:
 
 Be thorough. Grep for entry points, read the actual instructions, trace the branching logic. Don't assume — verify.
 
+### Doc Consistency Checks
+
+After tracing the execution flow, check the pipeline's internal
+documentation for consistency. These checks catch drift between docs
+that causes real pipeline failures — fields referenced in one file but
+undefined in another, prompt templates injecting stale field names,
+validation scripts that don't enforce what the docs promise.
+
+Run these three checks by reading actual file contents (use Grep and
+Read). Do NOT guess from memory.
+
+**A. Cross-reference verification.** For each pipeline step doc in
+`.claude/skills/directive/docs/pipeline/`, check that any
+directive.json or project.json field it references actually exists in
+the corresponding schema doc under
+`.claude/skills/directive/docs/reference/schemas/` (especially
+`directive-json.md` and `plan-schema.md`). Example: if
+`09-execute-projects.md` reads `directive.planning.coo_plan`, confirm
+`directive-json.md` defines `planning.coo_plan`.
+
+**B. Schema-to-template alignment.** For each prompt template in
+`.claude/skills/directive/docs/reference/templates/`, check that the
+fields it injects (placeholders like `{field_name}` or references to
+JSON paths) match the schema definitions in
+`.claude/skills/directive/docs/reference/schemas/`. Example: if
+`planner-prompt.md` injects `{audit.risk_areas}`, confirm
+`audit-output.md` defines `risk_areas`.
+
+**C. Validation script coverage.** For each validation script in
+`.claude/hooks/validate-*.sh`, check that the fields it validates
+match what the pipeline docs and schemas claim are enforced. Example:
+if `07-plan-approval.md` says "the gate validates `projects` array
+exists", confirm `validate-gate.sh` actually checks for that field.
+Also check the inverse — if a doc says a field is "required" or
+"enforced", a validation script should check it.
+
+Record every discrepancy. Omit checks that pass — only report
+mismatches.
+
 CRITICAL OUTPUT FORMAT: First character must be `{`, last must be `}`. JSON only.
 
 {
@@ -185,6 +224,32 @@ CRITICAL OUTPUT FORMAT: First character must be `{`, last must be `}`. JSON only
       "suggested_fix": "how to close the gap"
     }
   ],
+  "doc_consistency": {
+    "cross_ref_issues": [
+      {
+        "source_file": "pipeline doc that references the field",
+        "references": "the field or path referenced",
+        "expected_in": "schema doc where it should be defined",
+        "issue": "missing | renamed | wrong_path"
+      }
+    ],
+    "schema_drift": [
+      {
+        "template_file": "prompt template that injects the field",
+        "injects": "field name or path the template uses",
+        "schema_file": "schema doc that should define it",
+        "issue": "field missing from schema | field renamed | type mismatch"
+      }
+    ],
+    "validation_gaps": [
+      {
+        "script": "validate-*.sh script name",
+        "doc_claims": "what the pipeline doc says is enforced",
+        "doc_source": "pipeline doc making the claim",
+        "issue": "script does not check this | script checks stale field name"
+      }
+    ]
+  },
   "working_well": ["things that match the ideal — acknowledge what's good"]
 }
 ```
@@ -197,6 +262,13 @@ After all scenarios are traced, consolidate the findings:
 2. **Prioritize** — critical gaps that block the actor's goal come first
 3. **Cross-reference** — gaps that appear in 2+ scenarios are systemic
 4. **Classify effort** — quick fix (< 1 hour), medium (half day), large (1+ days)
+5. **Consolidate doc_consistency** — merge `doc_consistency` findings across
+   all scenario traces. Deduplicate cross_ref_issues, schema_drift, and
+   validation_gaps that appear in multiple traces (same source_file +
+   references pair, same template_file + injects pair, or same script +
+   doc_claims pair). Flag any issue that appears in 3+ traces as systemic
+   drift. Keep one canonical entry per unique issue with a `found_in`
+   list of scenario names.
 
 ## Step 5: Present to CEO
 
@@ -227,6 +299,30 @@ After all scenarios are traced, consolidate the findings:
 
 ## Systemic Gaps (appear in 2+ scenarios)
 - **{gap}** — found in: {scenario list}
+
+(if doc_consistency findings exist across any scenario trace, include this section)
+
+## Doc Consistency
+Issues found by cross-checking pipeline docs, schemas, templates, and
+validation scripts. These cause silent pipeline failures when docs drift
+out of sync.
+
+### Cross-Reference Mismatches
+| Source File | References | Expected In | Issue |
+|-------------|-----------|-------------|-------|
+| {source_file} | {references} | {expected_in} | {issue} |
+
+### Schema-Template Drift
+| Template File | Injects | Schema File | Issue |
+|---------------|---------|-------------|-------|
+| {template_file} | {injects} | {schema_file} | {issue} |
+
+### Validation Coverage Gaps
+| Script | Doc Claims | Doc Source | Issue |
+|--------|-----------|------------|-------|
+| {script} | {doc_claims} | {doc_source} | {issue} |
+
+(omit any subsection whose table would be empty)
 
 ## Summary
 - Total gaps: {count} ({critical}, {major}, {minor})

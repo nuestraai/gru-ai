@@ -18,7 +18,9 @@
   "pipeline": {
     "triage": {
       "status": "completed",
-      "agent": "CEO",
+      "agent": [
+        "ceo"
+      ],
       "output": {
         "weight": "medium",
         "rationale": "Focused UI change within game renderer — switching character labels from pixel to web-style. Single system, no cross-boundary concerns."
@@ -26,35 +28,45 @@
     },
     "read": {
       "status": "completed",
-      "agent": "CEO",
+      "agent": [
+        "ceo"
+      ],
       "output": {
         "summary": "Read directive brief — rebuild character name/status/icon UI to Gather.town web-style from pixel art."
       }
     },
     "context": {
       "status": "completed",
-      "agent": "CEO",
+      "agent": [
+        "ceo"
+      ],
       "output": {
         "summary": "Read vision.md, renderer.ts, spriteData.ts, constants.ts, CanvasOffice.tsx. Current system: canvas-based native fillText() for names with system-ui font, LimeZu 48x48 sprite icons for status, 8x8 pixel art fallback. All rendering in renderer.ts render* functions."
       }
     },
     "challenge": {
       "status": "skipped",
-      "agent": "C-suite",
+      "agent": [
+        "ceo"
+      ],
       "output": {
         "summary": "Skipped for medium weight"
       }
     },
     "brainstorm": {
       "status": "skipped",
-      "agent": "C-suite",
+      "agent": [
+        "ceo"
+      ],
       "output": {
         "summary": "Skipped for medium weight — clear design direction from CEO (Gather.town reference)"
       }
     },
     "plan": {
       "status": "completed",
-      "agent": "COO",
+      "agent": [
+        "morgan"
+      ],
       "output": {
         "summary": "Single project: gather-ui-overlay. Riley builds, Quinn+Sarah review. Scope: rounded-pill name tags, status dots replacing sprite icons, lightweight name grouping.",
         "projects": [
@@ -67,7 +79,9 @@
     },
     "audit": {
       "status": "completed",
-      "agent": "CTO",
+      "agent": [
+        "sarah"
+      ],
       "output": {
         "summary": "Confirmed: font already sans-serif, ctx.roundRect() safe, AgentStatus only working|idle (no error/waiting). Activity icons must be preserved. Status dot colors exist but unused. Name grouping is highest complexity. ~120 lines change in renderer.ts + 10 in constants.ts.",
         "findings": 10
@@ -78,7 +92,9 @@
     },
     "approve": {
       "status": "completed",
-      "agent": "CEO",
+      "agent": [
+        "ceo"
+      ],
       "output": {
         "decision": "auto-approved",
         "summary": "Medium weight — auto-approved per pipeline rules."
@@ -86,7 +102,9 @@
     },
     "project-brainstorm": {
       "status": "completed",
-      "agent": "CTO",
+      "agent": [
+        "sarah"
+      ],
       "output": {
         "summary": "4 tasks decomposed: pill-constants-and-cleanup, rounded-pill-plates, inline-status-dots, colocation-grouping. All P0, sequential (all touch renderer.ts)."
       },
@@ -96,7 +114,9 @@
     },
     "setup": {
       "status": "completed",
-      "agent": "CEO",
+      "agent": [
+        "ceo"
+      ],
       "output": {
         "mode": "current-branch",
         "branch": "directive/game-ui-tmx-update",
@@ -105,7 +125,9 @@
     },
     "execute": {
       "status": "completed",
-      "agent": "riley",
+      "agent": [
+        "riley"
+      ],
       "output": {
         "summary": "All 4 tasks completed in single builder session. Constants updated, rounded pills with ctx.roundRect(), inline status dots (green/gray), name grouping with 70% overlap threshold. Type-check passes clean.",
         "tasks_completed": 4,
@@ -114,21 +136,27 @@
     },
     "review-gate": {
       "status": "completed",
-      "agent": "CEO",
+      "agent": [
+        "ceo"
+      ],
       "output": {
         "summary": "Visual verification via Chrome MCP confirms: rounded pill name labels, white text, inline green/gray status dots, task info cards rendering correctly. Matches Gather.town reference style. Type-check passes."
       }
     },
     "wrapup": {
       "status": "completed",
-      "agent": "CEO",
+      "agent": [
+        "ceo"
+      ],
       "output": {
         "summary": "Directive complete. 2 files changed: renderer.ts (~284 lines), constants.ts (~284 lines). Dead code cleaned: STATUS_DOT_COLORS, INTERACTION_DOT_COLORS import, sprite-based status icon rendering. Follow-ups: dead statusIcons.ts/uiIcons.ts exports, optional dot animation."
       }
     },
     "completion": {
       "status": "completed",
-      "agent": "CEO",
+      "agent": [
+        "ceo"
+      ],
       "output": null
     }
   },

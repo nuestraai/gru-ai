@@ -22,7 +22,7 @@ At the end (wrapup step), tell the CEO the branch name so they can review with `
 
 **Skip isolation entirely if:** the user explicitly says "no branch", or all task phases are research-only (no code changes).
 
-**Update directive.json:** Set `current_step: "setup"`, `planning.worktree_path` to the worktree path (or null if branch-only or skipped). Update `pipeline.setup.status` to `"completed"` with output.
+**Update directive.json:** Set `current_step: "execute"` (the next step), `planning.worktree_path` to the worktree path (or null if branch-only or skipped). Update `pipeline.setup.status` to `"completed"` with output.
 
 ## Setup (cont.): Verify Directive State
 

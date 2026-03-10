@@ -17,7 +17,9 @@
   "pipeline": {
     "triage": {
       "status": "completed",
-      "agent": "CEO",
+      "agent": [
+        "ceo"
+      ],
       "output": {
         "weight": "medium",
         "summary": "Medium weight — single game domain, clear spec from completed brainstorm."
@@ -25,28 +27,36 @@
     },
     "read": {
       "status": "completed",
-      "agent": "CEO",
+      "agent": [
+        "ceo"
+      ],
       "output": {
         "summary": "Read directive.md — replace generic chat bubble with 5 context-specific animated 8x8 icons."
       }
     },
     "context": {
       "status": "completed",
-      "agent": "CEO",
+      "agent": [
+        "ceo"
+      ],
       "output": {
         "summary": "Read vision.md, lessons, brainstorm.md. Option A (5 lean icons) chosen."
       }
     },
     "challenge": {
       "status": "skipped",
-      "agent": "C-suite",
+      "agent": [
+        "ceo"
+      ],
       "output": {
         "summary": "Skipped for medium weight"
       }
     },
     "plan": {
       "status": "completed",
-      "agent": "COO",
+      "agent": [
+        "morgan"
+      ],
       "output": {
         "summary": "Single project: interaction-type-icons. Riley builds, Quinn+Sarah review, Sarah audits.",
         "projects": [
@@ -59,56 +69,73 @@
     },
     "audit": {
       "status": "completed",
-      "agent": "sarah",
+      "agent": [
+        "sarah"
+      ],
       "output": {
         "summary": "5 active files confirmed. Recommended approach: types → sprites → GamePage → CanvasOffice → renderer."
       }
     },
     "approve": {
       "status": "skipped",
-      "agent": "CEO",
+      "agent": [
+        "ceo"
+      ],
       "output": {
         "summary": "Auto-approved for medium weight"
       }
     },
     "project-brainstorm": {
       "status": "completed",
-      "agent": "sarah",
+      "agent": [
+        "sarah"
+      ],
       "output": {
         "summary": "3 tasks decomposed: widen types, create sprites, wire renderer."
       }
     },
     "setup": {
       "status": "completed",
-      "agent": "CEO",
+      "agent": [
+        "ceo"
+      ],
       "output": {
         "summary": "Working on game branch directly."
       }
     },
     "execute": {
       "status": "completed",
-      "agent": "riley",
+      "agent": [
+        "riley"
+      ],
       "output": {
         "summary": "All 3 tasks completed. InteractionType added, interactionMap widened, 5 sprite sets created, renderInteractionIcons replaces renderChatBubbles."
       }
     },
     "review-gate": {
       "status": "completed",
-      "agent": "quinn, sarah",
+      "agent": [
+        "quinn",
+        "sarah"
+      ],
       "output": {
         "summary": "Both reviewers pass. Quinn: sprites readable, palettes distinct (after fix: hammer shifted to steel blue, shield to rose). Sarah: type-check clean, one major fixed (status icon skip guard restored). 3 minor fixes applied post-review."
       }
     },
     "wrapup": {
       "status": "completed",
-      "agent": "CEO",
+      "agent": [
+        "ceo"
+      ],
       "output": {
         "summary": "Visual verification via Chrome MCP confirms icons rendering correctly — amber lightbulb for brainstorming, purple magnifier for reviewing."
       }
     },
     "completion": {
       "status": "completed",
-      "agent": "CEO"
+      "agent": [
+        "ceo"
+      ]
     }
   },
   "projects": [

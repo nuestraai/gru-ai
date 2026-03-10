@@ -1,12 +1,15 @@
 <!-- Pipeline doc: 05-planning.md | Source: SKILL.md restructure -->
 
-## Step 3: Spawn the COO (Strategic Planning)
+## Plan: Spawn the COO (Strategic Planning)
 
 Spawn the COO as an Agent (model: opus, subagent_type: COO's ID from registry).
 
 **The COO's prompt must include:**
 - The CEO directive text (personality is auto-loaded via the `subagent_type`)
 - The goals index, lessons, and agent summaries from the context step
+- **Audit findings** (from the audit step) -- the COO receives these as input. If the audit reveals complexity exceeding the triage estimate, the COO should flag it in `challenges.risks` and adjust project decomposition accordingly.
+- **Brainstorm synthesis** from `.context/directives/{directive-id}/brainstorm.md` -- the team's approach proposals, trade-offs, and (for heavyweight/strategic) challenge critiques. The COO should use this to inform project decomposition rather than re-deriving the approach from scratch.
+- **Verified intent** from the clarification step (`pipeline.clarification.output.verified_intent` in directive.json) -- this is the CEO-confirmed goal, constraints, quality bar, acceptance scenarios, and out-of-scope items. Inject it into the planner prompt at the `{verified_intent}` placeholder. If the clarification step was auto-approved or skipped, pass the synthesized intent (which still contains extracted constraints and scenarios).
 - These explicit instructions:
 
 > See [docs/reference/templates/planner-prompt.md](../reference/templates/planner-prompt.md) for the full COO planning prompt.
@@ -19,10 +22,7 @@ Spawn the COO as an Agent (model: opus, subagent_type: COO's ID from registry).
 
 > See [docs/reference/rules/scope-and-dod.md](../reference/rules/scope-and-dod.md) for scope format rules, Definition of Done rules, and user scenario rules.
 
-**If this directive was classified as strategic**, also include in the COO's prompt:
-- The brainstorm synthesis from `.context/directives/{directive-id}/brainstorm.md`
-- CEO's clarification answers
-- Additional instruction to the COO: "The team has brainstormed approach options for this directive. Use the brainstorm synthesis and CEO's answers to inform your plan — you don't need to re-derive the approach from scratch. Focus on execution planning, not strategy."
+**Additional instruction for the COO:** "The team has brainstormed approach options and the CTO has audited the codebase. Use the brainstorm synthesis, CEO's clarification answers, and audit findings to inform your plan -- focus on execution planning, not strategy re-derivation."
 
 **Parse the COO's response** as JSON. Extract the JSON object from the response (find the first `{` and last `}`). If it fails to parse, show the error and stop.
 
@@ -36,7 +36,7 @@ Save the COO's parsed JSON plan to `.context/directives/{directive-id}/plan.json
 
 If the COO's plan contains a `projects` array (triggered when genuinely complex work can't be decomposed into simple tasks):
 
-1. **Verify projects are independent** — if project B depends on project A's output (shared code, shared data structures, one builds on the other), they MUST be merged into a single project with ordered tasks. Task array ordering IS the dependency mechanism. There is no cross-project dependency field.
+1. **Verify projects are independent or use depends_on** — if project B depends on project A's output (shared code, shared data structures, one builds on the other), either merge into a single project with ordered tasks, or set `depends_on: ["project-a"]` in the COO plan to enforce execution order. For tightly coupled work sharing code dependencies, prefer merging into ONE project.
 2. **Create a separate project directory and project.json for each independent project** in the approve step (after CEO approval)
 3. **Each project gets its own brainstorm** (2-3 agents + deliberation) before build
 4. **Each project gets its own execution cycle** in the execute step: brainstorm -> audit -> build -> review -> verify
@@ -52,13 +52,21 @@ echo "$PLAN_JSON" | .claude/hooks/validate-cast.sh
 ```
 
 The script checks:
-1. Every task has an auditor assigned
-2. Builder is not in the reviewers array (conflict of interest)
-3. Complex tasks (5+ phases) have at least one C-suite reviewer
+1. Every project has at least one reviewer assigned
+2. Builder (agent[]) is not in the reviewers array (conflict of interest)
+3. Complex or moderate projects have at least one C-suite reviewer
 4. Agents don't review changes to their own behavior/prompts
+5. `depends_on` references point to existing project IDs
+6. No circular dependencies in the `depends_on` graph
 
 If validation fails (`valid: false`), log the violations and either:
 - **Auto-fix** if the violation is clear (e.g., swap a conflicting reviewer for the next-best match per casting rules)
 - **Block** and re-prompt the COO with the violations if auto-fix isn't possible
 
 > See `.claude/hooks/validate-cast.sh` for the validation script (copied to consumer project by `/gruai-config`).
+
+### Update directive.json
+
+Set `current_step: "approve"` (the next step). Update `pipeline.plan.status` to `"completed"` with output summary including the plan goal and project count. Set `artifacts` to `[".context/directives/{id}/plan.json"]`.
+
+**Next step:** Proceed to [07-plan-approval.md](07-plan-approval.md) (approve) to present the combined plan to the CEO.

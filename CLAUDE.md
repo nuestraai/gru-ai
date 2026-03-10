@@ -60,8 +60,9 @@ An autonomous AI company framework. See `.context/vision.md` for the full vision
 | Role | Read These |
 |------|-----------|
 | All agents | lessons/agent-behavior.md |
-| Morgan (planning/orchestration) | lessons/orchestration.md |
-| Sarah (review/audit) | lessons/review-quality.md |
+| All agents (pipeline quality) | lessons/failure-patterns.md |
+| COO (planning/orchestration) | lessons/orchestration.md |
+| CTO (review/audit) | lessons/review-quality.md |
 | Engineers | lessons/skill-design.md |
 | Dashboard/state work | lessons/state-management.md |
 | Scenario walkthroughs | lessons/scenarios.md |

@@ -5,7 +5,12 @@
   "created": "2026-03-08",
   "completed": "2026-03-09",
   "weight": "strategic",
-  "produced_features": ["gruai-rename", "readme-overhaul", "content-strategy", "landing-page"],
+  "produced_features": [
+    "gruai-rename",
+    "readme-overhaul",
+    "content-strategy",
+    "landing-page"
+  ],
   "report": null,
   "backlog_sources": [],
   "started_at": "2026-03-08T00:00:00Z",
@@ -14,7 +19,9 @@
   "pipeline": {
     "triage": {
       "status": "completed",
-      "agent": "CEO",
+      "agent": [
+        "ceo"
+      ],
       "output": {
         "weight": "strategic",
         "rationale": "Multiple valid approaches (naming, content strategy, platform mix), crosses 3+ domains (engineering, content, marketing), lasting brand consequences."
@@ -22,14 +29,18 @@
     },
     "read": {
       "status": "completed",
-      "agent": "CEO",
+      "agent": [
+        "ceo"
+      ],
       "output": {
         "summary": "Read directive.md, vision.md, README.md, package.json. Package already published as 'gru-ai' on npm. GitHub repo still 'agent-conductor'. README exists but needs marketing polish."
       }
     },
     "context": {
       "status": "completed",
-      "agent": "CEO",
+      "agent": [
+        "ceo"
+      ],
       "output": {
         "summary": "Vision: autonomous AI company framework. Key differentiators: pixel-art office visualization, structured pipeline, C-suite personalities. Competitors: Devin ($500/mo headless), CrewAI (YAML configs). npm name is gru-ai, GitHub repo is agent-conductor. No preferences.md exists."
       }
@@ -39,7 +50,11 @@
     },
     "brainstorm": {
       "status": "completed",
-      "agent": "C-suite (Priya CMO, Marcus CPO, Sarah CTO)",
+      "agent": [
+        "c suite (priya cmo",
+        "marcus",
+        "sarah"
+      ],
       "output": {
         "summary": "Phase 1 proposals + Phase 2 deliberation complete. Convergence on: rename to gruai, lead with pixel-art GIF, static HTML landing page. Key disagreements: 小红书-first vs Reddit-first, full marketing strategy vs minimal viable launch, AI video vs real screencasts. Brand conflict flagged: Gru.ai (BabelCloud, $5.5M funded, pivoted to gbox.ai).",
         "artifact": "brainstorm.md"
@@ -47,7 +62,9 @@
     },
     "plan": {
       "status": "completed",
-      "agent": "COO (Morgan)",
+      "agent": [
+        "coo (morgan)"
+      ],
       "output": {
         "summary": "5 projects: repo-rename (P0, Devon), readme-overhaul (P0, Taylor), xiaohongshu-strategy (P1, Taylor), reddit-strategy (P1, Taylor), landing-page (P2, Riley). Sequential dependency chain: rename → README → content strategies + landing page.",
         "artifact": "plan.json"
@@ -55,26 +72,37 @@
     },
     "audit": {
       "status": "skipped",
-      "agent": "CEO",
+      "agent": [
+        "ceo"
+      ],
       "output": {
         "summary": "Skipped — brainstorm phase already audited codebase (Sarah CTO confirmed: only 3 source files reference agent-conductor, no CI/CD, demo.gif exists). Technical risk is low."
       }
     },
     "approve": {
       "status": "completed",
-      "agent": "CEO",
-      "output": { "decision": "approved", "summary": "Strategic plan approved." }
+      "agent": [
+        "ceo"
+      ],
+      "output": {
+        "decision": "approved",
+        "summary": "Strategic plan approved."
+      }
     },
     "project-brainstorm": {
       "status": "completed",
-      "agent": "CTO (Sarah Chen)",
+      "agent": [
+        "cto (sarah chen)"
+      ],
       "output": {
         "summary": "All 5 projects decomposed into tasks: repo-rename (3 tasks), readme-overhaul (2 tasks), xiaohongshu-strategy (3 tasks), reddit-strategy (1 task), landing-page (2 tasks). Total: 11 tasks."
       }
     },
     "setup": {
       "status": "completed",
-      "agent": "CEO",
+      "agent": [
+        "ceo"
+      ],
       "output": {
         "summary": "Using existing 'game' branch. No worktree needed.",
         "mode": "branch",
@@ -83,7 +111,9 @@
     },
     "execute": {
       "status": "completed",
-      "agent": "Multiple builders",
+      "agent": [
+        "multiple builders"
+      ],
       "output": {
         "summary": "All 5 projects completed: repo-rename, readme-overhaul, xiaohongshu-strategy, reddit-strategy, landing-page.",
         "waves": 4,
@@ -92,19 +122,33 @@
     },
     "review-gate": {
       "status": "skipped",
-      "output": { "summary": "Session died before review-gate. All project.json files show completed." }
+      "output": {
+        "summary": "Session died before review-gate. All project.json files show completed."
+      }
     },
     "wrapup": {
       "status": "skipped",
-      "output": { "summary": "Cleaned up during state reconciliation." }
+      "output": {
+        "summary": "Cleaned up during state reconciliation."
+      }
     },
     "completion": {
       "status": "completed",
-      "agent": "CEO",
-      "output": { "summary": "CEO approved completion during state cleanup." }
+      "agent": [
+        "ceo"
+      ],
+      "output": {
+        "summary": "CEO approved completion during state cleanup."
+      }
     }
   },
-  "projects": ["repo-rename", "readme-overhaul", "xiaohongshu-strategy", "reddit-strategy", "landing-page"],
+  "projects": [
+    "repo-rename",
+    "readme-overhaul",
+    "xiaohongshu-strategy",
+    "reddit-strategy",
+    "landing-page"
+  ],
   "planning": {
     "coo_plan": {},
     "ceo_approval": {

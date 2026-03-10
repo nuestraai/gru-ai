@@ -13,7 +13,9 @@
   "pipeline": {
     "triage": {
       "status": "completed",
-      "agent": "CEO",
+      "agent": [
+        "ceo"
+      ],
       "output": {
         "weight": "medium",
         "summary": "Bug fix in directive-watcher status filtering. Touches server watcher + MCP tool consistency. No revenue/auth impact."
@@ -21,14 +23,18 @@
     },
     "read": {
       "status": "completed",
-      "agent": "CEO",
+      "agent": [
+        "ceo"
+      ],
       "output": {
         "summary": "Read directive-watcher.ts, server/index.ts, MCP status.ts, types.ts. Root cause: mapStatus() maps 'active' to 'pending' (default case), readCurrentState() hardcodes 'in_progress'/'awaiting_completion' filter."
       }
     },
     "context": {
       "status": "completed",
-      "agent": "CEO",
+      "agent": [
+        "ceo"
+      ],
       "output": {
         "summary": "Read vision.md, lessons/state-management.md, directive-json schema. Schema defines valid statuses as pending/triaged/in_progress/awaiting_completion/completed/failed/reopened — 'active' is NOT valid but used in practice."
       }
@@ -47,7 +53,9 @@
     },
     "plan": {
       "status": "completed",
-      "agent": "COO",
+      "agent": [
+        "morgan"
+      ],
       "output": {
         "summary": "1 project, 4 tasks: fix mapStatus() + readCurrentState filter, fix state-watcher mapDirectiveStatus, normalize directive data files, add predev cleanup script.",
         "projects": "fix-status-and-dev-env"
@@ -55,7 +63,9 @@
     },
     "audit": {
       "status": "completed",
-      "agent": "CTO",
+      "agent": [
+        "sarah"
+      ],
       "output": {
         "summary": "Confirmed root cause + found additional issue in state-watcher.ts mapDirectiveStatus(). Also found 'superseded' status not handled. Risk: near zero — read-only mapping bug, adding switch cases cannot break existing cases."
       }
@@ -68,42 +78,55 @@
     },
     "project-brainstorm": {
       "status": "completed",
-      "agent": "CTO + COO",
+      "agent": [
+        "sarah",
+        "morgan"
+      ],
       "output": {
         "summary": "Tasks decomposed with DOD. All tasks in one project — single engineer, same files."
       }
     },
     "setup": {
       "status": "completed",
-      "agent": "CEO",
+      "agent": [
+        "ceo"
+      ],
       "output": {
         "summary": "Working on current branch (game). No worktree needed."
       }
     },
     "execute": {
       "status": "completed",
-      "agent": "devon",
+      "agent": [
+        "devon"
+      ],
       "output": {
         "summary": "All 4 tasks completed. TypeScript compiles, Vite build passes. Fixed mapStatus + readCurrentState in directive-watcher, mapDirectiveStatus in state-watcher, normalized 2 directive data files, added predev cleanup script."
       }
     },
     "review-gate": {
       "status": "completed",
-      "agent": "CEO",
+      "agent": [
+        "ceo"
+      ],
       "output": {
         "summary": "All changes verified: mapStatus handles active/reopened/superseded, readCurrentState uses inclusion set, dead reopened removed from post-map filters, state-watcher fixed, data files normalized, predev script added. tsc + vite build pass."
       }
     },
     "wrapup": {
       "status": "completed",
-      "agent": "CEO",
+      "agent": [
+        "ceo"
+      ],
       "output": {
         "summary": "No OKRs to update. Lessons: status mapping functions must handle all schema statuses + common aliases at the boundary."
       }
     },
     "completion": {
       "status": "completed",
-      "agent": "CEO",
+      "agent": [
+        "ceo"
+      ],
       "output": {
         "summary": "Awaiting CEO approval"
       }

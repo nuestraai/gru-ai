@@ -90,7 +90,7 @@ No C-suite challenges. No brainstorm. No plan-approval gate. No worktree (unless
 ### Medium Process
 
 1. Read full context (read + context steps)
-2. Spawn the COO to plan projects (plan) -- the COO's inline challenge is always included, but skip separate C-suite challengers (challenge step)
+2. Spawn the COO to plan projects (plan) -- the COO's inline challenge is always included, but skip the brainstorm step (no separate brainstorm agents)
 3. Spawn auditor for technical baseline (audit)
 4. **No plan-approval gate** -- auto-approve the plan based on directive scope and guardrails
 5. Create branch (setup) — worktree only if working directory is dirty
@@ -153,7 +153,7 @@ Same as heavyweight but with an additional deliberation round during brainstorm.
 
 ### Heavyweight Process
 
-Full pipeline: triage → read → context → challenge → **Brainstorm** → plan → audit → approve → project-brainstorm → setup → execute → review-gate → wrapup → completion.
+Full pipeline: triage → checkpoint → read → context → audit → **brainstorm** → clarification → plan → approve → project-brainstorm → setup → execute → review-gate → wrapup → completion.
 
 **Brainstorm phase (mandatory for heavyweight):** Before the COO plans, spawn the brainstorm team in parallel using `run_in_background: true`. The brainstorm team includes:
 - **2-3 relevant C-suite agents** (the CTO for architecture, the CPO for product, the CMO for growth — pick based on directive domain)
@@ -181,3 +181,7 @@ Agent tool call (per brainstorm agent):
 > See [docs/reference/schemas/brainstorm-output.md](../reference/schemas/brainstorm-output.md) for the brainstorm agent output JSON schema.
 
 For the CEO approval gate (approve step): write the plan to `.context/directives/{directive-id}/plan-for-approval.md` and STOP. Output a summary asking the CEO to approve. Include brainstorm synthesis and any clarifying questions alongside the COO's plan. After CEO approval, continue execution from the setup step.
+
+### Test Mode
+
+Directives with `test_mode: true` in directive.json are automated smoke tests created by the `/smoke-test` skill. The pipeline runs normally but the completion gate auto-approves instead of waiting for CEO sign-off. Do NOT set `test_mode` on real directives.

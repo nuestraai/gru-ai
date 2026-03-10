@@ -17,22 +17,31 @@
   "pipeline": {
     "triage": {
       "status": "completed",
-      "agent": "CEO",
+      "agent": [
+        "ceo"
+      ],
       "output": {
         "weight": "heavyweight"
       }
     },
     "read": {
       "status": "completed",
-      "agent": "CEO"
+      "agent": [
+        "ceo"
+      ]
     },
     "context": {
       "status": "completed",
-      "agent": "CEO"
+      "agent": [
+        "ceo"
+      ]
     },
     "brainstorm": {
       "status": "completed",
-      "agent": "Marcus, Sarah",
+      "agent": [
+        "marcus",
+        "sarah"
+      ],
       "output": {
         "summary": "Marcus produced full design doc with tab restructure, badge system, KPI strip, decision cards, event feed. Sarah validated feasibility."
       },
@@ -43,25 +52,34 @@
     },
     "plan": {
       "status": "completed",
-      "agent": "Morgan",
+      "agent": [
+        "morgan"
+      ],
       "output": {
         "projects": "2 sequential: shell+badges (P0), panel rewrites (P0, depends on shell). Reopened: added project 3 for ActionPanel quality fixes."
       }
     },
     "audit": {
       "status": "completed",
-      "agent": "Sarah"
+      "agent": [
+        "sarah"
+      ]
     },
     "approve": {
       "status": "completed",
-      "agent": "CEO",
+      "agent": [
+        "ceo"
+      ],
       "output": {
         "decision": "approved"
       }
     },
     "project-brainstorm": {
       "status": "completed",
-      "agent": "Sarah + Riley",
+      "agent": [
+        "sarah",
+        "riley"
+      ],
       "output": {
         "summary": "Project 1: 3 tasks. Project 2: 5 tasks. Project 3 (reopened): ActionPanel fixes — dedup, timestamps, expandable details."
       }
@@ -77,16 +95,24 @@
     },
     "review-gate": {
       "status": "skipped",
-      "output": { "summary": "Session died before review-gate. Work verified complete in project.json files." }
+      "output": {
+        "summary": "Session died before review-gate. Work verified complete in project.json files."
+      }
     },
     "wrapup": {
       "status": "skipped",
-      "output": { "summary": "Cleaned up during state reconciliation." }
+      "output": {
+        "summary": "Cleaned up during state reconciliation."
+      }
     },
     "completion": {
       "status": "completed",
-      "agent": "CEO",
-      "output": { "summary": "CEO approved completion during state cleanup. multi-directive-support was cancelled." }
+      "agent": [
+        "ceo"
+      ],
+      "output": {
+        "summary": "CEO approved completion during state cleanup. multi-directive-support was cancelled."
+      }
     }
   },
   "projects": [

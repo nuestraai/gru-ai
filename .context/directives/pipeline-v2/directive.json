@@ -25,7 +25,9 @@
   "pipeline": {
     "triage": {
       "status": "completed",
-      "agent": "CEO",
+      "agent": [
+        "ceo"
+      ],
       "output": {
         "weight": "strategic",
         "rationale": "Core data model terminology change, multiple valid approaches, lasting conventions"
@@ -33,21 +35,29 @@
     },
     "read": {
       "status": "completed",
-      "agent": "CEO",
+      "agent": [
+        "ceo"
+      ],
       "output": {
         "summary": "Ad-hoc directive: kill 'initiatives' concept, unify to directive→project→task, directive UI links to projects"
       }
     },
     "context": {
       "status": "completed",
-      "agent": "CEO",
+      "agent": [
+        "ceo"
+      ],
       "output": {
         "summary": "Read vision.md, all lessons, morgan-plan schema, directive-json schema, current-json schema, server types, brainstorm templates"
       }
     },
     "brainstorm": {
       "status": "completed",
-      "agent": "Sarah, Marcus, Morgan",
+      "agent": [
+        "sarah",
+        "marcus",
+        "morgan"
+      ],
       "output": {
         "summary": "3 rounds + deliberation. Resolved: Directive>Project>Task hierarchy, Morgan outputs projects, nested dirs, file-existence enforcement, Sarah+builder produce tasks, CEO completion gate for all weights"
       },
@@ -57,7 +67,9 @@
     },
     "plan": {
       "status": "completed",
-      "agent": "Morgan",
+      "agent": [
+        "morgan"
+      ],
       "output": {
         "summary": "4 projects: schema restructure (P0), pipeline docs (P0), gate script (P1), watcher+dashboard (P1)"
       },
@@ -67,7 +79,10 @@
     },
     "audit": {
       "status": "completed",
-      "agent": "Sam, Sarah",
+      "agent": [
+        "sam",
+        "sarah"
+      ],
       "output": {
         "summary": "346 initiative refs across 46 files. validate-cast.sh has 19 refs in jq. Watcher depth:0 can't see nested dirs. 51 flat directive files."
       },
@@ -77,21 +92,29 @@
     },
     "approve": {
       "status": "completed",
-      "agent": "CEO",
+      "agent": [
+        "ceo"
+      ],
       "output": {
         "decision": "Approved with 3 modifications: no backward compat, CEO approves ALL completions, rename 09-execute-initiatives.md"
       }
     },
     "setup": {
       "status": "completed",
-      "agent": "CEO",
+      "agent": [
+        "ceo"
+      ],
       "output": {
         "mode": "Inline (no worktree)"
       }
     },
     "execute": {
       "status": "completed",
-      "agent": "Taylor, Jordan, Sam",
+      "agent": [
+        "taylor",
+        "jordan",
+        "sam"
+      ],
       "reviewers": [
         "Sarah",
         "Marcus",
@@ -111,14 +134,18 @@
     },
     "wrapup": {
       "status": "completed",
-      "agent": "CEO",
+      "agent": [
+        "ceo"
+      ],
       "output": {
         "digest": "pipeline-v2-2026-03-06"
       }
     },
     "completion": {
       "status": "completed",
-      "agent": "CEO"
+      "agent": [
+        "ceo"
+      ]
     }
   },
   "planning": {

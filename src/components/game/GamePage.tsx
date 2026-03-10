@@ -7,7 +7,7 @@ import CanvasOffice, { type ClickedItem } from './CanvasOffice';
 import SidePanel from './SidePanel';
 import AgentTicker from './AgentTicker';
 import type { TileType } from './types';
-import type { Session, DirectiveState } from '@/stores/types';
+import type { Session } from '@/stores/types';
 import { getZoneAt } from './engine/roomZones';
 import { useOfficeAgents } from './useOfficeAgents';
 import { useAgentRegistryStore } from '@/stores/agent-registry-store';
@@ -147,12 +147,13 @@ export default function GamePage() {
 
   // Derive agent statuses from sessions + directive pipeline state
   // Agents actively participating in a directive step show as 'working' even if their session is idle
+  // Agents with NO sessions at all default to 'offline' (not 'idle')
   const agentStatuses = useMemo<Record<string, AgentStatus>>(() => {
     const map: Record<string, AgentStatus> = {};
     for (const name of KNOWN_AGENTS) {
-      map[name] = 'idle';
+      map[name] = 'offline';
     }
-    const priority: Record<AgentStatus, number> = { working: 1, idle: 0 };
+    const priority: Record<AgentStatus, number> = { offline: 0, idle: 1, working: 2 };
     for (const s of sessions) {
       if (s.agentName && KNOWN_AGENTS.has(s.agentName)) {
         const status = toAgentStatus(s.status);
@@ -161,23 +162,17 @@ export default function GamePage() {
         }
       }
     }
-    // Override: agents actively involved in a directive step show as working
+    // Override: agents listed in the current pipeline step show as working
     for (const directive of activeDirectives) {
-      const step = directive.currentStepId ?? '';
-      if (['plan', 'brainstorm', 'challenge', 'project-brainstorm'].includes(step)) {
-        map['Morgan'] = 'working';
-        if (['brainstorm', 'challenge', 'project-brainstorm'].includes(step)) {
-          map['Sarah'] = 'working';
-        }
-        if (step === 'project-brainstorm') {
-          for (const proj of directive.projects) {
-            for (const t of proj.tasks ?? []) {
-              if (t.agent) { const n = capitalize(t.agent); if (KNOWN_AGENTS.has(n)) map[n] = 'working'; }
-            }
-          }
-        }
+      const stepId = directive.currentStepId ?? '';
+      const currentStep = directive.pipelineSteps?.find(s => s.id === stepId);
+      // Mark all agents listed in the current step as working
+      for (const name of currentStep?.agents ?? []) {
+        const n = capitalize(name);
+        if (KNOWN_AGENTS.has(n)) map[n] = 'working';
       }
-      if (step === 'execute') {
+      // Also mark in-progress task agents during execute
+      if (stepId === 'execute') {
         for (const proj of directive.projects) {
           if (proj.status !== 'in_progress') continue;
           for (const t of proj.tasks ?? []) {
@@ -188,7 +183,8 @@ export default function GamePage() {
           }
         }
       }
-      if (step === 'review-gate' || step === 'audit') {
+      // Mark reviewers during review-gate/audit
+      if (stepId === 'review-gate' || stepId === 'audit') {
         for (const proj of directive.projects) {
           for (const r of (proj.reviewers ?? []).map(capitalize)) {
             if (KNOWN_AGENTS.has(r)) map[r] = 'working';
@@ -205,11 +201,13 @@ export default function GamePage() {
     for (const directive of activeDirectives) {
       const step = directive.currentStepId ?? '';
       // For planning/brainstorm steps, show the directive title for involved agents
-      if (['plan', 'brainstorm', 'challenge', 'project-brainstorm'].includes(step)) {
+      if (['plan', 'brainstorm', 'clarification', 'project-brainstorm'].includes(step)) {
         const label = directive.title ?? directive.directiveName.replace(/-/g, ' ');
-        map['Morgan'] = `Planning: ${label}`;
-        if (['brainstorm', 'challenge', 'project-brainstorm'].includes(step)) {
-          map['Sarah'] = `Reviewing: ${label}`;
+        const currentPipelineStep = directive.pipelineSteps?.find(s => s.id === step);
+        const stepLabel = currentPipelineStep?.label ?? capitalize(step);
+        for (const name of currentPipelineStep?.agents ?? []) {
+          const n = capitalize(name);
+          if (KNOWN_AGENTS.has(n)) map[n] = `${stepLabel}: ${label}`;
         }
       }
       // For execute step, show the in-progress task title per agent
@@ -303,7 +301,7 @@ export default function GamePage() {
       let interactionType: InteractionType;
       if (step === 'plan') {
         interactionType = 'planning';
-      } else if (step === 'brainstorm' || step === 'challenge' || step === 'project-brainstorm') {
+      } else if (step === 'brainstorm' || step === 'clarification' || step === 'project-brainstorm') {
         interactionType = 'brainstorming';
       } else if (step === 'execute') {
         interactionType = 'building';
@@ -315,26 +313,13 @@ export default function GamePage() {
         interactionType = 'planning'; // fallback
       }
 
-      // During plan/brainstorm/challenge: gather planners + C-suite into meeting
-      if (['plan', 'brainstorm', 'challenge', 'project-brainstorm'].includes(step)) {
-        // Collect all agents involved in the directive's active projects
+      // During plan/brainstorm/clarification: gather step agents into meeting room
+      if (['plan', 'brainstorm', 'clarification', 'project-brainstorm'].includes(step)) {
+        const currentPipelineStep = directive.pipelineSteps?.find(s => s.id === step);
         const meetingAgents = new Set<string>();
-        // COO (Morgan) is always in planning meetings
-        if (KNOWN_AGENTS.has('Morgan')) meetingAgents.add('Morgan');
-        // CTO (Sarah) joins for audit-adjacent steps
-        if (['brainstorm', 'challenge', 'project-brainstorm'].includes(step)) {
-          if (KNOWN_AGENTS.has('Sarah')) meetingAgents.add('Sarah');
-        }
-        // Add project agents for project-brainstorm
-        if (step === 'project-brainstorm') {
-          for (const proj of directive.projects) {
-            for (const t of proj.tasks ?? []) {
-              if (t.agent) {
-                const name = capitalize(t.agent);
-                if (KNOWN_AGENTS.has(name)) meetingAgents.add(name);
-              }
-            }
-          }
+        for (const name of currentPipelineStep?.agents ?? []) {
+          const n = capitalize(name);
+          if (KNOWN_AGENTS.has(n)) meetingAgents.add(n);
         }
         // Build meeting group — put all agents as children under the first one
         // The engine checks subIds.length >= MEETING_SUBAGENT_THRESHOLD (3),
@@ -581,6 +566,7 @@ export default function GamePage() {
         activePanel={activePanel}
         workingCount={Object.values(agentStatuses).filter((s) => s === 'working').length}
         staffCount={OFFICE_AGENTS.filter((a) => !a.isPlayer).length}
+        liveTaskCount={Object.values(agentStatuses).filter((s) => s === 'working').length}
       />
 
       {isMobile ? (
@@ -603,7 +589,7 @@ export default function GamePage() {
               reviewInteractions={reviewInteractions}
               selectedAgentName={selected?.agentName ?? null}
             />
-            <AgentTicker agentStatuses={agentStatuses} agentSessionInfos={agentSessionInfos} />
+            {/* No AgentTicker on mobile — too cluttered at small viewport */}
           </div>
 
           {/* SidePanel on mobile — panel below canvas, height transitions smoothly */}

@@ -16,11 +16,16 @@
 - `DirectiveState.status` gained `awaiting_completion` value
 - All frontend components updated: DirectiveProgress, OrientationBanner, IntelPanel, ProjectsPanel, FurniturePanels, GamePage, panelUtils
 
-## Pipeline Steps (2026-03-06)
-- New steps added: brainstorm, project-brainstorm, completion (report step removed)
-- Full order: triage, read, context, brainstorm, plan, audit, project-brainstorm, approve, setup, execute, wrapup, completion
-- Lightweight skips: brainstorm, project-brainstorm, audit, approve
+## Pipeline Steps (updated 2026-03-10)
+- 15 steps: triage, checkpoint, read, context, audit, brainstorm, clarification, plan, approve, project-brainstorm, setup, execute, review-gate, wrapup, completion
+- 'challenge' merged into 'brainstorm' (04-challenge.md contains brainstorm orchestration)
+- 'clarification' (04b-clarification.md) added: CEO verifies intent before COO plans
+- Audit runs BEFORE brainstorm/plan (audit data feeds into brainstorm + COO planning)
+- Skip sets: lightweight='brainstorm', medium='brainstorm', heavyweight='', strategic=''
+- Clarification is auto-approved (not skipped) for lightweight/medium
+- Approve is auto-approved (not skipped) for lightweight/medium
 - Completion step gets `needsAction=true` when directive status is `awaiting_completion`
+- validate-gate.sh enforces prerequisite chain; directive-watcher.ts has STALE step order (needs update)
 
 ## PlatformAdapter / ClaudeCodeAdapter (2026-03-07)
 - `server/platform/types.ts` defines PlatformAdapter interface + AggregatorHandle
@@ -46,3 +51,9 @@
 - `npx tsc --noEmit` -- checks all project references (server + frontend)
 - `npx vite build` -- frontend build (can succeed when tsc fails, always run both)
 - NEVER use `npm run lint` -- ESLint OOMs on this project
+
+## Bash 3.2 compatibility (2026-03-10)
+- macOS ships bash 3.2.57 -- do NOT use `declare -A` (associative arrays) or `local` outside functions
+- Use parallel indexed arrays instead of associative arrays for key-value tracking
+- `bash -n script.sh` validates syntax without running -- use this as a quick pre-flight check
+- Scripts in `.claude/hooks/` and `.claude/skills/` must target bash 3.2 since they run on macOS

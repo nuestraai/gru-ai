@@ -9,7 +9,9 @@
   "pipeline": {
     "triage": {
       "status": "completed",
-      "agent": "CEO",
+      "agent": [
+        "ceo"
+      ],
       "output": {
         "summary": "Classified as medium.",
         "weight": "medium"
@@ -17,21 +19,27 @@
     },
     "read": {
       "status": "completed",
-      "agent": "CEO",
+      "agent": [
+        "ceo"
+      ],
       "output": {
         "summary": "Directive read and JSON created."
       }
     },
     "context": {
       "status": "completed",
-      "agent": "CEO",
+      "agent": [
+        "ceo"
+      ],
       "output": {
         "summary": "Context loaded. ~25 files reference category."
       }
     },
     "plan": {
       "status": "completed",
-      "agent": "COO",
+      "agent": [
+        "morgan"
+      ],
       "output": {
         "summary": "Single project: remove-category-field. Devon builds, Sarah reviews."
       },
@@ -41,28 +49,36 @@
     },
     "audit": {
       "status": "completed",
-      "agent": "CTO",
+      "agent": [
+        "sarah"
+      ],
       "output": {
         "summary": "82 directive.json + 19 project.json + 12 plan.json. 24 source files. Key risk: game visual gate needs path-based replacement."
       }
     },
     "approve": {
       "status": "completed",
-      "agent": "CEO",
+      "agent": [
+        "ceo"
+      ],
       "output": {
         "summary": "Auto-approved (medium weight)."
       }
     },
     "project-brainstorm": {
       "status": "completed",
-      "agent": "CTO",
+      "agent": [
+        "sarah"
+      ],
       "output": {
         "summary": "4 tasks: JSON artifacts, server+MCP, frontend+hooks, docs+CLAUDE.md."
       }
     },
     "execute": {
       "status": "completed",
-      "agent": "devon",
+      "agent": [
+        "devon"
+      ],
       "output": {
         "summary": "All 4 tasks completed. 114 JSON files stripped, 30+ source/doc files updated. Type-check passes. Zero remaining category references in framework code."
       }

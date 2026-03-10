@@ -69,6 +69,10 @@ export interface InteractionPoint {
   activityDurationMin: number
   /** Maximum activity duration in seconds */
   activityDurationMax: number
+  /** If set, agent snaps to this tile (a blocked chair/couch) and sits down */
+  seatCol?: number
+  /** If set, agent snaps to this row (a blocked chair/couch) and sits down */
+  seatRow?: number
 }
 
 /** 2D array of hex color strings (or '' for transparent). [row][col] */
@@ -201,7 +205,10 @@ export interface OfficeLayout {
 }
 
 /** Agent status from backend session state */
-export type AgentStatus = 'working' | 'idle'
+export type AgentStatus = 'working' | 'idle' | 'offline'
+
+/** Idle duration tier for visual differentiation */
+export type IdleTier = 'recent' | 'moderate' | 'long'
 
 /** Context data threaded from the session/activity layer */
 export interface SessionInfo {
@@ -267,6 +274,8 @@ export interface Character {
   folderName?: string
   /** Current agent status from backend (working/waiting/idle/error/offline) */
   agentStatus: AgentStatus
+  /** Idle duration tier — derived from sessionInfo.lastActivityMs */
+  idleTier: IdleTier
   /** Context data from session/activity for tooltip/panel display */
   sessionInfo: SessionInfo
   /** Pending status waiting to be applied after debounce delay */
@@ -305,4 +314,10 @@ export interface Character {
   activityType: FurnitureActivityType | null
   /** True when the character is snapped to their seat (sitting or idle-at-desk) */
   isSeated: boolean
+  /** Current social chat emoji string, or null when not chatting */
+  chatEmoji: string | null
+  /** Timer for chat emoji show/hide cycle (counts down; >0 = showing, <=0 = cooldown) */
+  chatEmojiTimer: number
+  /** True when chat emoji is in the visible phase of the cycle */
+  chatEmojiVisible: boolean
 }

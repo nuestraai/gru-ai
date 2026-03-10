@@ -2,7 +2,7 @@
 
 ## Step 0: Check for Existing Progress
 
-Check if `.context/directives/$ARGUMENTS.json` exists AND has a `current_step` field (indicating previous execution progress).
+Check if `.context/directives/$ARGUMENTS/directive.json` exists AND has a `current_step` field (indicating previous execution progress).
 
 **If not found or no `current_step`:** Proceed to the read step normally.
 

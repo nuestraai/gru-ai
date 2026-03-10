@@ -26,7 +26,30 @@ Create `.context/directives/$ARGUMENTS/directive.json` if it doesn't already exi
   "weight": "{classification from triage: lightweight | medium | heavyweight | strategic}",
   "produced_features": [],
   "report": null,
-  "backlog_sources": []
+  "backlog_sources": [],
+  "dod": {
+    "success_looks_like": [],
+    "failure_looks_like": [],
+    "quality_bar": "",
+    "examples": []
+  }
 }
 ```
+
+### Extract directive-level DOD from the CEO brief
+
+After creating directive.json, scan the CEO brief (directive.md) and extract a best-effort definition of done into `directive.json.dod`. This is the CEO's intent translated into structured acceptance criteria.
+
+**How to extract each field:**
+
+1. **success_looks_like** -- Look for phrases describing desired outcomes, goals, or "I want X to happen." Convert each into a concrete, verifiable statement. One array entry per distinct outcome.
+2. **failure_looks_like** -- Look for complaints about the current state, phrases like "the problem is...", "this doesn't work because...", or "stop doing X." Invert these into failure conditions. If the brief says "agents ignore the brainstorm output", the failure condition is "Builder output diverges from brainstorm without documented rationale."
+3. **quality_bar** -- Synthesize the brief's overall standard into one sentence. If the brief mentions specific metrics, thresholds, or comparisons ("better than X", "zero regressions", "passes on first review"), use those. If no explicit bar exists, leave empty -- the clarification step will ask.
+4. **examples** -- Extract any before/after scenarios, reference implementations, or concrete illustrations the CEO provides. Format as "Before: ... / After: ..." strings. If the brief has none, leave the array empty.
+
+**Important:** This extraction is best-effort. The clarification step will present the extracted DOD back to the CEO for verification. Do not block on incomplete extraction -- empty fields are acceptable at this stage.
+
+### Update directive.json
+
+Set `current_step: "context"` (the next step). Update `pipeline.read.status` to `"completed"` with output summary including the directive title, weight, and DOD extraction status.
 

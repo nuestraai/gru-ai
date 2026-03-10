@@ -20,7 +20,9 @@
   "pipeline": {
     "triage": {
       "status": "completed",
-      "agent": "CEO",
+      "agent": [
+        "ceo"
+      ],
       "output": {
         "summary": "Medium weight — modifies execution pipeline doc to add design-first flow for UI tasks.",
         "weight": "medium"
@@ -28,21 +30,27 @@
     },
     "read": {
       "status": "completed",
-      "agent": "CEO",
+      "agent": [
+        "ceo"
+      ],
       "output": {
         "summary": "Directive read — add design step before build for UI tasks, with builder agreement/CEO escalation."
       }
     },
     "context": {
       "status": "completed",
-      "agent": "CEO",
+      "agent": [
+        "ceo"
+      ],
       "output": {
         "summary": "Read 09-execute-projects.md, phase-definitions.md, casting-rules.md, lessons/orchestration.md, lessons/skill-design.md."
       }
     },
     "plan": {
       "status": "completed",
-      "agent": "COO",
+      "agent": [
+        "morgan"
+      ],
       "output": {
         "summary": "Single project: add visual-design phase to execution pipeline with detection heuristic, builder acceptance gate, CEO escalation.",
         "projects_count": 1
@@ -50,14 +58,18 @@
     },
     "audit": {
       "status": "skipped",
-      "agent": "CTO",
+      "agent": [
+        "sarah"
+      ],
       "output": {
         "summary": "Skipped — medium weight doc-only changes, files already read in context step."
       }
     },
     "approve": {
       "status": "completed",
-      "agent": "CEO",
+      "agent": [
+        "ceo"
+      ],
       "output": {
         "decision": "auto-approved",
         "summary": "Medium weight — auto-approved per pipeline rules"
@@ -65,7 +77,10 @@
     },
     "project-brainstorm": {
       "status": "completed",
-      "agent": "CTO + COO",
+      "agent": [
+        "sarah",
+        "morgan"
+      ],
       "output": {
         "summary": "3 tasks decomposed: visual-design phase in 09-execute, builder prompt update, phase-definitions + casting-rules updates."
       }
@@ -78,7 +93,9 @@
     },
     "execute": {
       "status": "completed",
-      "agent": "COO",
+      "agent": [
+        "morgan"
+      ],
       "output": {
         "summary": "All 3 tasks completed. Modified 09-execute-projects.md (visual-design phase, builder acceptance gate, CEO escalation, builder constraint prompt, design-review update), phase-definitions.md (new phase + patterns), casting-rules.md (Quinn pre-build role)."
       }
@@ -97,7 +114,9 @@
     },
     "completion": {
       "status": "completed",
-      "agent": "CEO"
+      "agent": [
+        "ceo"
+      ]
     }
   },
   "projects": [

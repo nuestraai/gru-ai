@@ -17,7 +17,9 @@
   "pipeline": {
     "triage": {
       "status": "completed",
-      "agent": "CEO",
+      "agent": [
+        "ceo"
+      ],
       "output": {
         "summary": "Heavyweight — full panel rewrite with design rethinking. CEO wants brainstorm on content/naming/structure.",
         "weight": "heavyweight"
@@ -25,21 +27,28 @@
     },
     "read": {
       "status": "completed",
-      "agent": "CEO",
+      "agent": [
+        "ceo"
+      ],
       "output": {
         "summary": "Read current OpsPanel.tsx (506 lines), types.ts, SidePanel.tsx, vision.md, dashboard-store.ts. Current panel built around dead categories/features/backlogs model."
       }
     },
     "context": {
       "status": "completed",
-      "agent": "CEO",
+      "agent": [
+        "ceo"
+      ],
       "output": {
         "summary": "Available data: sessions, directiveState, activeDirectives, directiveHistory, teams, tasksBySession, workState (features, backlogs, conductor, index), sessionActivities, connected. Other panels cover: Team (agents), Tasks (directives+projects), Log (activity feed)."
       }
     },
     "brainstorm": {
       "status": "completed",
-      "agent": "Marcus, Sarah",
+      "agent": [
+        "marcus",
+        "sarah"
+      ],
       "output": {
         "summary": "Unanimous: rename to Status, kill dead features/backlogs model, build on activeDirectives+sessions. 4 sections: System Vitals KPI, Active Directives with pipeline progress, Velocity (7d throughput), Session Health bar."
       },
@@ -49,21 +58,27 @@
     },
     "plan": {
       "status": "completed",
-      "agent": "Morgan",
+      "agent": [
+        "morgan"
+      ],
       "output": {
         "summary": "Single project: status-panel-rewrite (P0, moderate). Riley builds, Sarah reviews. Full rewrite + 7-file rename."
       }
     },
     "audit": {
       "status": "completed",
-      "agent": "Sarah",
+      "agent": [
+        "sarah"
+      ],
       "output": {
         "summary": "22 rename items across 7 files. All data available in existing store. No server changes needed."
       }
     },
     "approve": {
       "status": "completed",
-      "agent": "CEO",
+      "agent": [
+        "ceo"
+      ],
       "output": {
         "summary": "CEO approved plan as-is.",
         "decision": "approved"
@@ -71,35 +86,46 @@
     },
     "project-brainstorm": {
       "status": "completed",
-      "agent": "Sarah, Riley",
+      "agent": [
+        "sarah",
+        "riley"
+      ],
       "output": {
         "summary": "2 tasks decomposed: rename-ops-to-status (22 items across 6 files) and build-status-panel (4 sections: Vitals, Active Directives, Velocity, Session Health). Sequential execution."
       }
     },
     "setup": {
       "status": "completed",
-      "agent": "CEO",
+      "agent": [
+        "ceo"
+      ],
       "output": {
         "summary": "Using existing 'game' branch. No worktree needed."
       }
     },
     "execute": {
       "status": "completed",
-      "agent": "Riley",
+      "agent": [
+        "riley"
+      ],
       "output": {
         "summary": "Both tasks completed. Task 1: 22 rename items across 6 files. Task 2: StatusPanel.tsx created (503 lines) with 4 sections, OpsPanel.tsx deleted. TypeScript compiles clean."
       }
     },
     "review-gate": {
       "status": "completed",
-      "agent": "Sarah",
+      "agent": [
+        "sarah"
+      ],
       "output": {
         "summary": "Code review found 2 issues in useBadgeCounts.ts: (1) stale 'Ops' JSDoc comment, (2) dead workState.features badge logic. Both fixed — badge now counts from activeDirectives (failed steps). Re-verified: tsc clean, zero leftover 'ops' references."
       }
     },
     "wrapup": {
       "status": "completed",
-      "agent": "CEO",
+      "agent": [
+        "ceo"
+      ],
       "output": {
         "summary": "All 9 DOD criteria met. StatusPanel replaces OpsPanel with system overview: vitals, active directives, velocity, session health. Dead features/backlogs code removed from both panel and badge logic."
       }

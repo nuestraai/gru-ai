@@ -48,7 +48,9 @@
   "pipeline": {
     "triage": {
       "status": "completed",
-      "agent": "CEO",
+      "agent": [
+        "ceo"
+      ],
       "output": {
         "weight": "medium",
         "rationale": "Data model + watcher + UI across ~8 files, clear CEO requirements"
@@ -56,21 +58,27 @@
     },
     "read": {
       "status": "completed",
-      "agent": "CEO",
+      "agent": [
+        "ceo"
+      ],
       "output": {
         "summary": "Ad-hoc directive from CEO — consolidate 3 files into 1, rich stepper UI"
       }
     },
     "context": {
       "status": "completed",
-      "agent": "CEO",
+      "agent": [
+        "ceo"
+      ],
       "output": {
         "summary": "Read vision.md, state-management lessons, checkpoint schema, all 7 pipeline docs, directive-json schema"
       }
     },
     "plan": {
       "status": "completed",
-      "agent": "Morgan",
+      "agent": [
+        "morgan"
+      ],
       "output": {
         "goal": "Workflow Orchestration + UI",
         "initiatives": "3: merge schema, update watcher, rich UI"
@@ -81,28 +89,37 @@
     },
     "audit": {
       "status": "completed",
-      "agent": "Sarah",
+      "agent": [
+        "sarah"
+      ],
       "output": {
         "summary": "6 pipeline docs write to checkpoint, watcher stitches 3 files (current.json + checkpoint + project.json), stepper shows sparse key-value artifacts"
       }
     },
     "approve": {
       "status": "completed",
-      "agent": "CEO",
+      "agent": [
+        "ceo"
+      ],
       "output": {
         "decision": "Auto-approved (medium)"
       }
     },
     "setup": {
       "status": "completed",
-      "agent": "CEO",
+      "agent": [
+        "ceo"
+      ],
       "output": {
         "mode": "Inline (no worktree)"
       }
     },
     "execute": {
       "status": "completed",
-      "agent": "Jordan, Riley",
+      "agent": [
+        "jordan",
+        "riley"
+      ],
       "reviewers": [
         "Sarah"
       ],
@@ -113,14 +130,18 @@
     },
     "wrapup": {
       "status": "completed",
-      "agent": "CEO",
+      "agent": [
+        "ceo"
+      ],
       "output": {
         "summary": "All 12 DOD criteria verified by Sarah. Lessons updated."
       }
     },
     "report": {
       "status": "completed",
-      "agent": "CEO",
+      "agent": [
+        "ceo"
+      ],
       "output": {
         "summary": "Directive complete — 3 initiatives delivered"
       }

@@ -16,7 +16,9 @@
   "pipeline": {
     "triage": {
       "status": "completed",
-      "agent": "CEO",
+      "agent": [
+        "ceo"
+      ],
       "output": {
         "weight": "medium",
         "summary": "Downgraded from strategic to medium after CEO clarification."
@@ -30,14 +32,18 @@
     },
     "read": {
       "status": "completed",
-      "agent": "CEO",
+      "agent": [
+        "ceo"
+      ],
       "output": {
         "summary": "Read directive.md — CEO decided to remove all non-game UI entirely."
       }
     },
     "context": {
       "status": "completed",
-      "agent": "CEO",
+      "agent": [
+        "ceo"
+      ],
       "output": {
         "summary": "Read vision.md, lessons, reviewed all dashboard and game components, router, sidebar."
       }
@@ -50,7 +56,10 @@
     },
     "brainstorm": {
       "status": "completed",
-      "agent": "Sarah, Marcus",
+      "agent": [
+        "sarah",
+        "marcus"
+      ],
       "output": {
         "summary": "Brainstorm completed but CEO pivoted to full removal of non-game UI.",
         "decision": "Remove all non-game UI — game is the only view"
@@ -61,7 +70,9 @@
     },
     "plan": {
       "status": "completed",
-      "agent": "Morgan",
+      "agent": [
+        "morgan"
+      ],
       "output": {
         "summary": "Single project: strip router, delete all non-game pages, verify game works. Riley builds, Sarah reviews.",
         "projects": 1
@@ -72,7 +83,9 @@
     },
     "audit": {
       "status": "completed",
-      "agent": "Sarah",
+      "agent": [
+        "sarah"
+      ],
       "output": {
         "summary": "5 active files identified. Scope pivoted from toggle to full removal.",
         "active_files": 5,
@@ -84,14 +97,18 @@
     },
     "approve": {
       "status": "completed",
-      "agent": "CEO",
+      "agent": [
+        "ceo"
+      ],
       "output": {
         "summary": "CEO approved full removal of all non-game UI."
       }
     },
     "project-brainstorm": {
       "status": "completed",
-      "agent": "Sarah",
+      "agent": [
+        "sarah"
+      ],
       "output": {
         "summary": "3 tasks: strip-router-and-layout, delete-page-components, verify-and-clean."
       },
@@ -101,35 +118,45 @@
     },
     "setup": {
       "status": "completed",
-      "agent": "CEO",
+      "agent": [
+        "ceo"
+      ],
       "output": {
         "summary": "Working on existing game branch."
       }
     },
     "execute": {
       "status": "completed",
-      "agent": "Riley",
+      "agent": [
+        "riley"
+      ],
       "output": {
         "summary": "All tasks completed. Router stripped to single game route. Deleted 6 page directories, 13 unused UI components, 7 dead server routes, scheduler/foreman (~280 lines), 4 dead scripts, Sonner, legacy CSS aliases, unused dependencies. TypeScript compiles clean."
       }
     },
     "review-gate": {
       "status": "completed",
-      "agent": "Sarah",
+      "agent": [
+        "sarah"
+      ],
       "output": {
         "summary": "Two review passes. Initial: all 5 DOD criteria pass. Deep audit: found 13 more UI files, dead server routes, dead store properties, unused deps — all cleaned and re-verified."
       }
     },
     "wrapup": {
       "status": "completed",
-      "agent": "CEO",
+      "agent": [
+        "ceo"
+      ],
       "output": {
         "summary": "Deep cleanup completed. Scheduler rebuild deferred to future directive."
       }
     },
     "completion": {
       "status": "completed",
-      "agent": "CEO",
+      "agent": [
+        "ceo"
+      ],
       "output": {
         "summary": "CEO approved completion. App is now game-only."
       }
