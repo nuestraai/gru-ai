@@ -66,11 +66,11 @@ After completing a step and updating directive.json, **immediately** read the ne
 
 **STOP gates — the only points where you must stop and wait for the CEO:**
 
-1. **`clarification`** — heavyweight/strategic directives only. Present synthesized intent for CEO verification. Lightweight and medium auto-approve.
-2. **`approve`** — heavyweight/strategic directives only. Lightweight and medium directives auto-approve and skip this gate entirely.
+1. **`clarification`** — heavyweight/strategic: STOP and present synthesized intent for CEO verification. Lightweight/medium: **still run the step** (synthesize intent) but auto-approve without stopping. Do NOT skip this step — the verified_intent output feeds the COO planner.
+2. **`approve`** — heavyweight/strategic: STOP and present plan for CEO approval. Lightweight/medium: auto-approve without stopping.
 3. **`completion`** — all weights. The CEO must approve, amend, extend, or redirect the directive.
 
-At every other step, transition directly to the next step without delay. If a step is skipped for the current weight class, advance past it and continue to the next applicable step.
+At every other step, transition directly to the next step without delay. If a step is skipped for the current weight class (brainstorm for lightweight/medium), set its status to "skipped" in directive.json and advance to the next step.
 
 ### Pipeline Steps
 
