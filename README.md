@@ -36,7 +36,9 @@ The system is designed for **depth, not speed.** Agents accumulate institutional
 
 **You make decisions. Agents make software.** Every directive flows through a 15-step pipeline — triage, audit, brainstorm, plan, build, review, and ship — grounded in published research from Anthropic and OpenAI on what actually makes AI output reliable.
 
-### gruAI is right for you if:
+---
+
+## Is gruAI Right for You?
 
 - ✅ You're running 10+ terminals, juggling context, reprompting the same mistakes — and you want to hand down a directive and walk away
 - ✅ You've been burned by agents that "review" their own code — you want reviews that are mandatory, mechanical, and impossible to skip
@@ -44,6 +46,113 @@ The system is designed for **depth, not speed.** Agents accumulate institutional
 - ✅ You're the bottleneck for every decision, every prompt, every context refresh — you want to be the CEO, not the project manager
 - ✅ You like running a one-person company with a full AI team, and you want it to actually feel that way — not like managing a chatbot farm
 - ✅ You want agents that push back on your ideas before building, not agents that say yes and ship the wrong thing
+
+---
+
+## The Pipeline
+
+You type: `/directive Create a landing page for gruAI`. Here's what happens next.
+
+**1. Triage** — *Automated*
+
+Classified **heavyweight** — touches copy, layout, SEO, and design across multiple files. Each agent gets [role-scoped context](https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents): the CTO gets your tech stack and component patterns, the CMO gets your positioning docs, engineers get your existing layout system. Not a 200K-token dump. [Start simple, add complexity only when needed.](https://www.anthropic.com/research/building-effective-agents)
+
+**2. Audit** — *QA Engineer → CTO*
+
+QA scans the codebase: finds the existing `/app` route structure, the Tailwind config, that there's no `og:image` setup, and that the current root page is a placeholder. CTO recommends: reuse the existing layout components, add Open Graph meta from the start, keep it server-rendered for SEO — no need for a SPA or a CMS.
+
+**3. Debate** — *CTO + CPO + CMO*
+
+**You're not in the room.** The C-suite agents independently propose approaches, then [argue](https://www.anthropic.com/engineering/multi-agent-research-system):
+
+> **CTO:** *"Static HTML page. One task, no framework overhead. We don't need React for a landing page — it's marketing content, not an app."*
+>
+> **CPO:** *"A static page won't convert. Developers want to see the product work before they install anything. We need an interactive demo or at minimum an embedded video walkthrough."*
+>
+> **CMO:** *"Neither matters if nobody finds it. An SPA landing page is invisible to Google. Server-rendered with proper meta tags, structured data, and a clear CTA — or we're building for an audience of zero."*
+
+They find common ground: server-rendered page with an embedded demo video. Then they surface 3 questions for you.
+
+**4. Clarify** — 👤 **You**
+
+You answer 3 questions: *"Should the demo be live or a video?"* → video for now. *"Target audience — developers or technical founders?"* → developers first. *"Ship under /landing or replace the root?"* → replace root, the current placeholder adds no value.
+
+**5. Plan** — *COO* → 👤 **You**
+
+COO breaks it into 2 projects with 6 tasks:
+- **Project 1:** Full-stack engineer builds page structure — hero with tagline and demo video, feature grid with pipeline highlights, agent team section, and Open Graph meta. 4 tasks.
+- **Project 2:** Frontend engineer builds responsive layout — mobile breakpoints, CTA positioning, and dark mode support. 2 tasks.
+
+CTO reviews both projects. Each task has a Definition of Done: *"Hero section renders demo video with fallback image, loads in under 2s on 3G."* **You approve the plan** before any code is written.
+
+**6. Build** — *Engineers*
+
+Full-stack engineer builds the hero section, feature grid, and OG meta on an isolated git branch. Each task runs in a [clean context window](https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents) — the agent building the hero section doesn't carry leftover context from the meta tags task. After each task, a [separate reviewer evaluates with fresh context](https://www.anthropic.com/research/building-effective-agents) — no builder reasoning, no confirmation bias.
+
+**7. Review** — *Reviewers + Automated*
+
+> **Round 1:** CTO reviews the hero section. Finds 3 issues: missing `<meta description>` tag (SEO blind spot), layout breaks below 375px on the feature grid (iPhone SE), and no `loading="lazy"` on the demo video (kills page speed score). Sends findings back to builder with specific file locations and expected fixes.
+>
+> **Round 2:** Builder fixes all three. CTO reviews again with fresh context — doesn't remember giving the feedback, evaluates the code on its own merit. Finds one remaining issue: `#aaa` text on `#fff` background in the feature section fails WCAG AA contrast (4.5:1 required, got 2.7:1). Builder bumps to `#595959`. **Passes.**
+
+Bash scripts [verify](https://openai.com/index/harness-engineering/) every task was reviewed by a different agent than the one that built it. No review can be skipped, faked, or self-certified. This [evaluator-optimizer loop](https://www.anthropic.com/research/building-effective-agents) runs up to 3 rounds per task.
+
+**8. Ship** — *Automated*
+
+Lessons captured: *"Always add OG meta tags when creating new pages"* and *"Check WCAG contrast on all text colors."* Design docs updated with the new route structure. CEO digest generated with all 8 files changed, both review rounds summarized, and `git revert` commands ready if needed. [Knowledge persists](https://arxiv.org/abs/2602.20478) — next time someone creates a page, agents already know about the OG tags.
+
+**9. Accept** — 👤 **You**
+
+You see the digest: 8 files changed, 2 review rounds, all 6 DOD criteria met, zero open issues. You open the page in your browser, check mobile, and approve. Or you say *"the hero copy needs work"* — and a targeted fix runs through the same pipeline with its own review.
+
+> *The pipeline runs 15 internal steps. Context loading, crash recovery, git isolation, and lesson extraction run automatically between the steps above.*
+
+### Weight Adaptation
+
+Not every directive needs the full process.
+
+| Weight | Example | Skips | You Decide At |
+|--------|---------|-------|---------------|
+| **Lightweight** | Fix a typo | Debate | Accept only |
+| **Medium** | Add dark mode | Debate | Accept only |
+| **Heavyweight** | New landing page | Nothing | Clarify + Plan + Accept |
+| **Strategic** | Platform migration | Nothing | Clarify + Plan + Accept |
+
+---
+
+## Your Team
+
+gruAI ships with 11 customizable agents. You are the CEO — everyone reports to you.
+
+```mermaid
+graph TD
+    CEO["👤 CEO (You)<br/>Direction & Approvals"]
+    CTO["CTO<br/>Architecture & Code Quality"]
+    CPO["CPO<br/>Product & UX"]
+    COO["COO<br/>Planning & Orchestration"]
+    CMO["CMO<br/>Growth & Positioning"]
+    BE["Backend<br/>Engineer"]
+    DE["Data<br/>Engineer"]
+    FS["Full-Stack<br/>Engineer"]
+    FE["Frontend<br/>Engineer"]
+    UX["UI/UX<br/>Designer"]
+    QA["QA<br/>Engineer"]
+    CB["Content<br/>Builder"]
+
+    CEO --> CTO
+    CEO --> CPO
+    CEO --> COO
+    CEO --> CMO
+    CTO --> BE
+    CTO --> DE
+    CTO --> FS
+    CPO --> FE
+    CPO --> UX
+    CPO --> QA
+    CMO --> CB
+```
+
+C-suite agents have **institutional memory** — lessons and corrections persist across directives. Engineers spawn per-task with fresh context. All agents are markdown files in `.claude/agents/` — add, rename, or customize freely.
 
 ---
 
@@ -92,81 +201,6 @@ The pipeline will triage it as lightweight, skip the heavy analysis phases, and 
 The pipeline and dashboard are engine-agnostic by design — platform adapters handle the differences.
 
 </details>
-
----
-
-## The Pipeline
-
-You say *"add a payment system."* The pipeline takes it from here.
-
-| # | Step | Who | What Happens |
-|:-:|------|-----|-------------|
-| 1 | **Triage** | Automated | Classifies your directive by weight. *"Add a payment system"* spans API, database, and UI — classified **heavyweight**. Loads relevant [context per role](https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents), not a 200K-token dump. [Start simple, add complexity only when needed.](https://www.anthropic.com/research/building-effective-agents) |
-| 2 | **Audit** | QA Engineer → CTO | Two-agent sequential audit. QA scans the codebase (which files, what state, what breaks). Then the CTO recommends approaches — identifies existing API patterns, database schema, and security considerations. |
-| 3 | **Debate** | CTO + CPO + CMO | **Agents only — you're not in the room.** C-suite agents independently propose approaches, then [argue among themselves](https://www.anthropic.com/engineering/multi-agent-research-system). CTO pushes for Stripe, CPO argues for simpler in-house billing, CMO flags pricing page implications. They surface 3 questions for you. |
-| 4 | **Clarify** | 👤 **You** | **You answer the 3 questions** from the debate. Catching misalignment here costs one interaction instead of a full reopen. |
-| 5 | **Plan** | COO → 👤 **You** | COO decomposes into projects, assigns agents and reviewers, breaks tasks down with Definition of Done criteria. Payment system → 2 projects: backend engineer builds API, frontend engineer builds UI. CTO reviews both. **You approve the plan** before any code is written. |
-| 6 | **Build** | Engineers | Builders work through tasks on an isolated branch. After each task, a [separate reviewer evaluates with fresh context](https://www.anthropic.com/research/building-effective-agents) — no builder reasoning, no confirmation bias. |
-| 7 | **Review** | Reviewers + Automated | **The quality guarantee.** See below. |
-| 8 | **Ship** | Automated | Lessons captured, design docs updated, CEO digest generated with files changed, review results, and revert commands. [Knowledge persists](https://arxiv.org/abs/2602.20478) for future directives. |
-| 9 | **Accept** | 👤 **You** | You review the digest and decide: approve, amend, or reopen. The pipeline never ships without your sign-off. |
-
-> *The pipeline runs 15 internal steps. Context loading, crash recovery, git isolation, and lesson extraction run automatically between the steps above.*
-
-### The Review System
-
-Every task is reviewed by a **different agent** than the one that built it. The reviewer never sees the builder's reasoning or chain of thought — only the code, the diff, and your original requirements. This prevents confirmation bias.
-
-Reviews check two things. First, **code quality**: bugs, edge cases, data flow issues. Second — and this is what separates gruAI from a linter — **intent alignment**: does the build actually deliver what you asked for? The reviewer walks through your user scenario, verifies every Definition of Done criterion, and checks that your standing corrections were respected. A build that compiles but doesn't match your intent is a failed review.
-
-When a review fails, the builder gets the findings and fixes the issues. The reviewer evaluates again with fresh context. This [evaluator-optimizer loop](https://www.anthropic.com/research/building-effective-agents) runs up to 3 times per task — each cycle narrows the gap between what you asked for and what was built.
-
-After all tasks pass, bash scripts — not LLMs — [mechanically verify](https://openai.com/index/harness-engineering/) that every task was reviewed by a separate agent, every DOD criterion was evaluated, and review artifacts exist on disk. No review can be skipped, abbreviated, or self-certified.
-
-### Weight Adaptation
-
-| Weight | Example | Skips | You Decide At |
-|--------|---------|-------|---------------|
-| **Lightweight** | Fix a typo | Debate | Accept only |
-| **Medium** | Add dark mode | Debate | Accept only |
-| **Heavyweight** | New payment system | Nothing | Clarify + Plan + Accept |
-| **Strategic** | Platform migration | Nothing | Clarify + Plan + Accept |
-
----
-
-## Your Team
-
-gruAI ships with 11 customizable agents. You are the CEO — everyone reports to you.
-
-```mermaid
-graph TD
-    CEO["👤 CEO (You)<br/>Direction & Approvals"]
-    CTO["CTO<br/>Architecture & Code Quality"]
-    CPO["CPO<br/>Product & UX"]
-    COO["COO<br/>Planning & Orchestration"]
-    CMO["CMO<br/>Growth & Positioning"]
-    BE["Backend<br/>Engineer"]
-    DE["Data<br/>Engineer"]
-    FS["Full-Stack<br/>Engineer"]
-    FE["Frontend<br/>Engineer"]
-    UX["UI/UX<br/>Designer"]
-    QA["QA<br/>Engineer"]
-    CB["Content<br/>Builder"]
-
-    CEO --> CTO
-    CEO --> CPO
-    CEO --> COO
-    CEO --> CMO
-    CTO --> BE
-    CTO --> DE
-    CTO --> FS
-    CPO --> FE
-    CPO --> UX
-    CPO --> QA
-    CMO --> CB
-```
-
-C-suite agents have **institutional memory** — lessons and corrections persist across directives. Engineers spawn per-task with fresh context. All agents are markdown files in `.claude/agents/` — add, rename, or customize freely.
 
 ---
 
