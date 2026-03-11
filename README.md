@@ -38,14 +38,11 @@ The system is designed for **depth, not speed.** Agents accumulate institutional
 
 **gruAI is right for you if:**
 
-✅ You want to give direction, not instructions — be the CEO, not the prompt engineer
-✅ You're tired of the prompt-review-reprompt loop and want agents that get it right the first time
-✅ You want agents that brainstorm, challenge your assumptions, and debate before writing a single line of code
+✅ You want to give direction, not write prompts — and have agents that brainstorm, challenge your thinking, and get it right without a reprompt loop
 ✅ You want mandatory code review and mechanical verification, not optional "looks good to me"
 ✅ You want institutional memory — agents that learn from mistakes and carry lessons across every task
-✅ You want a structured pipeline backed by context engineering research, not ad-hoc prompting
+✅ You want a structured pipeline backed by context engineering research, not ad-hoc agent orchestration
 ✅ You coordinate specialized roles (CTO, COO, CPO, CMO, engineers) not generic "AI assistants"
-✅ You want to watch your autonomous company run from a pixel-art office dashboard
 
 ---
 
@@ -87,7 +84,7 @@ You say *"add a payment system."* The pipeline takes it from here — 15 steps a
 
 | # | Step | Who | What Happens |
 |:-:|------|:---:|-------------|
-| 10 | :busts_in_silhouette: **Project Brainstorm** | CTO + assigned builder | Break each project into concrete tasks with Definition of Done criteria. Dark mode gets 4 tasks: theme provider, component migration, toggle UI, persistence. |
+| 10 | :busts_in_silhouette: **Project Brainstorm** | CTO + assigned builder | Break each project into concrete tasks with Definition of Done criteria. API project gets 3 tasks: Stripe integration, webhook handling, subscription management. |
 | 11 | :gear: **Setup** | System | Creates a git branch to isolate changes. |
 | 12 | :busts_in_silhouette: **Execute** | Assigned builders + reviewers | Builders work through tasks. After each task, a [separate reviewer evaluates with fresh context](https://www.anthropic.com/research/building-effective-agents) — no builder reasoning, no confirmation bias. Failed review triggers a fix cycle. |
 
@@ -104,7 +101,7 @@ You say *"add a payment system."* The pipeline takes it from here — 15 steps a
 | Weight | Example | Skips | CEO Gates |
 |--------|---------|-------|-----------|
 | **Lightweight** | Fix a typo | Brainstorm | Completion only |
-| **Medium** | Add dark mode | Brainstorm | Completion only |
+| **Medium** | Add dark mode toggle | Brainstorm | Completion only |
 | **Heavyweight** | New payment system | Nothing | Clarification + Approve + Completion |
 | **Strategic** | Platform migration | Nothing | Clarification + Approve + Completion |
 
@@ -155,6 +152,18 @@ Every point below traces to published research from Anthropic and OpenAI. This i
 
 ---
 
+## Why Not Just Use Claude Code Directly?
+
+Claude Code is the execution engine. gruAI is the management layer on top.
+
+Without gruAI, you prompt an agent, review the output, re-prompt to fix issues, manage context yourself, and hope nothing falls through the cracks. There is no review gate, no institutional memory, and no structure beyond what you hold in your head.
+
+With gruAI, you hand down a directive and agents self-organize through a 15-step pipeline. Reviews are mandatory and mechanical — a different agent reviews each task, and bash scripts verify the reviews actually happened. Lessons persist across directives so your 10th task runs better than your 1st. You approve the result, not every step along the way.
+
+gruAI doesn't replace Claude Code. It makes Claude Code work like a team instead of a solo assistant.
+
+---
+
 ## Your Team
 
 gruAI ships with 11 customizable agents. You are the CEO — everyone reports to you.
@@ -193,16 +202,37 @@ C-suite agents have **institutional memory** — lessons and corrections persist
 
 ## Quickstart
 
-In your project folder:
+### Prerequisites
+
+- **Node.js 18+** — [nodejs.org](https://nodejs.org/)
+- **Claude Code** — [install guide](https://docs.anthropic.com/en/docs/claude-code/overview)
+
+### Setup
 
 ```bash
-npx gru-ai init       # Scaffolds .context/, agents, and pipeline
-npx gru-ai start      # Launches dashboard on localhost:4444
+npx gru-ai init       # Scaffolds .context/, agents, and pipeline into your repo
 ```
 
-Then in Claude Code, run `/directive` to start your first directive.
+This creates the `.context/` directory, agent definitions in `.claude/agents/`, and pipeline skills. Your existing code is untouched.
 
-### Platform Support
+```bash
+npx gru-ai start      # Launches the dashboard on localhost:4444
+```
+
+Open [localhost:4444](http://localhost:4444) to see the session monitor and directive tracker.
+
+### Your first directive
+
+In Claude Code, run:
+
+```
+/directive Add a health check endpoint at /api/health that returns 200 OK
+```
+
+The pipeline will triage it as lightweight, skip the heavy analysis phases, and run through build + review + completion in a few minutes. Once you see how it works end-to-end, scale up to bigger directives.
+
+<details>
+<summary><strong>Platform Support</strong></summary>
 
 | Platform | Pipeline | Dashboard | Session Monitoring | Status |
 |----------|:--------:|:---------:|:------------------:|--------|
@@ -213,6 +243,8 @@ Then in Claude Code, run `/directive` to start your first directive.
 | **Cursor / Cline** | :x: | :x: | :x: | Planned |
 
 The pipeline and dashboard are engine-agnostic by design — platform adapters handle the differences.
+
+</details>
 
 ---
 

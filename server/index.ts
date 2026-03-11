@@ -553,7 +553,7 @@ const MIME_TYPES: Record<string, string> = {
 };
 
 function serveStatic(pathname: string, distDir: string, res: http.ServerResponse): void {
-  let filePath = path.join(distDir, pathname);
+  let filePath = path.join(distDir, decodeURIComponent(pathname));
 
   // Default to index.html for SPA routing
   if (!fs.existsSync(filePath) || fs.statSync(filePath).isDirectory()) {
