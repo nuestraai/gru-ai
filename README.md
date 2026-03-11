@@ -1,13 +1,6 @@
-<!-- TODO: CEO — replace with hero GIF showing the pixel-art office with agents walking, typing, and reviewing code in real time. ~10 seconds, 720px wide. -->
-<p align="center">
-  <img src="docs/assets/game-office.png" alt="gruAI pixel-art office with agents working" width="720" />
-</p>
-
 <h1 align="center">gruAI</h1>
 
-<p align="center">
-  <strong>An autonomous AI company in your terminal — with a pixel-art office to watch it happen.</strong>
-</p>
+<h3 align="center">Stop coding with AI. Start running an AI team.</h3>
 
 <p align="center">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-green" alt="MIT License" /></a>
@@ -16,86 +9,100 @@
   <a href="#"><img src="https://img.shields.io/badge/status-alpha-orange" alt="Status: Alpha" /></a>
 </p>
 
+<!-- TODO: CEO — replace with hero GIF showing the pixel-art office with agents walking, typing, and reviewing code in real time. ~10 seconds, 720px wide. -->
+<p align="center">
+  <img src="docs/assets/game-office.png" alt="gruAI pixel-art office with agents working" width="720" />
+</p>
+
 ---
 
 ## What Is gruAI?
 
-Most AI coding tools put you in the driver's seat — prompting, reviewing, re-prompting, clarifying, re-clarifying. You become a full-time AI babysitter.
+### Most AI tools help you code faster, gruAI lets you stop coding entirely.
 
-gruAI flips this. You are the CEO. You hand down a directive ("add dark mode to the dashboard"), and a team of named AI agents handles the rest:
-
-1. Your CTO audits the codebase. C-suite agents **brainstorm approaches, argue trade-offs, and challenge your assumptions** — then clarify with you before anyone writes code.
-2. Your COO decomposes the work, assigns builders and reviewers. Engineers build. Reviewers review with fresh context. A mechanical gate blocks shipping until all reviews pass.
-3. You get a digest: files changed, tests passed, review summary. Approve or reopen.
+You run your AI team just like a CEO, and the agents handle the rest: engineering, marketing, operations, and more. You hand down a directive ("add dark mode to the dashboard"). Your agents brainstorm the approach, challenge your assumptions, build, review each other's work, and ship — you approve the result.
 
 The system is designed for **depth, not speed.** Agents accumulate institutional memory across directives — lessons learned, design rationale, standing corrections. Your 10th directive runs better than your 1st because the team remembers what went wrong.
 
----
-
-## Why Is the Output Better?
-
-Every point below traces to published research from Anthropic and OpenAI. This isn't a workflow we invented — it's assembled from what the research says actually works.
-
-- **Agents brainstorm and argue before anyone writes code.** For strategic directives, your C-suite agents independently propose approaches, then deliberate — challenging assumptions, resolving disagreements, and surfacing questions for you. Anthropic's research found [multi-agent outperformed single-agent by 90.2%](https://www.anthropic.com/engineering/multi-agent-research-system). The pipeline implements their [orchestrator-workers pattern](https://www.anthropic.com/research/building-effective-agents) where specialized agents collaborate, producing better results than any single agent.
-
-- **Reviewers evaluate intent, not just code.** Each reviewer gets [fresh context](https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents) scoped to the task — they never see the builder's reasoning, preventing confirmation bias. They verify against your Definition of Done (what you asked for), not just whether the code compiles. This is Anthropic's [evaluator-optimizer pattern](https://www.anthropic.com/research/building-effective-agents): one agent generates, another evaluates, issues get fixed in-loop — not after the fact.
-
-- **Context is isolated, not accumulated.** Each agent spawns with a [clean context window](https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents) scoped to exactly what it needs. No 200K-token sessions where the model forgets what it read at the start. Anthropic's context engineering research shows accuracy degrades as token count increases — gruAI treats context as a finite resource under active degradation.
-
-- **Verification is mechanical.** Bash scripts — not LLMs — enforce pipeline integrity: schema validation, self-review prevention, step dependency checks, role assignment verification. This follows Anthropic's [poka-yoke principle](https://www.anthropic.com/research/building-effective-agents) (error-proof design) and OpenAI's finding that [invariants should be enforced through structural tests](https://openai.com/index/harness-engineering/), not judgment.
-
-- **The harness determines output quality, not model intelligence.** Anthropic found that ["the task verifier must be nearly perfect, otherwise the agent solves the wrong problem"](https://www.anthropic.com/engineering/building-c-compiler). OpenAI's team reached the same conclusion: [3 engineers produced 1M lines of code](https://openai.com/index/harness-engineering/) not by writing better prompts, but by designing better environments and feedback loops. gruAI's 15-step pipeline IS that harness.
-
-- **Memory compounds across directives.** Lessons, design rationale, and standing corrections persist in `.context/` and get loaded into every future agent. This implements the [codified context pattern](https://arxiv.org/abs/2602.20478) — hot-memory + specialized agents + cold-memory knowledge base.
-
----
-
-## Every Step Has a Reason
-
-Each pipeline step implements a specific recommendation from the research:
-
-| What the Research Says | Source | What gruAI Does |
-|------------------------|--------|-----------------|
-| Start simple, add complexity only when needed | [Building Effective Agents](https://www.anthropic.com/research/building-effective-agents) | **Triage** classifies by weight — lightweight auto-approves, strategic gets full deliberation |
-| Context rot: accuracy degrades as tokens increase | [Context Engineering](https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents) | Each agent gets **fresh, scoped context** — never a 200K-token accumulated session |
-| Multi-agent outperformed single-agent by 90.2% | [Multi-Agent Research](https://www.anthropic.com/engineering/multi-agent-research-system) | C-suite agents **brainstorm independently**, then **deliberate and argue** |
-| Give a map, not a 1,000-page manual | [Harness Engineering](https://openai.com/index/harness-engineering/) | CLAUDE.md is a ~100-line pointer file. Detail lives in `.context/` loaded just-in-time |
-| Task verifier must be nearly perfect | [Building a C Compiler](https://www.anthropic.com/engineering/building-c-compiler) | **Review gate** mechanically blocks completion without review artifacts |
-| One agent generates, another evaluates in a loop | [Building Effective Agents](https://www.anthropic.com/research/building-effective-agents) | Builder → code review → fix → standard review → fix → **review gate** |
-| Sub-agents return condensed results with clean context | [Context Engineering](https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents) | Builders return structured reports. Reviewers never see builder reasoning |
-| Persistent state survives session death | [Building a C Compiler](https://www.anthropic.com/engineering/building-c-compiler) | `directive.json` IS the checkpoint — any session reads it and resumes |
-| Human review at trust boundaries only | [Building a C Compiler](https://www.anthropic.com/engineering/building-c-compiler) | CEO gates at **approve** and **completion** — not at every step |
-| Guardrails enable speed, not impede it | [Harness Engineering](https://openai.com/index/harness-engineering/) | Every skipped step eventually caused a failure — lightweight still runs verification |
+**You make decisions. Agents make software.** Every directive flows through a 15-step pipeline — triage, audit, brainstorm, plan, build, review, and ship — grounded in published research from Anthropic and OpenAI on what actually makes AI output reliable.
 
 ---
 
 ## The Pipeline
 
-15 steps across 5 phases. The weight system adapts: lightweight tasks skip brainstorming and auto-approve. Strategic tasks get the full process with CEO gates.
+```
+ INTAKE            ANALYSIS          PLANNING          EXECUTION           VERIFICATION
+ ─────────         ────────          ────────          ─────────           ────────────
 
-**Intake:** Triage → Checkpoint → Read | **Analysis:** Context → Audit → Brainstorm | **Planning:** Clarification → Plan → Approve | **Execution:** Project Brainstorm → Setup → Execute | **Verification:** Review Gate → Wrapup → Completion
+ Triage             Context           Clarify           Project             Review
+   │                  │               ◆ CEO               Brainstorm         Gate
+   v                  v                 │                  │                  │
+ Checkpoint         Audit               v                Setup              Wrapup
+   │                  │               Plan                 │                  │
+   v                  v                 │                   v                  v
+ Read              Brainstorm          v               Execute           ◆ Completion
+                   (heavy only)     ◆ Approve          (build +             CEO
+                                      CEO              review loop)
 
-Hard gates (require approval): **Approve** (heavyweight/strategic only), **Review Gate** (all weights), **Completion** (all weights).
+ ◆ = CEO decision gate
+```
 
-<details>
-<summary><strong>Worked Example: "Rewrite the README"</strong></summary>
+> **Running example:** You say *"add dark mode to the dashboard."* The pipeline takes it from here.
 
-This README was built through the pipeline as a **strategic** directive:
+| Icon | Meaning |
+|:----:|---------|
+| :gear: | **System step** — automated, no agent or human involved |
+| :busts_in_silhouette: | **Agent step** — one or more AI agents do the work |
+| :diamond_shape_with_a_dot_inside: | **CEO gate** — pipeline pauses for your decision |
 
-| Step | What Happens |
-|------|-------------|
-| **Triage** | Classified as **strategic** — external research, cross-domain content decisions |
-| **Audit** | The CTO identifies 10 messaging gaps and 3 existing assets |
-| **Brainstorm** | CTO, CPO, and CMO independently propose approaches, then **argue trade-offs in a deliberation round**. All 3 reject "revolutionary" language. They disagree on line count and resolve at 250-350. They surface 3 questions for the CEO. |
-| **Clarification** | CEO answers the 3 questions, adds constraint: "multi-platform is roadmap, not shipped" |
-| **Plan** | COO assigns a content builder and a CMO reviewer |
-| **Execute** | Builder researches 7 competitors, verifies citation URLs, writes README. Reviewer evaluates with fresh context — no builder reasoning. |
-| **Review Gate** | Validation script confirms: no self-review, all 10 DOD criteria verified by reviewer |
-| **Completion** | CEO reviews digest: approve, amend, or reopen |
+### Phase 1: Intake
 
-For lighter work (e.g., "fix a typo"), the pipeline skips brainstorming and auto-approves — same verification, less ceremony.
+| # | Step | Who | What Happens |
+|:-:|------|:---:|-------------|
+| 1 | :gear: **Triage** | System | Classifies your directive by weight: lightweight, medium, heavyweight, or strategic. *"Add dark mode"* touches theming, components, and preferences — classified **medium**. [Start simple, add complexity only when needed.](https://www.anthropic.com/research/building-effective-agents) |
+| 2 | :gear: **Checkpoint** | System | Checks for prior progress. If a session died mid-execution, it reads `directive.json` and [resumes from the last completed step](https://www.anthropic.com/engineering/building-c-compiler) — no work is lost. |
+| 3 | :gear: **Read** | System | Parses your directive brief, creates structured metadata, and extracts your Definition of Done. |
 
-</details>
+### Phase 2: Analysis
+
+| # | Step | Who | What Happens |
+|:-:|------|:---:|-------------|
+| 4 | :gear: **Context** | System | Loads lessons, design docs, and intel — [scoped to what this directive needs](https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents), not a 200K-token dump. |
+| 5 | :busts_in_silhouette: **Audit** | QA Engineer, then CTO | Two-agent sequential audit. QA scans the codebase (pure facts: which files, what state, what breaks). Then the CTO recommends approaches. For dark mode: identifies 14 component files using hardcoded colors, flags the theme provider as the integration point. |
+| 6 | :busts_in_silhouette: **Brainstorm** | CTO + CPO + CMO | *(Heavyweight/strategic only — skipped for medium.)* C-suite agents independently propose approaches, then [deliberate and argue](https://www.anthropic.com/engineering/multi-agent-research-system). For dark mode, the audit already provides enough grounding. |
+
+### Phase 3: Planning
+
+| # | Step | Who | What Happens |
+|:-:|------|:---:|-------------|
+| 7 | :diamond_shape_with_a_dot_inside: **Clarification** | System → **CEO confirms** | Synthesizes intent from your brief, audit findings, and brainstorm. Surfaces conflicts and gaps. For heavyweight/strategic, the CEO confirms before planning — catching misalignment here costs one interaction instead of a full reopen. *(Auto for medium.)* |
+| 8 | :busts_in_silhouette: **Plan** | COO | Decomposes the directive into projects, assigns agents and reviewers. Dark mode → one project: a Frontend Engineer builds, the CPO reviews. |
+| 9 | :diamond_shape_with_a_dot_inside: **Approve** | **CEO reviews plan** | CEO reviews the plan before any code is written. [Human review at trust boundaries only](https://www.anthropic.com/engineering/building-c-compiler) — you gate the plan and the result, not every step in between. *(Auto for lightweight/medium.)* |
+
+### Phase 4: Execution
+
+| # | Step | Who | What Happens |
+|:-:|------|:---:|-------------|
+| 10 | :busts_in_silhouette: **Project Brainstorm** | CTO + assigned builder | Break each project into concrete tasks with Definition of Done criteria. Dark mode gets 4 tasks: theme provider, component migration, toggle UI, persistence. |
+| 11 | :gear: **Setup** | System | Creates a git branch to isolate changes. |
+| 12 | :busts_in_silhouette: **Execute** | Assigned builders + reviewers | Builders work through tasks. After each task, a [separate reviewer evaluates with fresh context](https://www.anthropic.com/research/building-effective-agents) — no builder reasoning, no confirmation bias. Failed review triggers a fix cycle. |
+
+### Phase 5: Verification
+
+| # | Step | Who | What Happens |
+|:-:|------|:---:|-------------|
+| 13 | :gear: **Review Gate** | System | Bash scripts — not LLMs — [mechanically verify](https://openai.com/index/harness-engineering/) that every task was reviewed by a different agent, every DOD criterion was evaluated, and review artifacts exist. |
+| 14 | :gear: **Wrapup** | System | Updates lessons and design docs. Generates a CEO digest with files changed, review results, and revert commands. [Knowledge persists](https://arxiv.org/abs/2602.20478) for future directives. |
+| 15 | :diamond_shape_with_a_dot_inside: **Completion** | **CEO** | **Mandatory for all weights.** You review the digest and decide: approve (ship it), amend (fix specific issues), or reopen (start over). The pipeline never ships without your sign-off. |
+
+### Weight Adaptation
+
+| Weight | Example | Skips | CEO Gates |
+|--------|---------|-------|-----------|
+| **Lightweight** | Fix a typo | Brainstorm | Completion only |
+| **Medium** | Add dark mode | Brainstorm | Completion only |
+| **Heavyweight** | New payment system | Nothing | Clarification + Approve + Completion |
+| **Strategic** | Platform migration | Nothing | Clarification + Approve + Completion |
 
 ---
 
@@ -123,6 +130,24 @@ All state lives in `.context/` at your repo root — plain markdown and JSON, ve
 **Directive → Projects → Tasks.** A directive is a unit of work ("add dark mode"). The COO decomposes it into projects, each with tasks, agents, reviewers, and a Definition of Done. `directive.json` tracks pipeline progress — any session can read it and resume where it left off. `project.json` is the source of truth for what needs building and whether it passed review.
 
 **Knowledge compounds.** Lessons, design rationale, and standing corrections persist across directives. Agents load relevant context just-in-time — not everything, just what they need for their role and task. No database, no external service — just files.
+
+---
+
+## Why Is the Output Better?
+
+Every point below traces to published research from Anthropic and OpenAI. This isn't a workflow we invented — it's assembled from what the research says actually works.
+
+- **Agents brainstorm and argue before anyone writes code.** For strategic directives, your C-suite agents independently propose approaches, then deliberate — challenging assumptions, resolving disagreements, and surfacing questions for you. Anthropic's research found [multi-agent outperformed single-agent by 90.2%](https://www.anthropic.com/engineering/multi-agent-research-system). The pipeline implements their [orchestrator-workers pattern](https://www.anthropic.com/research/building-effective-agents) where specialized agents collaborate, producing better results than any single agent.
+
+- **Reviewers evaluate intent, not just code.** Each reviewer gets [fresh context](https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents) scoped to the task — they never see the builder's reasoning, preventing confirmation bias. They verify against your Definition of Done (what you asked for), not just whether the code compiles. This is Anthropic's [evaluator-optimizer pattern](https://www.anthropic.com/research/building-effective-agents): one agent generates, another evaluates, issues get fixed in-loop — not after the fact.
+
+- **Context is isolated, not accumulated.** Each agent spawns with a [clean context window](https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents) scoped to exactly what it needs. No 200K-token sessions where the model forgets what it read at the start. Anthropic's context engineering research shows accuracy degrades as token count increases — gruAI treats context as a finite resource under active degradation.
+
+- **Verification is mechanical.** Bash scripts — not LLMs — enforce pipeline integrity: schema validation, self-review prevention, step dependency checks, role assignment verification. This follows Anthropic's [poka-yoke principle](https://www.anthropic.com/research/building-effective-agents) (error-proof design) and OpenAI's finding that [invariants should be enforced through structural tests](https://openai.com/index/harness-engineering/), not judgment.
+
+- **The harness determines output quality, not model intelligence.** Anthropic found that ["the task verifier must be nearly perfect, otherwise the agent solves the wrong problem"](https://www.anthropic.com/engineering/building-c-compiler). OpenAI's team reached the same conclusion: [3 engineers produced 1M lines of code](https://openai.com/index/harness-engineering/) not by writing better prompts, but by designing better environments and feedback loops. gruAI's 15-step pipeline IS that harness.
+
+- **Memory compounds across directives.** Lessons, design rationale, and standing corrections persist in `.context/` and get loaded into every future agent. This implements the [codified context pattern](https://arxiv.org/abs/2602.20478) — hot-memory + specialized agents + cold-memory knowledge base.
 
 ---
 
