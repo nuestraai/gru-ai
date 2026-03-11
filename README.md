@@ -99,9 +99,9 @@ Bash scripts [verify](https://openai.com/index/harness-engineering/) every task 
 
 Lessons captured: *"Always add OG meta tags when creating new pages"* and *"Check WCAG contrast on all text colors."* Design docs updated with the new route structure. CEO digest generated with all 8 files changed, both review rounds summarized, and `git revert` commands ready if needed. [Knowledge persists](https://arxiv.org/abs/2602.20478) — next time someone creates a page, agents already know about the OG tags.
 
-**9. Accept** — 👤 **You**
+**9. Your Call** — 👤 **You**
 
-You see the digest: 8 files changed, 2 review rounds, all 6 DOD criteria met, zero open issues. You open the page in your browser, check mobile, and approve. Or you say *"the hero copy needs work"* — and a targeted fix runs through the same pipeline with its own review.
+You see the digest: 8 files changed, 2 review rounds, all 6 DOD criteria met, zero open issues. You open the page in your browser, check mobile, and decide: **approve** it as-is, **amend** with specific fixes (*"bump the CTA font size"*), **extend** the directive with new scope (*"now add a pricing section"*), or **redirect** if the approach was wrong. The pipeline never ships without your sign-off — and never limits you to just "accept" or "reject."
 
 > *The pipeline runs 15 internal steps. Context loading, crash recovery, git isolation, and lesson extraction run automatically between the steps above.*
 
