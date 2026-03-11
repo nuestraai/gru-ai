@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<tileset version="1.10" tiledversion="1.11.2" name="animated_bathroom_cabinet_white_full_48x48" tilewidth="48" tileheight="48" tilecount="20" columns="10">
- <image source="Downloads/moderninteriors-win/3_Animated_objects/48x48/spritesheets/animated_bathroom_cabinet_white_full_48x48.png" width="480" height="96"/>
+<tileset version="1.10" tiledversion="1.11.2" name="anim-bathroom-cabinet" tilewidth="48" tileheight="48" tilecount="20" columns="10">
+ <image source="anim-bathroom-cabinet.png" width="480" height="96"/>
  <tile id="0">
   <animation>
    <frame tileid="0" duration="200"/>

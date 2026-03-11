@@ -38,7 +38,7 @@ function ensureSheetLoaded(): void {
       // Silently fail -- icons will just not render
       resolve()
     }
-    sheetImage!.src = '/assets/office/UI_48x48.png'
+    sheetImage!.src = '/assets/office/ui.png'
   })
 }
 

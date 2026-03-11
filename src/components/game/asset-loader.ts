@@ -60,13 +60,13 @@ function toGrayscale(sprite: SpriteData): SpriteData {
   )
 }
 
-// ── Floor Tiles (Room_Builder_48x48.png) ──
+// ── Floor Tiles (room-builder.png) ──
 
 const FLOOR_TILE_POSITIONS: Array<[col: number, row: number]> = [
   [11, 10], [11, 6], [1, 5], [14, 6], [14, 7], [11, 8], [1, 9],
 ]
 
-export async function loadFloorAssets(src = '/assets/office/Room_Builder_48x48.png'): Promise<void> {
+export async function loadFloorAssets(src = '/assets/office/room-builder.png'): Promise<void> {
   try {
     const img = await loadImage(src)
     const canvas = document.createElement('canvas')
@@ -86,7 +86,7 @@ export async function loadFloorAssets(src = '/assets/office/Room_Builder_48x48.p
     }
 
     setFloorSprites(sprites)
-    console.log(`✓ Loaded ${sprites.length} floor tile patterns from Room_Builder_48x48.png`)
+    console.log(`✓ Loaded ${sprites.length} floor tile patterns from room-builder.png`)
   } catch (e) {
     console.warn('Floor tileset not found. Using fallback rendering.')
   }
