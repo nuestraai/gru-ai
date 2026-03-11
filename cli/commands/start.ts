@@ -16,15 +16,15 @@ function printStartHelp(): void {
 ${c.bold('gruai start')} — Launch the dashboard server
 
 ${c.bold('Usage:')}
-  gru-ai start [options]
+  npx gru-ai start [options]
 
 ${c.bold('Options:')}
   --port <port>  Server port (default: 4444)
   --help         Show this help message
 
 ${c.bold('Examples:')}
-  gru-ai start
-  gru-ai start --port 8080
+  npx gru-ai start
+  npx gru-ai start --port 8080
 `);
 }
 
